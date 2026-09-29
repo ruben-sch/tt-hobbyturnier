@@ -1,0 +1,147 @@
+from datetime import datetime
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Text
+from sqlalchemy.orm import relationship
+from backend.app.database import Base
+
+
+class Tournament(Base):
+    __tablename__ = "tournaments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    is_active = Column(Boolean, default=True)
+
+    # Tournament configuration
+    swiss_rounds_count = Column(Integer, default=5)
+    current_round_number = Column(Integer, default=0)
+    ko_enabled = Column(Boolean, default=False)
+    ko_teams_count = Column(Integer, default=4)  # 4 or 8
+    best_of_sets = Column(Integer, default=5)     # 3 or 5
+    points_per_set = Column(Integer, default=11)
+    table_count = Column(Integer, default=8)
+    tables_per_match = Column(Integer, default=1)  # 1 or 2
+    admin_pin = Column(String(20), default="admin123")
+
+    teams = relationship("Team", back_populates="tournament", cascade="all, delete-orphan")
+    rounds = relationship("Round", back_populates="tournament", cascade="all, delete-orphan")
+    tables = relationship("Table", back_populates="tournament", cascade="all, delete-orphan")
+
+
+class Team(Base):
+    __tablename__ = "teams"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tournament_id = Column(Integer, ForeignKey("tournaments.id"), nullable=False)
+    name = Column(String(100), nullable=False)
+    player1_name = Column(String(100), nullable=False)
+    player2_name = Column(String(100), nullable=False)
+    is_active = Column(Boolean, default=True)
+    is_bye = Column(Boolean, default=False)
+
+    tournament = relationship("Tournament", back_populates="teams")
+    matches_as_a = relationship("TeamMatch", foreign_keys="TeamMatch.team_a_id", back_populates="team_a")
+    matches_as_b = relationship("TeamMatch", foreign_keys="TeamMatch.team_b_id", back_populates="team_b")
+
+
+class Table(Base):
+    __tablename__ = "tables"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tournament_id = Column(Integer, ForeignKey("tournaments.id"), nullable=False)
+    table_number = Column(Integer, nullable=False)
+    pin_code = Column(String(10), nullable=False)
+    
+    current_team_match_id = Column(Integer, nullable=True)
+    current_game_id = Column(Integer, nullable=True)
+
+    tournament = relationship("Tournament", back_populates="tables")
+
+
+class Round(Base):
+    __tablename__ = "rounds"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tournament_id = Column(Integer, ForeignKey("tournaments.id"), nullable=False)
+    round_number = Column(Integer, nullable=False)
+    round_type = Column(String(20), default="swiss")  # "swiss" or "ko"
+    ko_stage = Column(String(50), nullable=True)       # e.g. "Viertelfinale", "Halbfinale", "Finale"
+    is_completed = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=False)
+
+    tournament = relationship("Tournament", back_populates="rounds")
+    team_matches = relationship("TeamMatch", back_populates="round", cascade="all, delete-orphan")
+
+
+class TeamMatch(Base):
+    __tablename__ = "team_matches"
+
+    id = Column(Integer, primary_key=True, index=True)
+    round_id = Column(Integer, ForeignKey("rounds.id"), nullable=False)
+    team_a_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
+    team_b_id = Column(Integer, ForeignKey("teams.id"), nullable=True)  # nullable for BYE
+    
+    table_number = Column(Integer, nullable=True)
+    table_number_b = Column(Integer, nullable=True)  # if 2 tables assigned
+    match_pin = Column(String(10), default="1234")
+
+    # Lineup for this match (Position 1 and 2 of Team A and Team B)
+    team_a_p1_name = Column(String(100), nullable=True)
+    team_a_p2_name = Column(String(100), nullable=True)
+    team_b_p1_name = Column(String(100), nullable=True)
+    team_b_p2_name = Column(String(100), nullable=True)
+    lineup_confirmed = Column(Boolean, default=False)
+
+    # Score of individual games won (e.g. 4-0, 3-1, 2-2 in swiss, or 3-2 in KO)
+    score_a = Column(Integer, default=0)
+    score_b = Column(Integer, default=0)
+    is_completed = Column(Boolean, default=False)
+    winner_team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+
+    # KO progression
+    ko_slot = Column(Integer, nullable=True)
+    next_match_id = Column(Integer, ForeignKey("team_matches.id"), nullable=True)
+
+    round = relationship("Round", back_populates="team_matches")
+    team_a = relationship("Team", foreign_keys=[team_a_id], back_populates="matches_as_a")
+    team_b = relationship("Team", foreign_keys=[team_b_id], back_populates="matches_as_b")
+    individual_games = relationship("IndividualGame", back_populates="team_match", cascade="all, delete-orphan", order_by="IndividualGame.game_order")
+
+
+class IndividualGame(Base):
+    __tablename__ = "individual_games"
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_match_id = Column(Integer, ForeignKey("team_matches.id"), nullable=False)
+    game_order = Column(Integer, nullable=False)  # 1: A1 vs B2, 2: A2 vs B1, 3: A1 vs B1, 4: A2 vs B2, 5: Doppel (KO)
+    is_doubles = Column(Boolean, default=False)
+    table_number = Column(Integer, nullable=True)
+
+    player_a_name = Column(String(100), nullable=True)
+    player_b_name = Column(String(100), nullable=True)
+
+    sets_won_a = Column(Integer, default=0)
+    sets_won_b = Column(Integer, default=0)
+    is_completed = Column(Boolean, default=False)
+    winner_team_side = Column(String(1), nullable=True)  # "A" or "B"
+
+    # Live point-by-point tracking for intermediate score display
+    current_set_index = Column(Integer, default=1)
+    current_point_a = Column(Integer, default=0)
+    current_point_b = Column(Integer, default=0)
+
+    team_match = relationship("TeamMatch", back_populates="individual_games")
+    set_scores = relationship("SetScore", back_populates="individual_game", cascade="all, delete-orphan", order_by="SetScore.set_number")
+
+
+class SetScore(Base):
+    __tablename__ = "set_scores"
+
+    id = Column(Integer, primary_key=True, index=True)
+    individual_game_id = Column(Integer, ForeignKey("individual_games.id"), nullable=False)
+    set_number = Column(Integer, nullable=False)  # 1..5
+    score_a = Column(Integer, default=0)
+    score_b = Column(Integer, default=0)
+    is_completed = Column(Boolean, default=False)
+
+    individual_game = relationship("IndividualGame", back_populates="set_scores")
