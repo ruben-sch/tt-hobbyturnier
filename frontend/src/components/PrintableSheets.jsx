@@ -1,18 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { fetchRounds } from '../services/api';
-import { Printer, ArrowLeft } from 'lucide-react';
+import { Printer } from 'lucide-react';
 
 export default function PrintableSheets({ tournament }) {
   const [rounds, setRounds] = useState([]);
   const [selectedRoundId, setSelectedRoundId] = useState(null);
 
-  useEffect(() => {
-    if (tournament?.id) {
-      loadRounds();
-    }
-  }, [tournament]);
-
-  const loadRounds = async () => {
+  const loadRounds = useCallback(async () => {
     try {
       const data = await fetchRounds(tournament.id);
       setRounds(data);
@@ -24,7 +18,13 @@ export default function PrintableSheets({ tournament }) {
     } catch (e) {
       console.error(e);
     }
-  };
+  }, [tournament]);
+
+  useEffect(() => {
+    if (tournament?.id) {
+      loadRounds();
+    }
+  }, [tournament, loadRounds]);
 
   const currentRound = rounds.find(r => r.id === selectedRoundId);
 

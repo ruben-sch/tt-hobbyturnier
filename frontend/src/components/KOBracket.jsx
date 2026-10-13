@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { fetchRounds, advanceKoRound } from '../services/api';
 import { Trophy, GitFork, ArrowRight, CheckCircle2 } from 'lucide-react';
 
@@ -6,13 +6,7 @@ export default function KOBracket({ tournament, onRoundChange }) {
   const [koRounds, setKoRounds] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (tournament?.id) {
-      loadKORounds();
-    }
-  }, [tournament]);
-
-  const loadKORounds = async () => {
+  const loadKORounds = useCallback(async () => {
     try {
       const allRounds = await fetchRounds(tournament.id);
       const kos = allRounds.filter(r => r.round_type === 'ko');
@@ -20,7 +14,13 @@ export default function KOBracket({ tournament, onRoundChange }) {
     } catch (e) {
       console.error(e);
     }
-  };
+  }, [tournament]);
+
+  useEffect(() => {
+    if (tournament?.id) {
+      loadKORounds();
+    }
+  }, [tournament, loadKORounds]);
 
   const handleAdvance = async () => {
     if (!confirm("Nächste KO-Runde mit den Siegern der aktuellen Runde generieren?")) return;
@@ -81,7 +81,7 @@ export default function KOBracket({ tournament, onRoundChange }) {
       ) : (
         /* BRACKET TREE COLUMNS */
         <div className="flex flex-col lg:flex-row gap-8 items-start justify-start overflow-x-auto pb-6">
-          {koRounds.map((round, rIdx) => (
+          {koRounds.map((round) => (
             <div key={round.id} className="min-w-[280px] sm:min-w-[320px] flex-1 flex flex-col gap-6">
               
               {/* Stage Header */}

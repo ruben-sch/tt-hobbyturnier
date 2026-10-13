@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { fetchStandings } from '../services/api';
 import { Trophy, Download, Search, Info } from 'lucide-react';
 
@@ -7,13 +7,7 @@ export default function StandingsTable({ tournament }) {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (tournament?.id) {
-      loadStandings();
-    }
-  }, [tournament]);
-
-  const loadStandings = async () => {
+  const loadStandings = useCallback(async () => {
     try {
       setLoading(true);
       const data = await fetchStandings(tournament.id);
@@ -23,7 +17,13 @@ export default function StandingsTable({ tournament }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tournament]);
+
+  useEffect(() => {
+    if (tournament?.id) {
+      loadStandings();
+    }
+  }, [tournament, loadStandings]);
 
   const filtered = standings.filter(s => 
     s.team_name.toLowerCase().includes(search.toLowerCase()) ||
