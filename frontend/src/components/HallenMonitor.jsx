@@ -83,7 +83,7 @@ export default function HallenMonitor({ tournament }) {
                 {data.round_type === 'ko' ? `KO-Runde: ${data.ko_stage || 'Endphase'}` : `Schweizer System • Runde ${data.current_round}`}
               </span>
               <span>•</span>
-              <span>{activeTables.length} aktive Tische</span>
+              <span>{activeTables.length} aktive Paarungen</span>
             </div>
           </div>
         </div>
@@ -113,7 +113,7 @@ export default function HallenMonitor({ tournament }) {
               viewMode === 'tables' ? 'bg-sky-500 text-white shadow' : 'text-slate-400 hover:text-white'
             }`}
           >
-            Nur Tische
+            Aktuelle Paarungen
           </button>
           <button
             onClick={() => setViewMode('standings')}
@@ -139,30 +139,30 @@ export default function HallenMonitor({ tournament }) {
         {/* SPLIT SCREEN MODE */}
         {viewMode === 'split' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
-            {/* Left 7 Cols: Active Tables */}
+            {/* Left 7 Cols: Active Matches */}
             <div className="lg:col-span-7 flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-bold text-sky-400 uppercase tracking-wider flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-                  <span>Aktuelle Tische</span>
+                  <span>Aktuelle Paarungen</span>
                 </h2>
                 <span className="text-xs text-slate-500">
-                  Live Punktestand
+                  Live Spielstände
                 </span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {activeTables.map((t) => (
+                {activeTables.map((t, idx) => (
                   <div
-                    key={t.table_number}
+                    key={t.table_number || idx}
                     className="bg-slate-900/90 border-2 border-sky-500/40 rounded-2xl p-4 shadow-xl shadow-sky-500/5 relative overflow-hidden"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="bg-sky-500 text-slate-950 font-black text-xs px-2.5 py-0.5 rounded-md">
-                        TISCH {t.table_number}
+                        BEGEGNUNG {idx + 1}
                       </span>
                       <span className="text-xs text-slate-400 truncate max-w-[150px]">
-                        {t.active_game_desc || 'Einzel'}
+                        {t.active_game_desc || 'Spiel läuft'}
                       </span>
                     </div>
 
@@ -188,7 +188,7 @@ export default function HallenMonitor({ tournament }) {
                     {/* Big Live Point Display */}
                     <div className="bg-slate-950/80 rounded-xl p-3 border border-slate-800 flex items-center justify-between">
                       <span className="text-xs text-slate-500 uppercase font-bold tracking-wider">
-                        Ballstand:
+                        Satzstand:
                       </span>
                       <div className="font-mono text-3xl font-black text-emerald-400 tracking-wider">
                         {t.current_point_a} : {t.current_point_b}
@@ -204,7 +204,7 @@ export default function HallenMonitor({ tournament }) {
 
                 {activeTables.length === 0 && (
                   <div className="col-span-2 bg-slate-900/40 border border-dashed border-slate-800 rounded-2xl p-8 text-center text-slate-500">
-                    Aktuell keine laufenden Begegnungen auf den Tischen.
+                    Aktuell keine laufenden Begegnungen.
                   </div>
                 )}
               </div>
@@ -296,18 +296,18 @@ export default function HallenMonitor({ tournament }) {
           <div>
             <h2 className="text-xl font-bold text-sky-400 uppercase tracking-wider mb-4 flex items-center gap-2">
               <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping" />
-              <span>Laufende Begegnungen auf allen Tischen</span>
+              <span>Laufende Begegnungen & Spielstände</span>
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {activeTables.map((t) => (
+              {activeTables.map((t, idx) => (
                 <div
-                  key={t.table_number}
+                  key={t.table_number || idx}
                   className="bg-slate-900 border-2 border-sky-500/50 rounded-2xl p-5 shadow-2xl relative"
                 >
                   <div className="flex items-center justify-between mb-3">
                     <span className="bg-sky-500 text-slate-950 font-black text-sm px-3 py-1 rounded-md">
-                      TISCH {t.table_number}
+                      BEGEGNUNG {idx + 1}
                     </span>
                     <span className="text-xs text-slate-400 truncate max-w-[120px]">
                       {t.active_game_desc}
@@ -335,7 +335,7 @@ export default function HallenMonitor({ tournament }) {
 
                   <div className="bg-slate-950 rounded-xl p-4 border border-slate-800 text-center">
                     <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">
-                      Ballstand im aktuellen Satz
+                      Spielstand
                     </span>
                     <div className="font-mono text-4xl font-black text-emerald-400">
                       {t.current_point_a} : {t.current_point_b}

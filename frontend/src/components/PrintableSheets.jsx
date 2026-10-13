@@ -43,7 +43,7 @@ export default function PrintableSheets({ tournament }) {
             <span>Spielberichtsbögen drucken</span>
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Druckansicht für Spielzettel als Papier-Backup für die Schiedsrichtertische.
+            Druckansicht für Spielzettel als Papier-Backup.
           </p>
         </div>
 
@@ -90,10 +90,10 @@ export default function PrintableSheets({ tournament }) {
 
               <div className="text-right">
                 <div className="text-base font-black border-2 border-black px-3 py-1 inline-block rounded">
-                  TISCH {match.table_number || '____'}
+                  BEGEGNUNG #{mIdx + 1}
                 </div>
                 <div className="text-[10px] text-neutral-500 font-mono mt-0.5">
-                  Tisch-PIN: {match.match_pin}
+                  Match-PIN: {match.match_pin}
                 </div>
               </div>
             </div>

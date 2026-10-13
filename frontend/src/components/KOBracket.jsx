@@ -112,7 +112,7 @@ export default function KOBracket({ tournament, onRoundChange }) {
                     >
                       <div className="p-2.5 bg-slate-800/60 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400">
                         <span className="font-semibold text-sky-400">
-                          Tisch {match.table_number || 'TBD'}
+                          {match.match_pin ? `PIN: ${match.match_pin}` : `Match #${match.ko_slot || match.id}`}
                         </span>
                         {hasDoubles && (
                           <span className="bg-amber-500/20 text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">

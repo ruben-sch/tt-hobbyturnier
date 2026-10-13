@@ -4,7 +4,6 @@ import {
   authenticatePin, 
   fetchMatch, 
   setLineup, 
-  updatePoint, 
   submitQuickResult 
 } from '../services/api';
 import { 
@@ -12,11 +11,8 @@ import {
   CheckCircle, 
   ArrowLeftRight, 
   RotateCcw, 
-  Plus, 
-  Minus, 
   Trophy, 
   ChevronRight, 
-  Zap,
   ListOrdered
 } from 'lucide-react';
 
@@ -27,7 +23,7 @@ export default function TableScorer({ tournament, onScoreChange }) {
   const [activeGameId, setActiveGameId] = useState(null);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
-  const [mode, setMode] = useState('live'); // 'live' or 'quick'
+
   
   // Lineup state
   const [lineupForm, setLineupForm] = useState({
@@ -46,6 +42,28 @@ export default function TableScorer({ tournament, onScoreChange }) {
     { set_number: 5, score_a: '', score_b: '' },
   ]);
 
+  const resetOrLoadQuickSets = (game) => {
+    const defaultSets = [
+      { set_number: 1, score_a: '', score_b: '' },
+      { set_number: 2, score_a: '', score_b: '' },
+      { set_number: 3, score_a: '', score_b: '' },
+      { set_number: 4, score_a: '', score_b: '' },
+      { set_number: 5, score_a: '', score_b: '' },
+    ];
+    if (game?.set_scores && game.set_scores.length > 0) {
+      game.set_scores.forEach(s => {
+        if (s.set_number >= 1 && s.set_number <= 5) {
+          defaultSets[s.set_number - 1] = {
+            set_number: s.set_number,
+            score_a: String(s.score_a),
+            score_b: String(s.score_b),
+          };
+        }
+      });
+    }
+    setQuickSets(defaultSets);
+  };
+
   useEffect(() => {
     if (tournament?.id) {
       loadTables();
@@ -61,7 +79,7 @@ export default function TableScorer({ tournament, onScoreChange }) {
     }
   };
 
-  const loadMatch = async (matchId) => {
+  const loadMatch = async (matchId, targetGameId = null) => {
     try {
       const data = await fetchMatch(matchId);
       setMatchData(data);
@@ -73,10 +91,24 @@ export default function TableScorer({ tournament, onScoreChange }) {
           team_b_p2: data.team_b_p2_name || data.team_b?.player2_name || '',
         });
 
+        if (targetGameId) {
+          const target = data.individual_games.find(g => g.id === targetGameId);
+          if (target) {
+            setActiveGameId(target.id);
+            resetOrLoadQuickSets(target);
+            return data;
+          }
+        }
+
         // Set default active game (first uncompleted)
         const uncompleted = data.individual_games.find(g => !g.is_completed);
-        setActiveGameId(uncompleted ? uncompleted.id : data.individual_games[0]?.id);
+        const target = uncompleted || data.individual_games[0];
+        if (target) {
+          setActiveGameId(target.id);
+          resetOrLoadQuickSets(target);
+        }
       }
+      return data;
     } catch (e) {
       console.error(e);
     }
@@ -89,6 +121,11 @@ export default function TableScorer({ tournament, onScoreChange }) {
     } else {
       setMatchData(null);
     }
+  };
+
+  const handleSelectGame = (game) => {
+    setActiveGameId(game.id);
+    resetOrLoadQuickSets(game);
   };
 
   const handlePinSubmit = async (e) => {
@@ -132,24 +169,20 @@ export default function TableScorer({ tournament, onScoreChange }) {
 
   const activeGame = matchData?.individual_games?.find(g => g.id === activeGameId);
 
-  const handlePointChange = async (deltaA, deltaB) => {
-    if (!activeGame || !matchData || activeGame.is_completed) return;
-    const newA = Math.max(0, activeGame.current_point_a + deltaA);
-    const newB = Math.max(0, activeGame.current_point_b + deltaB);
+  const autoFillOpponent = (value) => {
+    const num = parseInt(value, 10);
+    if (isNaN(num) || value === '') return '';
+    return num < 10 ? 11 : num + 2;
+  };
 
-    try {
-      const updatedGame = await updatePoint(matchData.id, activeGame.id, {
-        point_a: newA,
-        point_b: newB,
-        set_number: activeGame.current_set_index,
-      });
-      // Refresh match state
-      await loadMatch(matchData.id);
-      loadTables();
-      onScoreChange && onScoreChange();
-    } catch (e) {
-      console.error(e);
+  const handleQuickScoreChange = (idx, side, value) => {
+    const copy = [...quickSets];
+    copy[idx][`score_${side}`] = value;
+    const otherSide = side === 'a' ? 'b' : 'a';
+    if (value !== '') {
+      copy[idx][`score_${otherSide}`] = String(autoFillOpponent(value));
     }
+    setQuickSets(copy);
   };
 
   const handleQuickSubmit = async (e) => {
@@ -171,32 +204,39 @@ export default function TableScorer({ tournament, onScoreChange }) {
 
     try {
       await submitQuickResult(matchData.id, activeGame.id, validSets);
-      await loadMatch(matchData.id);
+      const updatedMatch = await fetchMatch(matchData.id);
+      setMatchData(updatedMatch);
       loadTables();
       onScoreChange && onScoreChange();
-      // Clear quick inputs
-      setQuickSets([
-        { set_number: 1, score_a: '', score_b: '' },
-        { set_number: 2, score_a: '', score_b: '' },
-        { set_number: 3, score_a: '', score_b: '' },
-        { set_number: 4, score_a: '', score_b: '' },
-        { set_number: 5, score_a: '', score_b: '' },
-      ]);
+
+      // Find the next game in order (e.g. Einzel 2 after Einzel 1) or next uncompleted
+      const currentIndex = updatedMatch.individual_games.findIndex(g => g.id === activeGame.id);
+      let nextGame = null;
+      if (currentIndex >= 0 && currentIndex + 1 < updatedMatch.individual_games.length) {
+        nextGame = updatedMatch.individual_games[currentIndex + 1];
+      } else {
+        nextGame = updatedMatch.individual_games.find(g => !g.is_completed) || updatedMatch.individual_games[0];
+      }
+
+      if (nextGame) {
+        setActiveGameId(nextGame.id);
+        resetOrLoadQuickSets(nextGame);
+      }
     } catch (err) {
       alert("Fehler: " + err.message);
     }
   };
 
-  // If no table or match is selected yet
+  // If no match is selected yet
   if (!matchData) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="text-center mb-8">
           <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">
-            Tisch-Erfassung & Schiedsrichter-Zähler
+            Ergebniseingabe
           </h2>
           <p className="text-slate-400">
-            Wähle deinen Tisch aus oder gib die 4-stellige Tisch-PIN / Match-PIN ein.
+            Wähle deine Begegnung aus oder gib die 4-stellige Match-PIN ein.
           </p>
         </div>
 
@@ -214,7 +254,7 @@ export default function TableScorer({ tournament, onScoreChange }) {
                   maxLength={10}
                   value={pinInput}
                   onChange={(e) => setPinInput(e.target.value)}
-                  placeholder="z.B. 1001 oder Match-PIN"
+                  placeholder="z.B. Match-PIN"
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-11 pr-4 py-3 text-white placeholder-slate-500 font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-sky-500"
                 />
               </div>
@@ -231,18 +271,18 @@ export default function TableScorer({ tournament, onScoreChange }) {
           </form>
         </div>
 
-        {/* Table Selector Grid */}
+        {/* Match Selector Grid */}
         <h3 className="text-lg font-semibold text-slate-200 mb-4 flex items-center gap-2">
-          <span>Verfügbare Tische</span>
+          <span>Laufende Begegnungen</span>
           <span className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full border border-slate-700">
-            {tables.length} Tische
+            {tables.length} Begegnungen
           </span>
         </h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {tables.map((t) => (
+          {tables.map((t, idx) => (
             <div
-              key={t.table_number}
+              key={t.table_number || idx}
               onClick={() => handleSelectTable(t)}
               className={`p-5 rounded-2xl border cursor-pointer transition-all ${
                 t.is_active
@@ -252,7 +292,7 @@ export default function TableScorer({ tournament, onScoreChange }) {
             >
               <div className="flex items-center justify-between mb-3">
                 <span className="font-bold text-lg text-white">
-                  Tisch {t.table_number}
+                  Paarung {idx + 1}
                 </span>
                 <span className="text-xs font-mono bg-slate-900/80 text-slate-400 px-2.5 py-1 rounded-md border border-slate-700">
                   PIN: {t.pin_code}
@@ -296,13 +336,13 @@ export default function TableScorer({ tournament, onScoreChange }) {
           onClick={() => { setMatchData(null); setSelectedTable(null); }}
           className="text-xs text-slate-400 hover:text-white mb-4 inline-flex items-center gap-1"
         >
-          ← Zurück zur Tischauswahl
+          ← Zurück zur Begegnungsauswahl
         </button>
 
         <div className="bg-slate-800 border border-slate-700 rounded-3xl p-6 sm:p-8 shadow-2xl">
           <div className="text-center mb-6">
             <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-sky-500/20 text-sky-400 border border-sky-500/30 mb-2">
-              Tisch {matchData.table_number || selectedTable?.table_number} • Vor dem Spiel
+              Begegnung • Vor dem Spiel
             </span>
             <h2 className="text-2xl font-bold text-white">
               Aufstellung festlegen
@@ -393,10 +433,6 @@ export default function TableScorer({ tournament, onScoreChange }) {
   }
 
   // Lineup is confirmed: Full Scorer Interface
-  const currentSetPoints = activeGame ? (activeGame.current_point_a + activeGame.current_point_b) : 0;
-  // Serve changes every 2 points, or every point if >= 20 total points (10:10 deuce)
-  const isDeuce = activeGame ? (activeGame.current_point_a >= 10 && activeGame.current_point_b >= 10) : false;
-  const isServerA = isDeuce ? (currentSetPoints % 2 === 0) : (Math.floor(currentSetPoints / 2) % 2 === 0);
 
   return (
     <div className="max-w-4xl mx-auto px-3 sm:px-6 py-4">
@@ -406,28 +442,11 @@ export default function TableScorer({ tournament, onScoreChange }) {
           onClick={() => { setMatchData(null); setSelectedTable(null); }}
           className="text-xs text-slate-400 hover:text-white inline-flex items-center gap-1"
         >
-          ← Tischauswahl
+          ← Begegnungsauswahl
         </button>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setMode('live')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition ${
-              mode === 'live' ? 'bg-sky-500 text-white shadow-md' : 'bg-slate-800 text-slate-400 hover:text-white'
-            }`}
-          >
-            <Zap className="w-3.5 h-3.5" />
-            Live-Zähler
-          </button>
-          <button
-            onClick={() => setMode('quick')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition ${
-              mode === 'quick' ? 'bg-sky-500 text-white shadow-md' : 'bg-slate-800 text-slate-400 hover:text-white'
-            }`}
-          >
-            <ListOrdered className="w-3.5 h-3.5" />
-            Schnelleingabe
-          </button>
+        <div className="flex items-center gap-1 text-xs font-semibold text-slate-400">
+          <ListOrdered className="w-3.5 h-3.5" />
+          Ergebniseingabe
         </div>
       </div>
 
@@ -435,7 +454,7 @@ export default function TableScorer({ tournament, onScoreChange }) {
       <div className="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-4 sm:p-5 mb-5 shadow-lg">
         <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
           <span className="font-semibold text-sky-400">
-            Tisch {matchData.table_number || selectedTable?.table_number}
+            Begegnung
           </span>
           <span className="font-mono bg-slate-900 px-2 py-0.5 rounded text-slate-400 border border-slate-700/60">
             PIN: {matchData.match_pin}
@@ -480,7 +499,7 @@ export default function TableScorer({ tournament, onScoreChange }) {
           return (
             <button
               key={g.id}
-              onClick={() => setActiveGameId(g.id)}
+              onClick={() => handleSelectGame(g)}
               className={`p-3 rounded-xl border text-left transition-all ${
                 isSelected
                   ? 'bg-sky-500/10 border-sky-500 text-white shadow-md'
@@ -513,181 +532,60 @@ export default function TableScorer({ tournament, onScoreChange }) {
 
       {/* ACTIVE GAME SCORER */}
       {activeGame && (
-        <div>
-          {mode === 'live' ? (
-            /* LIVE TOUCH SCOREBOARD */
-            <div className="bg-slate-800/90 border border-slate-700 rounded-3xl p-4 sm:p-8 shadow-2xl">
-              <div className="flex items-center justify-between text-sm text-slate-400 mb-4 pb-3 border-b border-slate-700/60">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-white text-base">
-                    {activeGame.is_doubles ? "Entscheidungsdoppel" : `Einzel ${activeGame.game_order}`}
-                  </span>
-                  <span className="bg-sky-500/20 text-sky-300 text-xs px-2.5 py-0.5 rounded-full font-semibold">
-                    Satz {activeGame.current_set_index}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 font-mono text-xs">
-                  {activeGame.set_scores.filter(s => s.is_completed).map((s, idx) => (
-                    <span key={idx} className="bg-slate-900 px-2 py-1 rounded text-slate-300">
-                      {s.score_a}:{s.score_b}
-                    </span>
-                  ))}
-                </div>
+        <div className="bg-slate-800 border border-slate-700 rounded-3xl p-6 sm:p-8">
+          <h4 className="font-bold text-lg text-white mb-2">
+            Ergebnis eintragen ({activeGame.player_a_name} vs. {activeGame.player_b_name})
+          </h4>
+          <p className="text-xs text-slate-400 mb-6">
+            Gib die Satzergebnisse direkt ein – die Gegenpunktzahl wird automatisch ergänzt.
+          </p>
+
+          {activeGame.is_completed && (
+            <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-xl p-4 text-center mb-4">
+              <div className="font-bold text-emerald-400 flex items-center justify-center gap-2">
+                <Trophy className="w-5 h-5" />
+                <span>
+                  Spiel beendet! Sieger: {activeGame.winner_team_side === "A" ? activeGame.player_a_name : activeGame.player_b_name}
+                </span>
               </div>
-
-              {/* Big Interactive Score Box */}
-              <div className="grid grid-cols-2 gap-3 sm:gap-6 mb-6">
-                
-                {/* Player A Box */}
-                <div className={`p-4 sm:p-6 rounded-2xl border text-center transition-all flex flex-col justify-between ${
-                  isServerA ? 'bg-sky-950/40 border-sky-500/50 shadow-lg shadow-sky-500/10' : 'bg-slate-900/60 border-slate-700/60'
-                }`}>
-                  <div>
-                    <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-sky-400 mb-1">
-                      {isServerA && <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping" />}
-                      <span>{isServerA ? 'Aufschlag' : ''}</span>
-                    </div>
-                    <div className="font-bold text-base sm:text-xl text-white truncate mb-2">
-                      {activeGame.player_a_name}
-                    </div>
-                    <div className="text-xs text-slate-400 font-medium">
-                      Sätze: <span className="text-white font-bold">{activeGame.sets_won_a}</span>
-                    </div>
-                  </div>
-
-                  <div className="my-6">
-                    <span className="font-mono text-6xl sm:text-8xl font-black text-white tracking-tighter">
-                      {activeGame.current_point_a}
-                    </span>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handlePointChange(1, 0)}
-                      disabled={activeGame.is_completed}
-                      className="flex-1 bg-sky-500 hover:bg-sky-400 active:scale-95 disabled:opacity-50 text-white font-black py-4 sm:py-5 rounded-xl text-2xl shadow-lg shadow-sky-500/25 flex items-center justify-center transition"
-                    >
-                      <Plus className="w-8 h-8" />
-                    </button>
-                    <button
-                      onClick={() => handlePointChange(-1, 0)}
-                      disabled={activeGame.is_completed || activeGame.current_point_a === 0}
-                      className="bg-slate-800 hover:bg-slate-700 active:scale-95 disabled:opacity-40 text-slate-300 p-3 sm:p-4 rounded-xl flex items-center justify-center transition"
-                    >
-                      <Minus className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Player B Box */}
-                <div className={`p-4 sm:p-6 rounded-2xl border text-center transition-all flex flex-col justify-between ${
-                  !isServerA ? 'bg-emerald-950/40 border-emerald-500/50 shadow-lg shadow-emerald-500/10' : 'bg-slate-900/60 border-slate-700/60'
-                }`}>
-                  <div>
-                    <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-emerald-400 mb-1">
-                      {!isServerA && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />}
-                      <span>{!isServerA ? 'Aufschlag' : ''}</span>
-                    </div>
-                    <div className="font-bold text-base sm:text-xl text-white truncate mb-2">
-                      {activeGame.player_b_name}
-                    </div>
-                    <div className="text-xs text-slate-400 font-medium">
-                      Sätze: <span className="text-white font-bold">{activeGame.sets_won_b}</span>
-                    </div>
-                  </div>
-
-                  <div className="my-6">
-                    <span className="font-mono text-6xl sm:text-8xl font-black text-white tracking-tighter">
-                      {activeGame.current_point_b}
-                    </span>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handlePointChange(0, 1)}
-                      disabled={activeGame.is_completed}
-                      className="flex-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 disabled:opacity-50 text-white font-black py-4 sm:py-5 rounded-xl text-2xl shadow-lg shadow-emerald-500/25 flex items-center justify-center transition"
-                    >
-                      <Plus className="w-8 h-8" />
-                    </button>
-                    <button
-                      onClick={() => handlePointChange(0, -1)}
-                      disabled={activeGame.is_completed || activeGame.current_point_b === 0}
-                      className="bg-slate-800 hover:bg-slate-700 active:scale-95 disabled:opacity-40 text-slate-300 p-3 sm:p-4 rounded-xl flex items-center justify-center transition"
-                    >
-                      <Minus className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-
-              </div>
-
-              {activeGame.is_completed && (
-                <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-xl p-4 text-center">
-                  <div className="font-bold text-emerald-400 flex items-center justify-center gap-2">
-                    <Trophy className="w-5 h-5" />
-                    <span>
-                      Spiel beendet! Sieger: {activeGame.winner_team_side === "A" ? activeGame.player_a_name : activeGame.player_b_name}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            /* QUICK RESULT ENTRY */
-            <div className="bg-slate-800 border border-slate-700 rounded-3xl p-6 sm:p-8">
-              <h4 className="font-bold text-lg text-white mb-2">
-                Schnellergebnis eintragen ({activeGame.player_a_name} vs. {activeGame.player_b_name})
-              </h4>
-              <p className="text-xs text-slate-400 mb-6">
-                Gib die Satzergebnisse direkt ein (z. B. Satz 1: 11:9).
-              </p>
-
-              <form onSubmit={handleQuickSubmit} className="space-y-3">
-                {quickSets.map((s, idx) => (
-                  <div key={idx} className="flex items-center gap-3 bg-slate-900/60 p-3 rounded-xl border border-slate-700/60">
-                    <span className="w-16 text-xs font-semibold text-slate-400">
-                      Satz {s.set_number}
-                    </span>
-                    <input
-                      type="number"
-                      min={0}
-                      max={40}
-                      placeholder="0"
-                      value={s.score_a}
-                      onChange={(e) => {
-                        const copy = [...quickSets];
-                        copy[idx].score_a = e.target.value;
-                        setQuickSets(copy);
-                      }}
-                      className="w-20 bg-slate-800 border border-slate-700 rounded-lg p-2 text-center text-white font-mono font-bold"
-                    />
-                    <span className="text-slate-500 font-bold">:</span>
-                    <input
-                      type="number"
-                      min={0}
-                      max={40}
-                      placeholder="0"
-                      value={s.score_b}
-                      onChange={(e) => {
-                        const copy = [...quickSets];
-                        copy[idx].score_b = e.target.value;
-                        setQuickSets(copy);
-                      }}
-                      className="w-20 bg-slate-800 border border-slate-700 rounded-lg p-2 text-center text-white font-mono font-bold"
-                    />
-                  </div>
-                ))}
-
-                <button
-                  type="submit"
-                  className="w-full mt-4 bg-sky-500 hover:bg-sky-400 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-sky-500/20 transition"
-                >
-                  Ergebnis speichern
-                </button>
-              </form>
             </div>
           )}
+
+          <form onSubmit={handleQuickSubmit} className="space-y-3">
+            {quickSets.map((s, idx) => (
+              <div key={idx} className="flex items-center gap-3 bg-slate-900/60 p-3 rounded-xl border border-slate-700/60">
+                <span className="w-16 text-xs font-semibold text-slate-400">
+                  Satz {s.set_number}
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  max={40}
+                  placeholder="0"
+                  value={s.score_a}
+                  onChange={(e) => handleQuickScoreChange(idx, 'a', e.target.value)}
+                  className="w-20 bg-slate-800 border border-slate-700 rounded-lg p-2 text-center text-white font-mono font-bold"
+                />
+                <span className="text-slate-500 font-bold">:</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={40}
+                  placeholder="0"
+                  value={s.score_b}
+                  onChange={(e) => handleQuickScoreChange(idx, 'b', e.target.value)}
+                  className="w-20 bg-slate-800 border border-slate-700 rounded-lg p-2 text-center text-white font-mono font-bold"
+                />
+              </div>
+            ))}
+
+            <button
+              type="submit"
+              className="w-full mt-4 bg-sky-500 hover:bg-sky-400 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-sky-500/20 transition"
+            >
+              Ergebnis speichern
+            </button>
+          </form>
         </div>
       )}
     </div>

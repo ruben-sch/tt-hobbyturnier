@@ -158,7 +158,7 @@ export async function submitQuickResult(matchId, gameId, sets) {
 
 export async function fetchTablesStatus(tournamentId) {
   const res = await fetch(`${API_BASE}/tables/status/${tournamentId}`);
-  if (!res.ok) throw new Error("Fehler beim Laden der Tische");
+  if (!res.ok) throw new Error("Fehler beim Laden der Begegnungen");
   return res.json();
 }
 

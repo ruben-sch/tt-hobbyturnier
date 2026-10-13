@@ -234,7 +234,7 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
             <span>Turnierleitung / Administration</span>
           </h2>
           <p className="text-sm text-slate-400 mt-1">
-            Steuerung der Runden, Paarungsanpassung, Teamverwaltung und Tischeinstellungen.
+            Steuerung der Runden, Paarungsanpassung, Teamverwaltung und Einstellungen.
           </p>
         </div>
 
@@ -262,7 +262,7 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
               activeTab === 'tables' ? 'bg-sky-500 text-white shadow' : 'text-slate-400 hover:text-white'
             }`}
           >
-            Tisch-PINs
+            PIN-Übersicht
           </button>
           <button
             onClick={() => setActiveTab('settings')}
@@ -286,7 +286,7 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
                 {activeRound ? `Runde ${activeRound.round_number} (${activeRound.round_type === 'ko' ? activeRound.ko_stage : 'Schweizer System'}) läuft` : 'Keine aktive Runde'}
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                {activeRound ? 'Ergebnisse werden an den Tischen erfasst.' : 'Lose die nächste Runde aus, um Spiele zu generieren.'}
+                {activeRound ? 'Ergebnisse werden erfasst.' : 'Lose die nächste Runde aus, um Spiele zu generieren.'}
               </p>
             </div>
 
@@ -348,7 +348,7 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
                     Paarungen von Runde {activeRound.round_number}
                   </h4>
                   <p className="text-xs text-slate-400">
-                    Falls vor Spielbeginn Tische oder Paarungen manuell angepasst werden müssen:
+                    Falls vor Spielbeginn Paarungen manuell getauscht werden müssen:
                   </p>
                 </div>
 
@@ -361,9 +361,9 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
                     className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-white"
                   >
                     <option value="">Spiel 1 wählen...</option>
-                    {activeRound.team_matches.map(m => (
+                    {activeRound.team_matches.map((m, idx) => (
                       <option key={m.id} value={m.id}>
-                        Tisch {m.table_number}: {m.team_a?.name} vs {m.team_b?.name || 'BYE'}
+                        Paarung {idx + 1}: {m.team_a?.name} vs {m.team_b?.name || 'BYE'}
                       </option>
                     ))}
                   </select>
@@ -374,9 +374,9 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
                     className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-white"
                   >
                     <option value="">Spiel 2 wählen...</option>
-                    {activeRound.team_matches.map(m => (
+                    {activeRound.team_matches.map((m, idx) => (
                       <option key={m.id} value={m.id}>
-                        Tisch {m.table_number}: {m.team_a?.name} vs {m.team_b?.name || 'BYE'}
+                        Paarung {idx + 1}: {m.team_a?.name} vs {m.team_b?.name || 'BYE'}
                       </option>
                     ))}
                   </select>
@@ -391,11 +391,11 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
 
               {/* Match List */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {activeRound.team_matches.map((m) => (
+                {activeRound.team_matches.map((m, idx) => (
                   <div key={m.id} className="bg-slate-900/90 border border-slate-700/80 rounded-xl p-4">
                     <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
                       <span className="font-bold text-sky-400">
-                        {m.table_number ? `Tisch ${m.table_number}` : 'FREILOS (BYE)'}
+                        {m.team_b_id ? `Paarung ${idx + 1}` : 'FREILOS (BYE)'}
                       </span>
                       <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-300">
                         PIN: {m.match_pin}
@@ -598,15 +598,15 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
         </div>
       )}
 
-      {/* TABLE PINS OVERVIEW */}
+      {/* MATCH PINS OVERVIEW */}
       {activeTab === 'tables' && (
         <div className="space-y-6">
           <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-6">
             <h3 className="font-bold text-white text-base mb-1">
-              Übersicht aller Tisch-PINs & Admin-PIN
+              Übersicht aller Match-PINs & Admin-PIN
             </h3>
             <p className="text-xs text-slate-400 mb-6">
-              Teile diese PINs den jeweiligen Schiedsrichtern oder Spielern an den Tischen mit.
+              Teile diese PINs den jeweiligen Spielern zur Ergebniseingabe mit.
             </p>
 
             <div className="mb-6 p-4 bg-sky-950/40 border border-sky-500/30 rounded-xl flex items-center justify-between">
@@ -620,10 +620,10 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {tables.map(tbl => (
-                <div key={tbl.table_number} className="bg-slate-900 p-4 rounded-xl border border-slate-700/80 text-center">
+              {tables.map((tbl, idx) => (
+                <div key={tbl.table_number || idx} className="bg-slate-900 p-4 rounded-xl border border-slate-700/80 text-center">
                   <span className="text-xs font-bold text-slate-400 block mb-1">
-                    TISCH {tbl.table_number}
+                    BEGEGNUNG #{idx + 1}
                   </span>
                   <span className="font-mono text-2xl font-black text-emerald-400 tracking-wider">
                     {tbl.pin_code}
@@ -674,31 +674,6 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
                 >
                   <option value={5}>Best of 5 (3 Gewinnsätze)</option>
                   <option value={3}>Best of 3 (2 Gewinnsätze)</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs text-slate-400 font-medium">Verfügbare Tische in der Halle</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={settingsForm.table_count}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, table_count: parseInt(e.target.value) })}
-                  className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-slate-400 font-medium">Tischbelegung pro Team-Begegnung</label>
-                <select
-                  value={settingsForm.tables_per_match}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, tables_per_match: parseInt(e.target.value) })}
-                  className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm"
-                >
-                  <option value={1}>1 Tisch (Einzel nacheinander)</option>
-                  <option value={2}>2 Tische (Kreuzspiele parallel)</option>
                 </select>
               </div>
             </div>

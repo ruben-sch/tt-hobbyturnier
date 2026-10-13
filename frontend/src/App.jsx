@@ -59,7 +59,6 @@ export default function App() {
           <TableScorer 
             tournament={tournament} 
             onScoreChange={() => setRefreshKey(k => k + 1)} 
-            key={`scorer-${refreshKey}`} 
           />
         )}
         {currentTab === 'standings' && (

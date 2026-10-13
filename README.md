@@ -1,20 +1,20 @@
 # 🏓 Tischtennis Hobbyturnier-Manager
 
-Eine webbasierte Software zur flexiblen Organisation und Durchführung von Tischtennis-Turnieren für **2er-Mannschaften** im **Schweizer System** mit Live-Ergebniserfassung, Beamer-Monitoren, Buchholz-Feinwertung und optionaler KO-Endrunde.
+Eine webbasierte Software zur flexiblen Organisation und Durchführung von Tischtennis-Turnieren für **2er-Mannschaften** im **Schweizer System** mit intuitiver Ergebniserfassung, Beamer-Monitoren, Buchholz-Feinwertung und optionaler KO-Endrunde.
 
 ---
 
 ## ✨ Features im Überblick
 
 ### 1. Turniermodus & Regeln
-- **2er-Mannschaften:** Jedes Team besteht aus 2 Spielern.
+- **2er-Mannschaften:** Jedes Team besteht aus 2 festen Spielern (Position 1 & 2).
 - **Vorrunde (Schweizer System):**
   - **4 Einzel pro Begegnung:**
     1. Überkreuz: Team A Pos. 1 vs. Team B Pos. 2
     2. Überkreuz: Team A Pos. 2 vs. Team B Pos. 1
     3. Direkt: Team A Pos. 1 vs. Team B Pos. 1
     4. Direkt: Team A Pos. 2 vs. Team B Pos. 2
-  - **Aufstellung (Position 1 & 2):** Vor jedem Spiel wählbar (direkt am Schiedsrichter-Tablet oder per Turnierleitung).
+  - **Feste Aufstellung:** Spieler 1 und 2 sind fest beim Team hinterlegt – kein zeitaufwändiges Erfassen der Aufstellung vor jedem Spiel.
   - **Wertung:** Direkte Zählung gewonnener Einzelspiele (z. B. 4:0, 3:1, 2:2). Unentschieden möglich.
   - **Tie-Breaker:** 1. Gewonnene Spielpunkte, 2. Buchholz-Wertung (Gegnerstärke), 3. Satzdifferenz, 4. Balldifferenz.
   - **Rematches ausgeschlossen:** Ein Team spielt in der Vorrunde nie zweimal gegen denselben Gegner.
@@ -26,24 +26,25 @@ Eine webbasierte Software zur flexiblen Organisation und Durchführung von Tisch
 - **Entscheidung:** Vorzeitiges Match-Ende bei 3 Einzelsiegen ("Best of 5 Matches" - 3:0 oder 3:1).
 - **Entscheidungsdoppel:** Bei 2:2-Gleichstand nach allen 4 Einzeln wird automatisch das 5. Spiel (Doppel A vs. Doppel B) für die Entscheidung (3:2) freigeschaltet.
 
-### 3. Tisch-Zählgerät & Ergebniserfassung
-- **Authentifizierung ohne Account:** Jede Begegnung und jeder Tisch hat eine einfache 4-stellige PIN (bzw. QR-Code).
-- **Dualer Erfassungsmodus:**
-  - **Live-Zählgerät:** Große Touch-Flächen für +1/-1 am Smartphone/Tablet, Anzeige von Aufschlagwechseln (alle 2 Punkte bzw. ab 10:10 nach jedem Punkt), Erkennung von Satzbällen und Satzgewinn (bis 11 mit 2 Differenz).
-  - **Schnell-Erfassung:** Direkteingabe aller Sätze (z. B. 11:9, 7:11, ...) mit 1-Klick-Übernahme.
+### 3. Smarte Ergebniserfassung
+- **Authentifizierung ohne Account:** Jede Begegnung kann einfach per 4-stelliger PIN (oder QR-Code) aufgerufen und erfasst werden.
+- **Intelligente Schnelleingabe:**
+  - Direkte Erfassung der Sätze (z. B. Best of 3 / Best of 5).
+  - **Auto-Vervollständigung der Satzpunkte:** Wird eine Zahl `< 10` eingegeben, wird der Gewinner automatisch mit `11` befüllt. Bei Eingaben `>= 10` (z. B. Verlängerung `12`) wird automatisch `Zahl + 2` ergänzt.
+  - Manuelle Hallen-Tischverwaltung: Tische werden flexibel vor Ort in der Halle belegt.
 
 ### 4. Hallen-Monitor & Großanzeige (Beamer / TV)
 - **Split-Screen & Auto-Carousel:**
-  - **Live-Tische:** Anzeige aller aktiven Spiele mit Punkteständen in Echtzeit (WebSocket-gestützt).
+  - **Live-Begegnungen:** Anzeige aller aktiven und abgeschlossenen Spiele mit Zwischenständen in Echtzeit (WebSocket-gestützt).
   - **Tabelle:** Schweizer Gesamttabelle mit Buchholz-Feinwertung.
-  - **Ergebnis-Ticker:** Durchlaufende Anzeige der letzten beendeten Spiele.
+  - **Ergebnis-Ticker:** Durchlaufende Anzeige der beendeten Spiele.
   - **KO-Turnierbaum:** Graphische Baumansicht der Endrunde.
   - Konfigurierbarer automatischer Wechsel (z. B. alle 15 Sekunden) oder geteilter Bildschirm.
 
 ### 5. Organisation & Backup
 - **CSV-Import & Export:** Schneller Import von Teams via CSV sowie vollständiger CSV-Export der Abschlusstabelle.
-- **Druckbare Spielzettel:** Standardisierte DIN A4 Spielberichtsbögen für die Tische als Papier-Backup.
-- **Paarungstausch:** Die Turnierleitung kann vor Spielbeginn Paarungen und Tische manuell tauschen.
+- **Druckbare Spielzettel:** Standardisierte DIN A4 Spielberichtsbögen für die Begegnungen als Papier-Backup.
+- **Paarungstausch:** Die Turnierleitung kann vor Spielbeginn Paarungen manuell anpassen.
 
 ---
 
@@ -57,11 +58,12 @@ Voraussetzungen: Python 3.9+ und Node.js 18+.
 # Repository klonen oder in den Projektordner wechseln
 cd tt-hobbyturnier
 
-# Start-Skript ausführen (installiert Abhängigkeiten automatisch und startet den Server)
+# Start-Skript ausführen (installiert Abhängigkeiten automatisch, baut das Bundle und startet Backend & Live-Reload Server)
 ./run.sh
 ```
 
-Öffne anschließend im Browser: **[http://localhost:8000](http://localhost:8000)**
+- ⚡ **Entwicklung mit Live-Reload (HMR):** **[http://localhost:5173](http://localhost:5173)** (Änderungen im Code werden sofort ohne Neuladen sichtbar)
+- 🏓 **Produktion / Backend:** **[http://localhost:8000](http://localhost:8000)**
 
 ---
 
@@ -88,17 +90,17 @@ Getestet werden:
 - Buchholz-Zahlenberechnung & Tie-Breaker
 - Freilos-Logik (BYE) bei ungerader Mannschaftszahl
 - KO-Endrunden-Fortschritt & Entscheidungsdoppel bei 2:2
-- End-to-End API Lifecycle (Teams, Runden, Live-Scores, Tisch-PINs, Hallenmonitore)
+- End-to-End API Lifecycle (Teams, Runden, Match-PINs, Hallenmonitore)
 
 ---
 
 ## 📱 Navigation der Software
 
 - 📊 **Hallen-Monitor (`/`):** Für Beamer / Fernseher in der Halle (mit Vollbildmodus und Live-Ticker).
-- 🏓 **Tisch-Zähler:** Für Tablets/Smartphones der Schiedsrichter und Spieler an den Tischen.
+- 🏓 **Ergebniserfassung:** Für Tablets/Smartphones zur schnellen Satz- und Matcherfassung.
 - 📈 **Tabelle:** Vollständige Schweizer Rangliste mit Buchholz-Feinwertung und CSV-Download.
 - 🏆 **KO-Baum:** Visualisierung der Halbfinals und Finals mit Siegerweiterleitung.
-- ⚙️ **Turnierleitung:** Anlegen von Teams, CSV-Import, Runden-Auslosung, Tisch-PIN-Übersicht und Einstellungen.
+- ⚙️ **Turnierleitung:** Anlegen von Teams, CSV-Import, Runden-Auslosung, PIN-Übersicht und Einstellungen.
 - 🖨️ **Spielzettel:** Druckansicht für Spielberichtsbögen.
 
 **Standard Admin-PIN:** `admin123` (kann in den Einstellungen beliebig geändert werden).

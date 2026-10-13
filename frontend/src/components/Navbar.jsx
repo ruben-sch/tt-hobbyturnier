@@ -18,7 +18,7 @@ export default function Navbar({
 }) {
   const navItems = [
     { id: 'monitor', label: 'Hallen-Monitor', icon: Tv },
-    { id: 'scorer', label: 'Tisch-Zähler', icon: Gamepad2 },
+    { id: 'scorer', label: 'Ergebniseingabe', icon: Gamepad2 },
     { id: 'standings', label: 'Tabelle', icon: Trophy },
     ...(tournament?.ko_enabled ? [{ id: 'bracket', label: 'KO-Baum', icon: GitFork }] : []),
     { id: 'admin', label: 'Turnierleitung', icon: Settings },
