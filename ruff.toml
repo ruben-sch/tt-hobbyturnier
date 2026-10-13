@@ -1,0 +1,8 @@
+target-version = "py39"
+line-length = 120
+extend-exclude = ["backend/venv", "frontend"]
+
+[lint]
+select = ["E", "F", "I", "B"]
+# E712: SQLAlchemy filters need `== True`; B008: FastAPI `Depends()` defaults
+ignore = ["E712", "B008"]
