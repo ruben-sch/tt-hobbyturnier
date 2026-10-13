@@ -1,12 +1,12 @@
-from typing import List, Dict, Any
+from typing import Any, Dict
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.app.database import get_db
-from backend.app.models import Tournament, Round, TeamMatch, IndividualGame, Table
-from backend.app.swiss_system import calculate_standings
-from backend.app.schemas import RoundResponse, StandingsRow, TableStatusResponse
+from backend.app.models import Round, TeamMatch, Tournament
 from backend.app.routers.tables import get_tables_status
+from backend.app.swiss_system import calculate_standings
 
 router = APIRouter(prefix="/api/monitors", tags=["Monitors"])
 

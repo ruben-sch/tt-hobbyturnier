@@ -3,14 +3,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend.app.database import Base
-from backend.app.models import Tournament, Team, Round, TeamMatch, IndividualGame, SetScore
+from backend.app.ko_system import generate_ko_phase
+from backend.app.models import Round, Team, TeamMatch, Tournament
 from backend.app.swiss_system import (
+    add_deciding_doubles_game,
     calculate_standings,
     generate_swiss_round_pairings,
-    setup_games_for_match,
-    add_deciding_doubles_game,
 )
-from backend.app.ko_system import generate_ko_phase, advance_ko_round
 
 
 @pytest.fixture
@@ -114,8 +113,12 @@ def test_ko_phase_and_deciding_doubles(db_session):
     db_session.add(r1)
     db_session.flush()
 
-    db_session.add(TeamMatch(round_id=r1.id, team_a_id=teams[0].id, team_b_id=teams[1].id, score_a=4, score_b=0, is_completed=True))
-    db_session.add(TeamMatch(round_id=r1.id, team_a_id=teams[2].id, team_b_id=teams[3].id, score_a=3, score_b=1, is_completed=True))
+    db_session.add(
+        TeamMatch(round_id=r1.id, team_a_id=teams[0].id, team_b_id=teams[1].id, score_a=4, score_b=0, is_completed=True)
+    )
+    db_session.add(
+        TeamMatch(round_id=r1.id, team_a_id=teams[2].id, team_b_id=teams[3].id, score_a=3, score_b=1, is_completed=True)
+    )
     db_session.commit()
 
     # Generate KO Phase (Top 4)

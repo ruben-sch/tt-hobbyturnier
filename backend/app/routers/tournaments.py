@@ -1,18 +1,18 @@
-import io
 import csv
+import io
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from backend.app.database import get_db
-from backend.app.models import Tournament, Team, Table, TeamMatch, IndividualGame, Round
+from backend.app.models import Table, Team, Tournament
 from backend.app.schemas import (
+    StandingsRow,
     TournamentCreate,
     TournamentResponse,
     TournamentUpdate,
-    StandingsRow,
-    TeamResponse,
 )
 from backend.app.swiss_system import calculate_standings
 from backend.app.websocket_hub import ws_manager
