@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Architecture decisions, requirements (laptop + own router on tournament day, one club) and planned changes are in `docs/architecture.md` — read it before proposing stack, hosting or security changes.
+
 ## Running
 
 - `./run.sh` starts both servers: Vite dev with HMR on :5173 (proxies `/api` and `/ws` to :8000) and uvicorn on :8000, which serves the prebuilt `frontend/dist`. Port 8000 only shows frontend changes after `npm run build` in `frontend/`.
