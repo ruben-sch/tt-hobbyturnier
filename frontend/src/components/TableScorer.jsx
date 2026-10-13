@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   fetchTablesStatus, 
   authenticatePin, 
@@ -6,19 +6,17 @@ import {
   setLineup, 
   submitQuickResult 
 } from '../services/api';
+import { applyQuickScore, toValidSets } from '../utils/quickSets';
 import { 
   KeyRound, 
   CheckCircle, 
-  ArrowLeftRight, 
-  RotateCcw, 
   Trophy, 
-  ChevronRight, 
   ListOrdered
 } from 'lucide-react';
 
 export default function TableScorer({ tournament, onScoreChange }) {
   const [tables, setTables] = useState([]);
-  const [selectedTable, setSelectedTable] = useState(null);
+  const [, setSelectedTable] = useState(null);
   const [matchData, setMatchData] = useState(null);
   const [activeGameId, setActiveGameId] = useState(null);
   const [pinInput, setPinInput] = useState('');
@@ -64,20 +62,20 @@ export default function TableScorer({ tournament, onScoreChange }) {
     setQuickSets(defaultSets);
   };
 
-  useEffect(() => {
-    if (tournament?.id) {
-      loadTables();
-    }
-  }, [tournament]);
-
-  const loadTables = async () => {
+  const loadTables = useCallback(async () => {
     try {
       const data = await fetchTablesStatus(tournament.id);
       setTables(data);
     } catch (e) {
       console.error(e);
     }
-  };
+  }, [tournament]);
+
+  useEffect(() => {
+    if (tournament?.id) {
+      loadTables();
+    }
+  }, [tournament, loadTables]);
 
   const loadMatch = async (matchId, targetGameId = null) => {
     try {
@@ -146,7 +144,7 @@ export default function TableScorer({ tournament, onScoreChange }) {
       } else {
         setPinError(res.message);
       }
-    } catch (err) {
+    } catch {
       setPinError('Fehler bei der PIN-Prüfung');
     }
   };
@@ -169,33 +167,15 @@ export default function TableScorer({ tournament, onScoreChange }) {
 
   const activeGame = matchData?.individual_games?.find(g => g.id === activeGameId);
 
-  const autoFillOpponent = (value) => {
-    const num = parseInt(value, 10);
-    if (isNaN(num) || value === '') return '';
-    return num < 10 ? 11 : num + 2;
-  };
-
   const handleQuickScoreChange = (idx, side, value) => {
-    const copy = [...quickSets];
-    copy[idx][`score_${side}`] = value;
-    const otherSide = side === 'a' ? 'b' : 'a';
-    if (value !== '') {
-      copy[idx][`score_${otherSide}`] = String(autoFillOpponent(value));
-    }
-    setQuickSets(copy);
+    setQuickSets(applyQuickScore(quickSets, idx, side, value));
   };
 
   const handleQuickSubmit = async (e) => {
     e.preventDefault();
     if (!activeGame || !matchData) return;
 
-    const validSets = quickSets
-      .filter(s => s.score_a !== '' && s.score_b !== '')
-      .map(s => ({
-        set_number: s.set_number,
-        score_a: parseInt(s.score_a, 10),
-        score_b: parseInt(s.score_b, 10),
-      }));
+    const validSets = toValidSets(quickSets);
 
     if (validSets.length === 0) {
       alert("Bitte mindestens einen Satz eingeben.");

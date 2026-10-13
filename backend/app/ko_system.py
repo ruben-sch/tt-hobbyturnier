@@ -1,6 +1,6 @@
-from typing import List
 from sqlalchemy.orm import Session
-from backend.app.models import Tournament, Round, TeamMatch, Team
+
+from backend.app.models import Round, Team, TeamMatch, Tournament
 from backend.app.swiss_system import calculate_standings, setup_games_for_match
 
 

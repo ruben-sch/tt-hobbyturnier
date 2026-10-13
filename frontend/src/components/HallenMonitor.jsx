@@ -1,20 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { fetchMonitorDashboard } from '../services/api';
 import { 
   Maximize2, 
   RefreshCw, 
   Activity, 
   Trophy, 
-  GitFork, 
-  Layers, 
-  Clock 
+  Clock
 } from 'lucide-react';
 
 export default function HallenMonitor({ tournament }) {
   const [data, setData] = useState(null);
   const [viewMode, setViewMode] = useState('split'); // 'split', 'auto', 'tables', 'standings'
   const [autoIndex, setAutoIndex] = useState(0); // 0: tables, 1: standings, 2: ko
-  const [intervalSec, setIntervalSec] = useState(15);
+  const [intervalSec] = useState(15);
+
+  const loadData = useCallback(async () => {
+    try {
+      const res = await fetchMonitorDashboard(tournament.id);
+      setData(res);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [tournament]);
 
   useEffect(() => {
     if (tournament?.id) {
@@ -22,7 +29,7 @@ export default function HallenMonitor({ tournament }) {
       const pollTimer = setInterval(loadData, 3000);
       return () => clearInterval(pollTimer);
     }
-  }, [tournament]);
+  }, [tournament, loadData]);
 
   // Auto-carousel timer
   useEffect(() => {
@@ -34,14 +41,6 @@ export default function HallenMonitor({ tournament }) {
     }
   }, [viewMode, intervalSec, data]);
 
-  const loadData = async () => {
-    try {
-      const res = await fetchMonitorDashboard(tournament.id);
-      setData(res);
-    } catch (e) {
-      console.error(e);
-    }
-  };
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -63,7 +62,6 @@ export default function HallenMonitor({ tournament }) {
   }
 
   const activeTables = data.tables?.filter(t => t.is_active) || [];
-  const idleTables = data.tables?.filter(t => !t.is_active) || [];
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between p-3 sm:p-6 select-none">

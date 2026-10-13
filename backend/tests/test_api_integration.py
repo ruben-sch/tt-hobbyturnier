@@ -1,8 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
+
+from backend.app.database import Base, engine
 from backend.app.main import app
-from backend.app.database import Base, engine, SessionLocal
-from backend.app.models import Tournament, Team, Round, TeamMatch
 
 
 @pytest.fixture(autouse=True)

@@ -1,7 +1,9 @@
 import random
-from typing import List, Tuple, Set, Dict, Optional
+from typing import Dict, List, Optional, Set, Tuple
+
 from sqlalchemy.orm import Session
-from backend.app.models import Tournament, Team, Round, TeamMatch, IndividualGame, SetScore
+
+from backend.app.models import IndividualGame, Round, SetScore, Team, TeamMatch
 
 
 def calculate_standings(tournament_id: int, db: Session) -> List[Dict]:

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   updateTournament, 
   fetchTeams, 
@@ -14,7 +14,6 @@ import {
 } from '../services/api';
 import { 
   Settings, 
-  Users, 
   Plus, 
   Trash2, 
   Upload, 
@@ -22,7 +21,6 @@ import {
   GitFork, 
   CheckCircle, 
   ArrowLeftRight, 
-  KeyRound, 
   Sparkles,
   Save
 } from 'lucide-react';
@@ -51,21 +49,7 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
   const [swapMatch1, setSwapMatch1] = useState('');
   const [swapMatch2, setSwapMatch2] = useState('');
 
-  useEffect(() => {
-    if (tournament?.id) {
-      setSettingsForm({
-        name: tournament.name,
-        swiss_rounds_count: tournament.swiss_rounds_count,
-        best_of_sets: tournament.best_of_sets,
-        table_count: tournament.table_count,
-        tables_per_match: tournament.tables_per_match,
-        admin_pin: tournament.admin_pin || 'admin123'
-      });
-      loadAll();
-    }
-  }, [tournament]);
-
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
     try {
       const [tList, rList, tblList] = await Promise.all([
         fetchTeams(tournament.id),
@@ -78,7 +62,21 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
     } catch (e) {
       console.error(e);
     }
-  };
+  }, [tournament]);
+
+  useEffect(() => {
+    if (tournament?.id) {
+      setSettingsForm({
+        name: tournament.name,
+        swiss_rounds_count: tournament.swiss_rounds_count,
+        best_of_sets: tournament.best_of_sets,
+        table_count: tournament.table_count,
+        tables_per_match: tournament.tables_per_match,
+        admin_pin: tournament.admin_pin || 'admin123'
+      });
+      loadAll();
+    }
+  }, [tournament, loadAll]);
 
   const handleSaveSettings = async (e) => {
     e.preventDefault();

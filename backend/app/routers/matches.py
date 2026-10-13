@@ -1,15 +1,14 @@
-from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.app.database import get_db
-from backend.app.models import TeamMatch, IndividualGame, SetScore, Round, Tournament
+from backend.app.models import IndividualGame, SetScore, TeamMatch
 from backend.app.schemas import (
-    TeamMatchResponse,
     IndividualGameResponse,
     LineupUpdate,
     PointUpdate,
     QuickGameResult,
+    TeamMatchResponse,
 )
 from backend.app.swiss_system import add_deciding_doubles_game
 from backend.app.websocket_hub import ws_manager

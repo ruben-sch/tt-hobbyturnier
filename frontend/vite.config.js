@@ -16,5 +16,9 @@ export default defineConfig({
         ws: true
       }
     }
+  },
+  test: {
+    environment: 'jsdom',
+    setupFiles: './src/test/setup.js',
   }
 });

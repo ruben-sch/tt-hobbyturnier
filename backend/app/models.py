@@ -1,6 +1,8 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Text
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
+
 from backend.app.database import Base
 
 
@@ -105,7 +107,12 @@ class TeamMatch(Base):
     round = relationship("Round", back_populates="team_matches")
     team_a = relationship("Team", foreign_keys=[team_a_id], back_populates="matches_as_a")
     team_b = relationship("Team", foreign_keys=[team_b_id], back_populates="matches_as_b")
-    individual_games = relationship("IndividualGame", back_populates="team_match", cascade="all, delete-orphan", order_by="IndividualGame.game_order")
+    individual_games = relationship(
+        "IndividualGame",
+        back_populates="team_match",
+        cascade="all, delete-orphan",
+        order_by="IndividualGame.game_order",
+    )
 
 
 class IndividualGame(Base):
@@ -131,7 +138,9 @@ class IndividualGame(Base):
     current_point_b = Column(Integer, default=0)
 
     team_match = relationship("TeamMatch", back_populates="individual_games")
-    set_scores = relationship("SetScore", back_populates="individual_game", cascade="all, delete-orphan", order_by="SetScore.set_number")
+    set_scores = relationship(
+        "SetScore", back_populates="individual_game", cascade="all, delete-orphan", order_by="SetScore.set_number"
+    )
 
 
 class SetScore(Base):

@@ -1,14 +1,15 @@
 import random
 from typing import List
-from pydantic import BaseModel
+
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.app.database import get_db
-from backend.app.models import Tournament, Team, Round, TeamMatch, IndividualGame
+from backend.app.ko_system import advance_ko_round, generate_ko_phase
+from backend.app.models import Round, Team, TeamMatch, Tournament
 from backend.app.schemas import RoundResponse
 from backend.app.swiss_system import generate_swiss_round_pairings, setup_games_for_match
-from backend.app.ko_system import generate_ko_phase, advance_ko_round
 from backend.app.websocket_hub import ws_manager
 
 router = APIRouter(tags=["Rounds"])
@@ -40,7 +41,9 @@ async def create_next_swiss_round(tournament_id: int, db: Session = Depends(get_
     ).first()
 
     if active_round:
-        raise HTTPException(status_code=400, detail=f"Runde {active_round.round_number} ist noch aktiv und nicht abgeschlossen.")
+        raise HTTPException(
+            status_code=400, detail=f"Runde {active_round.round_number} ist noch aktiv und nicht abgeschlossen."
+        )
 
     teams_count = db.query(Team).filter(
         Team.tournament_id == tournament_id,
@@ -120,7 +123,7 @@ async def start_ko_round(tournament_id: int, team_count: int = 4, db: Session = 
         await ws_manager.broadcast({"type": "KO_STARTED", "tournament_id": tournament_id, "round_id": round_obj.id})
         return round_obj
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/api/tournaments/{tournament_id}/rounds/advance-ko", response_model=RoundResponse)
@@ -130,7 +133,7 @@ async def advance_ko(tournament_id: int, db: Session = Depends(get_db)):
         await ws_manager.broadcast({"type": "KO_ADVANCED", "tournament_id": tournament_id, "round_id": round_obj.id})
         return round_obj
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/api/rounds/{round_id}/swap-pairings")
@@ -142,7 +145,9 @@ async def swap_pairings(round_id: int, payload: SwapPairingsRequest, db: Session
         raise HTTPException(status_code=404, detail="Begegnung(en) nicht gefunden")
 
     if m1.lineup_confirmed or m2.lineup_confirmed or m1.is_completed or m2.is_completed:
-        raise HTTPException(status_code=400, detail="Aufstellung oder Spiel bereits begonnen; Tausch nicht mehr möglich.")
+        raise HTTPException(
+            status_code=400, detail="Aufstellung oder Spiel bereits begonnen; Tausch nicht mehr möglich."
+        )
 
     # Swap team B
     m1_b_id = m1.team_b_id

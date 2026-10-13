@@ -1,10 +1,11 @@
 from typing import List, Optional
-from pydantic import BaseModel
+
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.app.database import get_db
-from backend.app.models import Tournament, Table, TeamMatch, IndividualGame, Round
+from backend.app.models import Round, Table, TeamMatch, Tournament
 from backend.app.schemas import TableStatusResponse
 
 router = APIRouter(prefix="/api/tables", tags=["Tables"])

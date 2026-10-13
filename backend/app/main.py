@@ -1,18 +1,19 @@
 import os
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from backend.app.database import engine, Base
-from backend.app.websocket_hub import ws_manager
+from backend.app.database import Base, engine
 from backend.app.routers import (
-    tournaments,
-    teams,
-    rounds,
     matches,
-    tables,
     monitors,
+    rounds,
+    tables,
+    teams,
+    tournaments,
 )
+from backend.app.websocket_hub import ws_manager
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -47,8 +48,7 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             # Keep connection alive, listen for ping or client events
-            data = await websocket.receive_text()
-            # If clients send any message or ping, echo or handle
+            await websocket.receive_text()
     except WebSocketDisconnect:
         ws_manager.disconnect(websocket)
     except Exception:
