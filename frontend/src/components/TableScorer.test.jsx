@@ -182,7 +182,7 @@ describe('TableScorer', () => {
     async function openLineup(user) {
       api.authenticatePin.mockResolvedValue({ authenticated: true, match_id: 42 });
       api.fetchMatch.mockResolvedValue(openMatch);
-      render(<TableScorer tournament={tournament} onScoreChange={vi.fn()} />);
+      render(<TableScorer tournament={tournament} />);
       await user.type(screen.getByPlaceholderText('z.B. Match-PIN'), '1234');
       await user.click(screen.getByRole('button', { name: 'Start' }));
       await screen.findByText('Aufstellung festlegen');
@@ -235,7 +235,7 @@ describe('TableScorer', () => {
     async function openScorer(user, data = played) {
       api.authenticatePin.mockResolvedValue({ authenticated: true, match_id: 42 });
       api.fetchMatch.mockResolvedValue(data);
-      render(<TableScorer tournament={tournament} onScoreChange={vi.fn()} />);
+      render(<TableScorer tournament={tournament} />);
       await user.type(screen.getByPlaceholderText('z.B. Match-PIN'), '1234');
       await user.click(screen.getByRole('button', { name: 'Start' }));
       await screen.findByText(/Ergebnis eintragen/);
