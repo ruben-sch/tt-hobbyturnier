@@ -26,7 +26,7 @@ export default defineConfig({
       exclude: ['src/**/*.test.{js,jsx}', 'src/test/**', 'src/main.jsx'],
       reporter: ['text', 'html'],
       // Floor just below the current level, so coverage cannot silently drop
-      thresholds: { lines: 45, branches: 70 },
+      thresholds: { lines: 95, statements: 95, functions: 90, branches: 85 },
     },
   }
 });
