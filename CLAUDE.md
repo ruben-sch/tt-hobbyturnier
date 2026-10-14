@@ -20,6 +20,7 @@ Architecture decisions, requirements (laptop + own router on tournament day, one
 - The venv is Python 3.9: no `X | None`, no `match`, no built-in generics in runtime-evaluated annotations — use `typing.Optional`/`List`.
 - No migrations: the schema comes from `Base.metadata.create_all()` at startup. After changing `backend/app/models.py`, delete `tt_turnier.db` so it is recreated.
 - Components refetch when the `tournament` prop object changes (App reloads it on WebSocket events): keep loaders as `useCallback(..., [tournament])`, not `[tournament.id]`.
+- Admin endpoints (anything the Turnierleitung does: settings, teams, rounds, KO) take `dependencies=[Depends(require_admin)]` from `backend/app/auth.py`, which checks the `X-Admin-Pin` header; on the frontend they go through `adminFetch` in `api.js`. Result entry (lineup, points, quick results) stays open on purpose. Never return `admin_pin` in a response.
 - Routers must `await ws_manager.broadcast({"type": ...})` after mutations — frontend views (HallenMonitor, TableScorer, …) only refetch on these WebSocket events.
 - Match rules: Swiss rounds are 4 singles and may end 2:2 (draw). KO matches end at 3 wins; at 2:2 a deciding doubles (5th game) is added automatically.
 

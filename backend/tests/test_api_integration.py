@@ -4,6 +4,8 @@ from fastapi.testclient import TestClient
 from backend.app.database import Base, engine
 from backend.app.main import app
 
+ADMIN = {"X-Admin-Pin": "admin123"}
+
 
 @pytest.fixture(autouse=True)
 def setup_clean_db():
@@ -25,7 +27,7 @@ def test_full_tournament_lifecycle():
 
     # 2. Add 4 teams
     for i in range(1, 5):
-        team_res = client.post(f"/api/tournaments/{t_id}/teams", json={
+        team_res = client.post(f"/api/tournaments/{t_id}/teams", headers=ADMIN, json={
             "name": f"Team {i}",
             "player1_name": f"Spieler {i}A",
             "player2_name": f"Spieler {i}B"
@@ -37,7 +39,7 @@ def test_full_tournament_lifecycle():
     assert len(teams_res.json()) == 4
 
     # 3. Generate Round 1 (Swiss)
-    r1_res = client.post(f"/api/tournaments/{t_id}/rounds/next-swiss")
+    r1_res = client.post(f"/api/tournaments/{t_id}/rounds/next-swiss", headers=ADMIN)
     assert r1_res.status_code == 200
     r1 = r1_res.json()
     assert r1["round_number"] == 1
@@ -102,11 +104,11 @@ def test_full_tournament_lifecycle():
     assert standings[1]["game_points"] == 3
 
     # 8. Complete Round 1
-    comp_res = client.post(f"/api/rounds/{r1['id']}/complete")
+    comp_res = client.post(f"/api/rounds/{r1['id']}/complete", headers=ADMIN)
     assert comp_res.status_code == 200
 
     # 9. Generate Round 2 (Swiss pairings with rematch check)
-    r2_res = client.post(f"/api/tournaments/{t_id}/rounds/next-swiss")
+    r2_res = client.post(f"/api/tournaments/{t_id}/rounds/next-swiss", headers=ADMIN)
     assert r2_res.status_code == 200
     r2 = r2_res.json()
     assert r2["round_number"] == 2

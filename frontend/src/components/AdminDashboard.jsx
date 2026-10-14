@@ -10,7 +10,9 @@ import {
   startKoRound, 
   completeRound,
   swapPairings,
-  fetchTablesStatus
+  fetchTablesStatus,
+  getAdminPin,
+  setAdminPin
 } from '../services/api';
 import { 
   Settings, 
@@ -22,7 +24,8 @@ import {
   CheckCircle, 
   ArrowLeftRight, 
   Sparkles,
-  Save
+  Save,
+  Lock
 } from 'lucide-react';
 
 export default function AdminDashboard({ tournament, onTournamentChange }) {
@@ -42,7 +45,7 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
     best_of_sets: 5,
     table_count: 8,
     tables_per_match: 1,
-    admin_pin: 'admin123'
+    admin_pin: getAdminPin() || ''
   });
 
   // Swap pairings state
@@ -72,7 +75,7 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
         best_of_sets: tournament.best_of_sets,
         table_count: tournament.table_count,
         tables_per_match: tournament.tables_per_match,
-        admin_pin: tournament.admin_pin || 'admin123'
+        admin_pin: getAdminPin() || ''
       });
       loadAll();
     }
@@ -83,6 +86,8 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
     try {
       setLoading(true);
       await updateTournament(tournament.id, settingsForm);
+      // Later admin calls must send the new PIN
+      setAdminPin(settingsForm.admin_pin.trim());
       onTournamentChange && onTournamentChange();
       alert("Einstellungen gespeichert!");
     } catch (e) {
@@ -237,41 +242,58 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
         </div>
 
         {/* Tab switch */}
-        <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs">
+        <div className="flex items-center gap-2">
+          <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs">
+            <button
+              onClick={() => setActiveTab('rounds')}
+              className={`px-3.5 py-2 rounded-lg font-semibold transition ${
+                activeTab === 'rounds' ? 'bg-sky-500 text-white shadow' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Runden & Spiele
+            </button>
+            <button
+              onClick={() => setActiveTab('teams')}
+              className={`px-3.5 py-2 rounded-lg font-semibold transition ${
+                activeTab === 'teams' ? 'bg-sky-500 text-white shadow' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Teams ({teams.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('tables')}
+              className={`px-3.5 py-2 rounded-lg font-semibold transition ${
+                activeTab === 'tables' ? 'bg-sky-500 text-white shadow' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              PIN-Übersicht
+            </button>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`px-3.5 py-2 rounded-lg font-semibold transition ${
+                activeTab === 'settings' ? 'bg-sky-500 text-white shadow' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Einstellungen
+            </button>
+          </div>
           <button
-            onClick={() => setActiveTab('rounds')}
-            className={`px-3.5 py-2 rounded-lg font-semibold transition ${
-              activeTab === 'rounds' ? 'bg-sky-500 text-white shadow' : 'text-slate-400 hover:text-white'
-            }`}
+            onClick={() => setAdminPin(null)}
+            title="Turnierleitung sperren"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-700 bg-slate-800 text-xs font-semibold text-slate-400 hover:text-white transition"
           >
-            Runden & Spiele
-          </button>
-          <button
-            onClick={() => setActiveTab('teams')}
-            className={`px-3.5 py-2 rounded-lg font-semibold transition ${
-              activeTab === 'teams' ? 'bg-sky-500 text-white shadow' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Teams ({teams.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('tables')}
-            className={`px-3.5 py-2 rounded-lg font-semibold transition ${
-              activeTab === 'tables' ? 'bg-sky-500 text-white shadow' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            PIN-Übersicht
-          </button>
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={`px-3.5 py-2 rounded-lg font-semibold transition ${
-              activeTab === 'settings' ? 'bg-sky-500 text-white shadow' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Einstellungen
+            <Lock className="w-3.5 h-3.5" />
+            <span>Sperren</span>
           </button>
         </div>
       </div>
+
+      {getAdminPin() === 'admin123' && (
+        <div className="mb-6 p-4 bg-amber-950/40 border border-amber-500/40 rounded-xl text-sm text-amber-200">
+          Die Admin-PIN ist noch der Standardwert <span className="font-mono">admin123</span>. Bitte unter
+          „Einstellungen“ ändern – sonst kann jeder im Netzwerk die Turnierleitung öffnen.
+        </div>
+      )}
 
       {/* ROUNDS TAB */}
       {activeTab === 'rounds' && (
@@ -613,7 +635,7 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
                 <span className="text-xs text-slate-300">Voller Zugriff auf alle Einstellungen & manuelle Spielübernahme</span>
               </div>
               <span className="font-mono text-xl font-black text-white bg-slate-900 px-4 py-1.5 rounded-lg border border-slate-700">
-                {tournament.admin_pin || 'admin123'}
+                {getAdminPin()}
               </span>
             </div>
 

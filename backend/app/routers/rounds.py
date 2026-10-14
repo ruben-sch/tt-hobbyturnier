@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from backend.app.auth import require_admin
 from backend.app.database import get_db
 from backend.app.ko_system import advance_ko_round, generate_ko_phase
 from backend.app.models import Round, Team, TeamMatch, Tournament
@@ -28,7 +29,11 @@ def get_rounds(tournament_id: int, db: Session = Depends(get_db)):
     ).order_by(Round.round_number.asc()).all()
 
 
-@router.post("/api/tournaments/{tournament_id}/rounds/next-swiss", response_model=RoundResponse)
+@router.post(
+    "/api/tournaments/{tournament_id}/rounds/next-swiss",
+    response_model=RoundResponse,
+    dependencies=[Depends(require_admin)],
+)
 async def create_next_swiss_round(tournament_id: int, db: Session = Depends(get_db)):
     tournament = db.query(Tournament).filter(Tournament.id == tournament_id).first()
     if not tournament:
@@ -116,7 +121,11 @@ async def create_next_swiss_round(tournament_id: int, db: Session = Depends(get_
     return new_round
 
 
-@router.post("/api/tournaments/{tournament_id}/rounds/start-ko", response_model=RoundResponse)
+@router.post(
+    "/api/tournaments/{tournament_id}/rounds/start-ko",
+    response_model=RoundResponse,
+    dependencies=[Depends(require_admin)],
+)
 async def start_ko_round(tournament_id: int, team_count: int = 4, db: Session = Depends(get_db)):
     try:
         round_obj = generate_ko_phase(tournament_id, team_count, db)
@@ -126,7 +135,11 @@ async def start_ko_round(tournament_id: int, team_count: int = 4, db: Session = 
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
-@router.post("/api/tournaments/{tournament_id}/rounds/advance-ko", response_model=RoundResponse)
+@router.post(
+    "/api/tournaments/{tournament_id}/rounds/advance-ko",
+    response_model=RoundResponse,
+    dependencies=[Depends(require_admin)],
+)
 async def advance_ko(tournament_id: int, db: Session = Depends(get_db)):
     try:
         round_obj = advance_ko_round(tournament_id, db)
@@ -136,7 +149,7 @@ async def advance_ko(tournament_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
-@router.post("/api/rounds/{round_id}/swap-pairings")
+@router.post("/api/rounds/{round_id}/swap-pairings", dependencies=[Depends(require_admin)])
 async def swap_pairings(round_id: int, payload: SwapPairingsRequest, db: Session = Depends(get_db)):
     m1 = db.query(TeamMatch).filter(TeamMatch.id == payload.match_id_1, TeamMatch.round_id == round_id).first()
     m2 = db.query(TeamMatch).filter(TeamMatch.id == payload.match_id_2, TeamMatch.round_id == round_id).first()
@@ -179,7 +192,7 @@ async def swap_pairings(round_id: int, payload: SwapPairingsRequest, db: Session
     return {"message": "Paarungen erfolgreich getauscht"}
 
 
-@router.post("/api/rounds/{round_id}/complete")
+@router.post("/api/rounds/{round_id}/complete", dependencies=[Depends(require_admin)])
 async def complete_round(round_id: int, db: Session = Depends(get_db)):
     r = db.query(Round).filter(Round.id == round_id).first()
     if not r:

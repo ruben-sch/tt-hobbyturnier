@@ -104,4 +104,4 @@ Getestet werden:
 - ⚙️ **Turnierleitung:** Anlegen von Teams, CSV-Import, Runden-Auslosung, PIN-Übersicht und Einstellungen.
 - 🖨️ **Spielzettel:** Druckansicht für Spielberichtsbögen.
 
-**Standard Admin-PIN:** `admin123` (kann in den Einstellungen beliebig geändert werden).
+**Standard Admin-PIN:** `admin123`. Die Turnierleitung (und damit Runden auslosen, Teams und Einstellungen ändern) ist nur mit der Admin-PIN zugänglich – vor dem Turnier unter „Einstellungen“ unbedingt ändern, sonst kann jeder im Turnier-WLAN sie öffnen. Die Ergebniseingabe bleibt bewusst für alle offen.
