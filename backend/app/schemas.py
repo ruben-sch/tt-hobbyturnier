@@ -174,6 +174,8 @@ class TableStatusResponse(BaseModel):
     team_a_name: Optional[str] = None
     team_b_name: Optional[str] = None
     active_game_desc: Optional[str] = None
+    match_score_a: int = 0
+    match_score_b: int = 0
     current_point_a: int = 0
     current_point_b: int = 0
     sets_won_a: int = 0

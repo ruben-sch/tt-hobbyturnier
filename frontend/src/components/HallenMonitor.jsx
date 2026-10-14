@@ -171,7 +171,7 @@ export default function HallenMonitor({ tournament }) {
                           {t.team_a_name}
                         </span>
                         <span className="font-mono text-xs font-semibold text-slate-400">
-                          Sätze: <b className="text-white">{t.sets_won_a}</b>
+                          Spiele: <b className="text-white">{t.match_score_a}</b> · Sätze: <b className="text-white">{t.sets_won_a}</b>
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
@@ -179,7 +179,7 @@ export default function HallenMonitor({ tournament }) {
                           {t.team_b_name}
                         </span>
                         <span className="font-mono text-xs font-semibold text-slate-400">
-                          Sätze: <b className="text-white">{t.sets_won_b}</b>
+                          Spiele: <b className="text-white">{t.match_score_b}</b> · Sätze: <b className="text-white">{t.sets_won_b}</b>
                         </span>
                       </div>
                     </div>
@@ -318,23 +318,23 @@ export default function HallenMonitor({ tournament }) {
                       <span className="font-bold text-lg text-white truncate max-w-[160px]">
                         {t.team_a_name}
                       </span>
-                      <span className="font-mono font-bold text-slate-300 text-sm">
-                        {t.sets_won_a}
+                      <span className="font-mono text-sm text-slate-400">
+                        Spiele: <b className="text-2xl text-white">{t.match_score_a}</b> · Sätze: <b className="text-slate-200">{t.sets_won_a}</b>
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-lg text-white truncate max-w-[160px]">
                         {t.team_b_name}
                       </span>
-                      <span className="font-mono font-bold text-slate-300 text-sm">
-                        {t.sets_won_b}
+                      <span className="font-mono text-sm text-slate-400">
+                        Spiele: <b className="text-2xl text-white">{t.match_score_b}</b> · Sätze: <b className="text-slate-200">{t.sets_won_b}</b>
                       </span>
                     </div>
                   </div>
 
                   <div className="bg-slate-950 rounded-xl p-4 border border-slate-800 text-center">
                     <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">
-                      Spielstand
+                      Satzstand
                     </span>
                     <div className="font-mono text-4xl font-black text-emerald-400">
                       {t.current_point_a} : {t.current_point_b}
