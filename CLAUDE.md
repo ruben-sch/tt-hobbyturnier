@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Architecture decisions, requirements (laptop + own router on tournament day, one club) and planned changes are in `docs/architecture.md` — read it before proposing stack, hosting or security changes.
+Architecture decisions, requirements (laptop + own router on tournament day, one club) and what was deliberately left unchanged are in `docs/architecture.md` — read it before proposing stack, hosting or security changes.
 
 ## Running
 

@@ -1,6 +1,6 @@
 # Architecture review (2026-10-13)
 
-Outcome of an architecture and tech stack review. It records the requirements the stack is judged against, the verdict, the planned changes, and what was deliberately left as is.
+Outcome of an architecture and tech stack review. It records the requirements the stack is judged against, the verdict, and what was deliberately left as is.
 
 ## Requirements
 
@@ -26,46 +26,6 @@ FastAPI with SQLAlchemy and SQLite, a React single-page app (Vite, Tailwind), We
 | Rewrite the backend in Go, with the frontend embedded in the binary | One binary and no Python, venv or Node on the event laptop. Code the organiser can read. | Weeks of work, and the Swiss pairing and KO logic plus their tests would all need porting. None of the problems found are caused by the language. Revisit only if maintaining the Python code actually becomes a problem. |
 | Server-rendered Python with HTMX instead of the React app | One language and one server, with no Node or build step. | Moderate effort, and live updates would need reworking. It doesn't fix any concrete problem. |
 | Full cloud hosting | Results reachable from anywhere. | Needs TLS and real authentication, and depends on mobile internet in the hall. That conflicts with the own-router setup. |
-
-## Planned changes
-
-Each change gets its own PR, in this order.
-
-### 1. Separate dev mode from tournament mode
-
-**Problem:** `run.sh` always starts the development setup: `uvicorn --reload` plus the Vite dev server on :5173. On tournament day, saving any file restarts the backend and drops every WebSocket connection.
-
-**Change:**
-- A tournament start script builds the frontend once and runs a single uvicorn on :8000, with no `--reload` and no Vite.
-- The current behaviour (HMR on :5173 plus `--reload`) moves to a separate dev script.
-
-### 2. Admin PIN gate
-
-**Problem:** the PINs don't protect anything today.
-- The admin PIN is only checked at the scorer's PIN prompt (`routers/tables.py`).
-- The admin tab (Turnierleitung) and all admin endpoints are open to anyone on the network: generating rounds, deleting teams, changing settings.
-- The tournament API returns `admin_pin` to every client.
-
-On the own-router setup, every player's phone is on that network.
-
-**Change:**
-- Admin endpoints require the admin PIN, sent as a request header and checked in a single FastAPI dependency.
-- The admin tab asks for the PIN.
-- The API no longer sends `admin_pin` to clients.
-
-### 3. One mechanism for live screen updates
-
-**Problem:** views refresh in three different ways at once:
-- `App.jsx` remounts components on every WebSocket event by bumping `refreshKey`.
-- `HallenMonitor` also polls every 3 seconds.
-- `TableScorer` is never remounted, so it misses updates from other devices.
-
-When the WebSocket reconnects (after 3 seconds), events sent in the meantime are lost.
-
-**Change:**
-- A WebSocket event triggers a targeted refetch in the views it affects, including `TableScorer`.
-- Every view refetches after a reconnect, to catch up on events it missed.
-- Remove the `refreshKey` remounts and the polling.
 
 ## Deliberately unchanged
 
