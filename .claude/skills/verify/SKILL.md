@@ -12,6 +12,6 @@ Run the checks from the repo root and report each separately:
    `cd frontend && npm test && npm run build`
 3. Lint: `backend/venv/bin/ruff check .` and `cd frontend && npm run lint`
 
-If `backend/venv` or `frontend/node_modules` is missing, tell the user to run `./run.sh` once (or install deps) rather than creating them silently.
+If `backend/venv` or `frontend/node_modules` is missing, tell the user to run `./dev.sh` once (or install deps) rather than creating them silently.
 
 Report: pass/fail per check, and for failures the failing test names or the first build error with file:line. Don't fix failures unless asked — summarize the likely cause instead.

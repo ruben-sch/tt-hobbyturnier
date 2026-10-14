@@ -1,53 +1,31 @@
 #!/bin/bash
+# Tournament mode: build the frontend once and run a single uvicorn on :8000
+# without --reload, so editing files can't restart the server mid-tournament.
+# For development with HMR use ./dev.sh.
+set -e
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR"
 
-# Node / NVM path resolution
-if [ -d "$HOME/.nvm/versions/node" ]; then
-    LATEST_NODE=$(ls "$HOME/.nvm/versions/node" 2>/dev/null | tail -n 1)
-    if [ -n "$LATEST_NODE" ]; then
-        export PATH="$HOME/.nvm/versions/node/$LATEST_NODE/bin:$PATH"
-    fi
-fi
-export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-
 echo "=========================================================="
-echo " 🏓 Tischtennis Hobbyturnier Manager wird gestartet..."
+echo " 🏓 Tischtennis Hobbyturnier Manager – Turniermodus"
 echo "=========================================================="
 
-# Ensure venv exists
-if [ ! -d "backend/venv" ]; then
-    echo "Erstelle Python virtuelles Environment..."
-    python3 -m venv backend/venv
-    backend/venv/bin/pip install -r backend/requirements.txt
-fi
+source scripts/common.sh
 
-# Ensure npm dependencies are installed
-if [ ! -d "frontend/node_modules" ]; then
-    echo "Installiere Frontend Abhängigkeiten..."
-    cd frontend && npm install && cd ..
-fi
+echo "📦 Baue Frontend..."
+(cd frontend && npm run build)
 
-# Always build frontend dist so standalone / port 8000 is always fresh
-echo "📦 Baue aktuelles Frontend (dist)..."
-cd frontend && npm run build && cd ..
-
-# Cleanup function to kill all background child jobs on exit
-cleanup() {
-    kill $(jobs -p) 2>/dev/null || true
-}
-trap cleanup EXIT SIGINT SIGTERM
+# LAN address for phones, beamer and tablet on the tournament router
+LAN_IP=$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}' || true)
 
 echo "=========================================================="
 echo "🚀 Server bereit:"
-echo "👉 Live-Reload / Entwickler-Modus (HMR): http://localhost:5173"
-echo "👉 Standard / Produktion:               http://localhost:8000"
+echo "👉 Auf diesem Rechner: http://localhost:8000"
+if [ -n "$LAN_IP" ]; then
+    echo "👉 Im Netzwerk:        http://$LAN_IP:8000"
+fi
 echo "=========================================================="
 echo "Drücke STRG+C zum Beenden."
 
-export PYTHONPATH=.
-backend/venv/bin/python3 -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload &
-cd frontend && npm run dev &
-
-wait
+exec backend/venv/bin/python3 -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
