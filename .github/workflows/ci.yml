@@ -18,7 +18,7 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - run: pip install -r backend/requirements.txt
       - run: ruff check .
-      - run: pytest backend/tests -v
+      - run: pytest backend/tests -v --cov=backend/app --cov-report=term-missing --cov-fail-under=95
         env:
           PYTHONPATH: .
           DATABASE_URL: sqlite:///./ci_test.db
@@ -38,5 +38,5 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run lint
-      - run: npm test
+      - run: npm run test:coverage
       - run: npm run build
