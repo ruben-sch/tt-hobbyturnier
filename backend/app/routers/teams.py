@@ -3,6 +3,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from backend.app.auth import require_admin
 from backend.app.database import get_db
 from backend.app.models import Team, Tournament
 from backend.app.schemas import TeamCreate, TeamResponse
@@ -20,7 +21,7 @@ def get_teams(tournament_id: int, db: Session = Depends(get_db)):
     ).order_by(Team.id.asc()).all()
 
 
-@router.post("", response_model=TeamResponse)
+@router.post("", response_model=TeamResponse, dependencies=[Depends(require_admin)])
 async def create_team(tournament_id: int, payload: TeamCreate, db: Session = Depends(get_db)):
     t = db.query(Tournament).filter(Tournament.id == tournament_id).first()
     if not t:
@@ -40,7 +41,7 @@ async def create_team(tournament_id: int, payload: TeamCreate, db: Session = Dep
     return team
 
 
-@router.delete("/{team_id}")
+@router.delete("/{team_id}", dependencies=[Depends(require_admin)])
 async def delete_team(tournament_id: int, team_id: int, db: Session = Depends(get_db)):
     team = db.query(Team).filter(
         Team.id == team_id,

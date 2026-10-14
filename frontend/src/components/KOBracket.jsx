@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { fetchRounds, advanceKoRound } from '../services/api';
 import { Trophy, GitFork, ArrowRight, CheckCircle2 } from 'lucide-react';
 
-export default function KOBracket({ tournament, onRoundChange }) {
+export default function KOBracket({ tournament, isAdmin, onRoundChange }) {
   const [koRounds, setKoRounds] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -37,7 +37,7 @@ export default function KOBracket({ tournament, onRoundChange }) {
   };
 
   const lastKoRound = koRounds[koRounds.length - 1];
-  const canAdvance = lastKoRound && 
+  const canAdvance = isAdmin && lastKoRound && 
     lastKoRound.team_matches.length > 1 && 
     lastKoRound.team_matches.every(m => m.is_completed);
 

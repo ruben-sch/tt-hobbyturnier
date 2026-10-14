@@ -6,13 +6,28 @@ import StandingsTable from './components/StandingsTable';
 import KOBracket from './components/KOBracket';
 import AdminDashboard from './components/AdminDashboard';
 import PrintableSheets from './components/PrintableSheets';
-import { fetchActiveTournament } from './services/api';
+import AdminPinPrompt from './components/AdminPinPrompt';
+import { fetchActiveTournament, getAdminPin, subscribeAdminPin, verifyAdminPin, setAdminPin } from './services/api';
 import { useWebSocket } from './hooks/useWebSocket';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState('monitor');
   const [tournament, setTournament] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(() => Boolean(getAdminPin()));
+
+  useEffect(() => subscribeAdminPin((pin) => setIsAdmin(Boolean(pin))), []);
+
+  // A PIN remembered from earlier in this tab may be outdated (changed on
+  // another device, or a new tournament): check it once the tournament is known.
+  const tournamentId = tournament?.id;
+  useEffect(() => {
+    const pin = getAdminPin();
+    if (!tournamentId || !pin) return;
+    verifyAdminPin(tournamentId, pin)
+      .then((ok) => { if (!ok) setAdminPin(null); })
+      .catch(() => {});
+  }, [tournamentId]);
 
   const loadTournament = useCallback(async () => {
     try {
@@ -70,11 +85,15 @@ export default function App() {
         {currentTab === 'bracket' && (
           <KOBracket 
             tournament={tournament} 
+            isAdmin={isAdmin}
             onRoundChange={() => { loadTournament(); setRefreshKey(k => k + 1); }} 
             key={`bracket-${refreshKey}`} 
           />
         )}
-        {currentTab === 'admin' && (
+        {currentTab === 'admin' && !isAdmin && (
+          <AdminPinPrompt tournament={tournament} />
+        )}
+        {currentTab === 'admin' && isAdmin && (
           <AdminDashboard 
             tournament={tournament} 
             onTournamentChange={() => { loadTournament(); setRefreshKey(k => k + 1); }} 

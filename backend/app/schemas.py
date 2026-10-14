@@ -31,11 +31,10 @@ class TournamentBase(BaseModel):
     points_per_set: int = 11
     table_count: int = 8
     tables_per_match: int = 1
-    admin_pin: str = "admin123"
 
 
 class TournamentCreate(TournamentBase):
-    pass
+    admin_pin: str = "admin123"
 
 
 class TournamentUpdate(BaseModel):

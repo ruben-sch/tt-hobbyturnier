@@ -1,11 +1,12 @@
 import csv
 import io
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from backend.app.auth import require_admin
 from backend.app.database import get_db
 from backend.app.models import Table, Team, Tournament
 from backend.app.schemas import (
@@ -20,7 +21,21 @@ from backend.app.websocket_hub import ws_manager
 router = APIRouter(prefix="/api/tournaments", tags=["Tournaments"])
 
 
-@router.post("", response_model=TournamentResponse)
+def validate_admin_pin(pin: Optional[str]) -> str:
+    pin = (pin or "").strip()
+    if not pin:
+        raise HTTPException(status_code=400, detail="Die Admin-PIN darf nicht leer sein.")
+    try:
+        # The PIN travels in an HTTP header, which browsers only send as Latin-1.
+        pin.encode("latin-1")
+    except UnicodeEncodeError:
+        raise HTTPException(
+            status_code=400, detail="Die Admin-PIN darf keine Emojis oder exotischen Sonderzeichen enthalten."
+        ) from None
+    return pin
+
+
+@router.post("", response_model=TournamentResponse, dependencies=[Depends(require_admin)])
 def create_tournament(payload: TournamentCreate, db: Session = Depends(get_db)):
     # Deactivate existing active tournaments
     db.query(Tournament).filter(Tournament.is_active == True).update({"is_active": False})
@@ -34,7 +49,7 @@ def create_tournament(payload: TournamentCreate, db: Session = Depends(get_db)):
         points_per_set=payload.points_per_set,
         table_count=payload.table_count,
         tables_per_match=payload.tables_per_match,
-        admin_pin=payload.admin_pin,
+        admin_pin=validate_admin_pin(payload.admin_pin),
         is_active=True
     )
     db.add(tournament)
@@ -80,13 +95,17 @@ def get_active_tournament(db: Session = Depends(get_db)):
     return t
 
 
-@router.put("/{tournament_id}", response_model=TournamentResponse)
+@router.put("/{tournament_id}", response_model=TournamentResponse, dependencies=[Depends(require_admin)])
 async def update_tournament(tournament_id: int, payload: TournamentUpdate, db: Session = Depends(get_db)):
     t = db.query(Tournament).filter(Tournament.id == tournament_id).first()
     if not t:
         raise HTTPException(status_code=404, detail="Turnier nicht gefunden")
 
-    for field, val in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    if "admin_pin" in updates:
+        updates["admin_pin"] = validate_admin_pin(updates["admin_pin"])
+
+    for field, val in updates.items():
         setattr(t, field, val)
 
     # Sync table count if changed
@@ -103,12 +122,20 @@ async def update_tournament(tournament_id: int, payload: TournamentUpdate, db: S
     return t
 
 
+@router.get("/{tournament_id}/admin-check", dependencies=[Depends(require_admin)])
+def check_admin_pin(tournament_id: int, db: Session = Depends(get_db)):
+    """Lets the admin tab verify a PIN before unlocking; require_admin does the check."""
+    if not db.get(Tournament, tournament_id):
+        raise HTTPException(status_code=404, detail="Turnier nicht gefunden")
+    return {"message": "Admin-PIN korrekt."}
+
+
 @router.get("/{tournament_id}/standings", response_model=List[StandingsRow])
 def get_standings(tournament_id: int, db: Session = Depends(get_db)):
     return calculate_standings(tournament_id, db)
 
 
-@router.post("/{tournament_id}/teams/csv")
+@router.post("/{tournament_id}/teams/csv", dependencies=[Depends(require_admin)])
 async def import_teams_csv(tournament_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
     t = db.query(Tournament).filter(Tournament.id == tournament_id).first()
     if not t:
