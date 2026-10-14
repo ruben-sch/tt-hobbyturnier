@@ -58,12 +58,13 @@ Voraussetzungen: Python 3.9+ und Node.js 18+.
 # Repository klonen oder in den Projektordner wechseln
 cd tt-hobbyturnier
 
-# Start-Skript ausführen (installiert Abhängigkeiten automatisch, baut das Bundle und startet Backend & Live-Reload Server)
+# Turniermodus: installiert Abhängigkeiten bei Bedarf, baut das Frontend und startet den Server
 ./run.sh
 ```
 
-- ⚡ **Entwicklung mit Live-Reload (HMR):** **[http://localhost:5173](http://localhost:5173)** (Änderungen im Code werden sofort ohne Neuladen sichtbar)
-- 🏓 **Produktion / Backend:** **[http://localhost:8000](http://localhost:8000)**
+- 🏓 **Turnier:** **[http://localhost:8000](http://localhost:8000)** – das Skript zeigt zusätzlich die Adresse im Netzwerk an, über die Handys, Beamer und Tablet den Server erreichen.
+
+Für die Entwicklung gibt es `./dev.sh`: Backend mit Auto-Reload und Vite mit Live-Reload (HMR) auf **[http://localhost:5173](http://localhost:5173)**. Nicht am Turniertag verwenden – jede gespeicherte Datei startet das Backend neu und trennt alle Live-Verbindungen.
 
 ---
 
