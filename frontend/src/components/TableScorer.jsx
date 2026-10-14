@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   fetchTablesStatus, 
   authenticatePin, 
@@ -7,6 +7,7 @@ import {
   submitQuickResult 
 } from '../services/api';
 import { applyQuickScore, toValidSets } from '../utils/quickSets';
+import { useLiveEvent, MATCH_EVENTS } from '../hooks/useLiveEvents';
 import { 
   KeyRound, 
   CheckCircle, 
@@ -14,7 +15,7 @@ import {
   ListOrdered
 } from 'lucide-react';
 
-export default function TableScorer({ tournament, onScoreChange }) {
+export default function TableScorer({ tournament }) {
   const [tables, setTables] = useState([]);
   const [, setSelectedTable] = useState(null);
   const [matchData, setMatchData] = useState(null);
@@ -71,11 +72,38 @@ export default function TableScorer({ tournament, onScoreChange }) {
     }
   }, [tournament]);
 
+  // Refreshes the open match after changes from other devices. Only matchData
+  // is replaced: lineup form, selected game and typed-in sets stay as they are.
+  const openMatchIdRef = useRef(null);
+  useEffect(() => {
+    openMatchIdRef.current = matchData?.id ?? null;
+  }, [matchData]);
+
+  const refreshOpenMatch = useCallback(async () => {
+    const matchId = openMatchIdRef.current;
+    if (!matchId) return;
+    try {
+      const data = await fetchMatch(matchId);
+      if (openMatchIdRef.current === matchId) setMatchData(data);
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
   useEffect(() => {
     if (tournament?.id) {
       loadTables();
+      refreshOpenMatch();
     }
-  }, [tournament, loadTables]);
+  }, [tournament, loadTables, refreshOpenMatch]);
+
+  useLiveEvent(MATCH_EVENTS, (msg) => {
+    loadTables();
+    // ROUND_UPDATED (swapped pairings) carries no match_id but can change the open match
+    if (msg.type === 'ROUND_UPDATED' || msg.match_id === openMatchIdRef.current) {
+      refreshOpenMatch();
+    }
+  });
 
   const loadMatch = async (matchId, targetGameId = null) => {
     try {
@@ -159,7 +187,6 @@ export default function TableScorer({ tournament, onScoreChange }) {
         team_b_p2_name: lineupForm.team_b_p2,
       });
       setMatchData(updated);
-      onScoreChange && onScoreChange();
     } catch (e) {
       alert("Fehler beim Bestätigen der Aufstellung: " + e.message);
     }
@@ -187,7 +214,6 @@ export default function TableScorer({ tournament, onScoreChange }) {
       const updatedMatch = await fetchMatch(matchData.id);
       setMatchData(updatedMatch);
       loadTables();
-      onScoreChange && onScoreChange();
 
       // Find the next game in order (e.g. Einzel 2 after Einzel 1) or next uncompleted
       const currentIndex = updatedMatch.individual_games.findIndex(g => g.id === activeGame.id);

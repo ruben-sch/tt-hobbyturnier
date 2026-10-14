@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
-export function useWebSocket(onMessage) {
+// onOpen runs on every successful connect, including reconnects, so callers
+// can refetch whatever they missed while disconnected.
+export function useWebSocket(onMessage, onOpen) {
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const onMessageRef = useRef(onMessage);
+  const onOpenRef = useRef(onOpen);
 
   useEffect(() => {
     onMessageRef.current = onMessage;
-  }, [onMessage]);
+    onOpenRef.current = onOpen;
+  }, [onMessage, onOpen]);
 
   const connect = useCallback(() => {
     try {
@@ -21,6 +25,7 @@ export function useWebSocket(onMessage) {
 
       ws.onopen = () => {
         setIsConnected(true);
+        if (onOpenRef.current) onOpenRef.current();
       };
 
       ws.onmessage = (event) => {

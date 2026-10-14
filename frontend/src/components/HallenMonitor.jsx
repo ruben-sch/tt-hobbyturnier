@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchMonitorDashboard } from '../services/api';
+import { useLiveEvent, MATCH_EVENTS, TEAM_EVENTS } from '../hooks/useLiveEvents';
 import { 
   Maximize2, 
   RefreshCw, 
@@ -26,10 +27,10 @@ export default function HallenMonitor({ tournament }) {
   useEffect(() => {
     if (tournament?.id) {
       loadData();
-      const pollTimer = setInterval(loadData, 3000);
-      return () => clearInterval(pollTimer);
     }
   }, [tournament, loadData]);
+
+  useLiveEvent([...MATCH_EVENTS, ...TEAM_EVENTS], loadData);
 
   // Auto-carousel timer
   useEffect(() => {

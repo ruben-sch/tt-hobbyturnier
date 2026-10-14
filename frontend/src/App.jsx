@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Navbar from './components/Navbar';
 import HallenMonitor from './components/HallenMonitor';
 import TableScorer from './components/TableScorer';
@@ -9,11 +9,12 @@ import PrintableSheets from './components/PrintableSheets';
 import AdminPinPrompt from './components/AdminPinPrompt';
 import { fetchActiveTournament, getAdminPin, subscribeAdminPin, verifyAdminPin, setAdminPin } from './services/api';
 import { useWebSocket } from './hooks/useWebSocket';
+import { LiveEventsContext, TOURNAMENT_EVENTS, createLiveEvents } from './hooks/useLiveEvents';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState('monitor');
   const [tournament, setTournament] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const liveEvents = useMemo(() => createLiveEvents(), []);
   const [isAdmin, setIsAdmin] = useState(() => Boolean(getAdminPin()));
 
   useEffect(() => subscribeAdminPin((pin) => setIsAdmin(Boolean(pin))), []);
@@ -42,19 +43,22 @@ export default function App() {
     loadTournament();
   }, [loadTournament]);
 
-  // Handle WebSocket messages
+  // Structural events reload the tournament (and with it every view); the
+  // rest go to the views that subscribed via useLiveEvent.
   const handleWsMessage = useCallback((msg) => {
-    console.log("WebSocket event received:", msg);
-    if (msg.type === 'TOURNAMENT_UPDATED' || msg.type === 'KO_STARTED') {
+    if (TOURNAMENT_EVENTS.includes(msg.type)) {
       loadTournament();
     }
-    // Increment refreshKey to trigger child component refresh
-    setRefreshKey((k) => k + 1);
-  }, [loadTournament]);
+    liveEvents.emit(msg);
+  }, [loadTournament, liveEvents]);
 
-  const { isConnected } = useWebSocket(handleWsMessage);
+  // Events sent while disconnected are lost, so refetch everything on each
+  // (re)connect. On the first connect this repeats the initial load, which
+  // also covers a server that wasn't up yet when the page loaded.
+  const { isConnected } = useWebSocket(handleWsMessage, loadTournament);
 
   return (
+    <LiveEventsContext.Provider value={liveEvents}>
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans">
       <Navbar
         currentTab={currentTab}
@@ -65,29 +69,19 @@ export default function App() {
 
       <main className="flex-1">
         {currentTab === 'monitor' && (
-          <HallenMonitor 
-            tournament={tournament} 
-            key={`monitor-${refreshKey}`} 
-          />
+          <HallenMonitor tournament={tournament} />
         )}
         {currentTab === 'scorer' && (
-          <TableScorer 
-            tournament={tournament} 
-            onScoreChange={() => setRefreshKey(k => k + 1)} 
-          />
+          <TableScorer tournament={tournament} />
         )}
         {currentTab === 'standings' && (
-          <StandingsTable 
-            tournament={tournament} 
-            key={`standings-${refreshKey}`} 
-          />
+          <StandingsTable tournament={tournament} />
         )}
         {currentTab === 'bracket' && (
           <KOBracket 
             tournament={tournament} 
             isAdmin={isAdmin}
-            onRoundChange={() => { loadTournament(); setRefreshKey(k => k + 1); }} 
-            key={`bracket-${refreshKey}`} 
+            onRoundChange={loadTournament}
           />
         )}
         {currentTab === 'admin' && !isAdmin && (
@@ -96,17 +90,14 @@ export default function App() {
         {currentTab === 'admin' && isAdmin && (
           <AdminDashboard 
             tournament={tournament} 
-            onTournamentChange={() => { loadTournament(); setRefreshKey(k => k + 1); }} 
-            key={`admin-${refreshKey}`} 
+            onTournamentChange={loadTournament}
           />
         )}
         {currentTab === 'print' && (
-          <PrintableSheets 
-            tournament={tournament} 
-            key={`print-${refreshKey}`} 
-          />
+          <PrintableSheets tournament={tournament} />
         )}
       </main>
     </div>
+    </LiveEventsContext.Provider>
   );
 }

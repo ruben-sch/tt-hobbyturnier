@@ -65,6 +65,19 @@ describe('useWebSocket', () => {
     expect(FakeWebSocket.instances).toHaveLength(2);
   });
 
+  it('calls onOpen on every (re)connect so views can catch up', () => {
+    const onOpen = vi.fn();
+    renderHook(() => useWebSocket(() => {}, onOpen));
+
+    act(() => FakeWebSocket.instances[0].onopen());
+    expect(onOpen).toHaveBeenCalledTimes(1);
+
+    act(() => FakeWebSocket.instances[0].onclose());
+    act(() => vi.advanceTimersByTime(3000));
+    act(() => FakeWebSocket.instances[1].onopen());
+    expect(onOpen).toHaveBeenCalledTimes(2);
+  });
+
   it('closes the socket on errors', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     renderHook(() => useWebSocket(() => {}));

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchRounds, advanceKoRound } from '../services/api';
+import { useLiveEvent, MATCH_EVENTS } from '../hooks/useLiveEvents';
 import { Trophy, GitFork, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 export default function KOBracket({ tournament, isAdmin, onRoundChange }) {
@@ -21,6 +22,8 @@ export default function KOBracket({ tournament, isAdmin, onRoundChange }) {
       loadKORounds();
     }
   }, [tournament, loadKORounds]);
+
+  useLiveEvent(MATCH_EVENTS, loadKORounds);
 
   const handleAdvance = async () => {
     if (!confirm("Nächste KO-Runde mit den Siegern der aktuellen Runde generieren?")) return;

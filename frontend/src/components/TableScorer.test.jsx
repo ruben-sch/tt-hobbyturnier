@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import TableScorer from './TableScorer';
 import * as api from '../services/api';
+import { LiveEventsContext, createLiveEvents } from '../hooks/useLiveEvents';
 
 vi.mock('../services/api', () => ({
   fetchTablesStatus: vi.fn(),
@@ -56,9 +57,8 @@ describe('TableScorer', () => {
 
   it('opens the match via PIN, auto-fills set scores and submits them', async () => {
     api.authenticatePin.mockResolvedValue({ authenticated: true, match_id: 42, table_number: null });
-    const onScoreChange = vi.fn();
     const user = userEvent.setup();
-    render(<TableScorer tournament={tournament} onScoreChange={onScoreChange} />);
+    render(<TableScorer tournament={tournament} />);
 
     await user.type(screen.getByPlaceholderText('z.B. Match-PIN'), '1234');
     await user.click(screen.getByRole('button', { name: 'Start' }));
@@ -82,7 +82,46 @@ describe('TableScorer', () => {
       { set_number: 1, score_a: 11, score_b: 7 },
       { set_number: 2, score_a: 12, score_b: 14 },
     ]);
-    expect(onScoreChange).toHaveBeenCalled();
+  });
+
+  it('refreshes the open match on updates from other devices and keeps typed-in sets', async () => {
+    api.authenticatePin.mockResolvedValue({ authenticated: true, match_id: 42, table_number: null });
+    const events = createLiveEvents();
+    const user = userEvent.setup();
+    render(
+      <LiveEventsContext.Provider value={events}>
+        <TableScorer tournament={tournament} />
+      </LiveEventsContext.Provider>
+    );
+
+    await user.type(screen.getByPlaceholderText('z.B. Match-PIN'), '1234');
+    await user.click(screen.getByRole('button', { name: 'Start' }));
+    await screen.findByText(/Ergebnis eintragen/);
+
+    const set1 = within(screen.getByText('Satz 1').parentElement).getAllByRole('spinbutton');
+    await user.type(set1[1], '7');
+
+    // Another table enters a result for game 2 of the same match
+    api.fetchMatch.mockResolvedValue({
+      ...match,
+      score_b: 1,
+      individual_games: [game(101, 1), game(102, 2, { is_completed: true })],
+    });
+    const fetchesBefore = api.fetchMatch.mock.calls.length;
+    await act(async () => {
+      events.emit({ type: 'SCORE_UPDATE', match_id: 42 });
+    });
+
+    expect(api.fetchMatch.mock.calls.length).toBe(fetchesBefore + 1);
+    expect(await screen.findByText('0 : 1')).toBeInTheDocument();
+    expect(set1[1]).toHaveValue(7);
+    expect(set1[0]).toHaveValue(11);
+
+    // Events for other matches don't refetch this one
+    await act(async () => {
+      events.emit({ type: 'SCORE_UPDATE', match_id: 99 });
+    });
+    expect(api.fetchMatch.mock.calls.length).toBe(fetchesBefore + 1);
   });
 
   it('lists the running matches and opens one by click', async () => {
@@ -143,7 +182,7 @@ describe('TableScorer', () => {
     async function openLineup(user) {
       api.authenticatePin.mockResolvedValue({ authenticated: true, match_id: 42 });
       api.fetchMatch.mockResolvedValue(openMatch);
-      render(<TableScorer tournament={tournament} onScoreChange={vi.fn()} />);
+      render(<TableScorer tournament={tournament} />);
       await user.type(screen.getByPlaceholderText('z.B. Match-PIN'), '1234');
       await user.click(screen.getByRole('button', { name: 'Start' }));
       await screen.findByText('Aufstellung festlegen');
@@ -196,7 +235,7 @@ describe('TableScorer', () => {
     async function openScorer(user, data = played) {
       api.authenticatePin.mockResolvedValue({ authenticated: true, match_id: 42 });
       api.fetchMatch.mockResolvedValue(data);
-      render(<TableScorer tournament={tournament} onScoreChange={vi.fn()} />);
+      render(<TableScorer tournament={tournament} />);
       await user.type(screen.getByPlaceholderText('z.B. Match-PIN'), '1234');
       await user.click(screen.getByRole('button', { name: 'Start' }));
       await screen.findByText(/Ergebnis eintragen/);

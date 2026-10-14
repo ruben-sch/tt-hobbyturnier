@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchStandings } from '../services/api';
+import { useLiveEvent, MATCH_EVENTS, TEAM_EVENTS } from '../hooks/useLiveEvents';
 import { Trophy, Download, Search, Info } from 'lucide-react';
 
 export default function StandingsTable({ tournament }) {
@@ -9,7 +10,7 @@ export default function StandingsTable({ tournament }) {
 
   const loadStandings = useCallback(async () => {
     try {
-      setLoading(true);
+      // No loading state on refetches, so live updates don't flicker
       const data = await fetchStandings(tournament.id);
       setStandings(data);
     } catch (e) {
@@ -24,6 +25,8 @@ export default function StandingsTable({ tournament }) {
       loadStandings();
     }
   }, [tournament, loadStandings]);
+
+  useLiveEvent([...MATCH_EVENTS, ...TEAM_EVENTS], loadStandings);
 
   const filtered = standings.filter(s => 
     s.team_name.toLowerCase().includes(search.toLowerCase()) ||
