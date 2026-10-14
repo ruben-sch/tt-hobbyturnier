@@ -1,19 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchRounds } from '../services/api';
+import { useLiveEvent, MATCH_EVENTS, TEAM_EVENTS } from '../hooks/useLiveEvents';
 import { Printer } from 'lucide-react';
 
 export default function PrintableSheets({ tournament }) {
   const [rounds, setRounds] = useState([]);
   const [selectedRoundId, setSelectedRoundId] = useState(null);
 
-  const loadRounds = useCallback(async () => {
+  const loadRounds = useCallback(async (keepSelection = false) => {
     try {
       const data = await fetchRounds(tournament.id);
       setRounds(data);
       if (data.length > 0) {
-        // Default to active round, or last round
+        // Default to active round, or last round. Live updates within a
+        // round keep the user's choice.
         const active = data.find(r => r.is_active);
-        setSelectedRoundId(active ? active.id : data[data.length - 1].id);
+        const fallback = active ? active.id : data[data.length - 1].id;
+        setSelectedRoundId(prev => (keepSelection && data.some(r => r.id === prev) ? prev : fallback));
       }
     } catch (e) {
       console.error(e);
@@ -25,6 +28,8 @@ export default function PrintableSheets({ tournament }) {
       loadRounds();
     }
   }, [tournament, loadRounds]);
+
+  useLiveEvent([...MATCH_EVENTS, ...TEAM_EVENTS], () => loadRounds(true));
 
   const currentRound = rounds.find(r => r.id === selectedRoundId);
 

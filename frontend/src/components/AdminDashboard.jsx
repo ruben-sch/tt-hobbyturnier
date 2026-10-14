@@ -14,6 +14,7 @@ import {
   getAdminPin,
   setAdminPin
 } from '../services/api';
+import { useLiveEvent, MATCH_EVENTS, TEAM_EVENTS } from '../hooks/useLiveEvents';
 import { 
   Settings, 
   Plus, 
@@ -80,6 +81,8 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
       loadAll();
     }
   }, [tournament, loadAll]);
+
+  useLiveEvent([...MATCH_EVENTS, ...TEAM_EVENTS], loadAll);
 
   const handleSaveSettings = async (e) => {
     e.preventDefault();
