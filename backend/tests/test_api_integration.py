@@ -131,3 +131,29 @@ def test_full_tournament_lifecycle():
     auth_data = pin_auth_res.json()
     assert auth_data["authenticated"] == True
     assert auth_data["role"] == "table"
+
+
+def test_monitor_shows_match_score_of_running_match():
+    client = TestClient(app)
+    t_id = client.get("/api/tournaments/active").json()["id"]
+    for i in range(1, 3):
+        client.post(f"/api/tournaments/{t_id}/teams", headers=ADMIN, json={
+            "name": f"Team {i}", "player1_name": f"Spieler {i}A", "player2_name": f"Spieler {i}B"
+        })
+    match = client.post(f"/api/tournaments/{t_id}/rounds/next-swiss", headers=ADMIN).json()["team_matches"][0]
+    client.post(f"/api/matches/{match['id']}/lineup", json={
+        "team_a_p1_name": match["team_a"]["player1_name"],
+        "team_a_p2_name": match["team_a"]["player2_name"],
+        "team_b_p1_name": match["team_b"]["player1_name"],
+        "team_b_p2_name": match["team_b"]["player2_name"]
+    })
+    games = sorted(client.get(f"/api/matches/{match['id']}").json()["individual_games"], key=lambda g: g["game_order"])
+
+    # Team A wins Einzel 1
+    client.post(f"/api/matches/{match['id']}/games/{games[0]['id']}/quick-result", json={
+        "sets": [{"set_number": n, "score_a": 11, "score_b": 5} for n in (1, 2, 3)]
+    })
+
+    tables = client.get(f"/api/monitors/{t_id}/dashboard").json()["tables"]
+    table = next(t for t in tables if t["current_team_match_id"] == match["id"])
+    assert (table["match_score_a"], table["match_score_b"]) == (1, 0)
