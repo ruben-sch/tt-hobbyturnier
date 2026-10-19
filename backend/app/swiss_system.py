@@ -1,9 +1,9 @@
 import random
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, FrozenSet, Iterator, List, Optional, Set, Tuple
 
 from sqlalchemy.orm import Session
 
-from backend.app.models import IndividualGame, Round, Team, TeamMatch
+from backend.app.models import IndividualGame, Round, Team, TeamMatch, Tournament
 
 
 def calculate_standings(tournament_id: int, db: Session) -> List[Dict]:
@@ -130,28 +130,133 @@ def get_teams_with_bye(tournament_id: int, db: Session) -> Set[int]:
     return {m.team_a_id for m in bye_matches}
 
 
-def pair_teams_backtrack(
+# Stand-in opponent for the bye: with an odd team count, BYE joins the draw as
+# an extra team, so "every team gets at most one bye" is just another rematch
+# to avoid, and the look-ahead plans the byes along with the matches.
+BYE = -1
+
+# Upper bound on search steps per look-ahead depth. Only reached when the
+# history no longer fits a round robin (manual swaps, teams added or
+# deactivated mid-tournament); the search then retries with less look-ahead.
+LOOKAHEAD_BUDGET = 200_000
+
+
+class _BudgetExceeded(Exception):
+    pass
+
+
+def _pair_key(a: int, b: int) -> Tuple[int, int]:
+    return (min(a, b), max(a, b))
+
+
+def _ranked_pairings(
     team_ids: List[int],
     played_pairs: Set[Tuple[int, int]]
-) -> Optional[List[Tuple[int, int]]]:
+) -> Iterator[List[Tuple[int, int]]]:
     """
-    Backtracking pairing algorithm for Swiss system with strict rematch avoidance.
-    team_ids is sorted by rank.
+    Yields every rematch-free pairing of team_ids (sorted by rank), most
+    preferred first: the highest ranked team meets the next highest ranked
+    team it hasn't played yet.
     """
     if not team_ids:
-        return []
+        yield []
+        return
 
     first = team_ids[0]
     rest = team_ids[1:]
-
     for i, opponent in enumerate(rest):
-        pair = (min(first, opponent), max(first, opponent))
-        if pair not in played_pairs:
-            remaining = rest[:i] + rest[i+1:]
-            sub_solution = pair_teams_backtrack(remaining, played_pairs)
-            if sub_solution is not None:
-                return [(first, opponent)] + sub_solution
+        if _pair_key(first, opponent) not in played_pairs:
+            for sub in _ranked_pairings(rest[:i] + rest[i+1:], played_pairs):
+                yield [(first, opponent)] + sub
 
+
+def _round_candidates(
+    team_ids: List[int],
+    played_pairs: Set[Tuple[int, int]]
+) -> Iterator[List[Tuple[int, int]]]:
+    """Like _ranked_pairings, but the bye goes to the lowest ranked team possible."""
+    if BYE not in team_ids:
+        yield from _ranked_pairings(team_ids, played_pairs)
+        return
+
+    teams = [t for t in team_ids if t != BYE]
+    for bye_team in reversed(teams):
+        if _pair_key(bye_team, BYE) not in played_pairs:
+            rest = [t for t in teams if t != bye_team]
+            for sub in _ranked_pairings(rest, played_pairs):
+                yield sub + [(bye_team, BYE)]
+
+
+def _can_split_into_rounds(
+    open_pairs: FrozenSet[Tuple[int, int]],
+    rounds: int,
+    failed: Set[Tuple[FrozenSet[Tuple[int, int]], int]],
+    budget: List[int]
+) -> bool:
+    """True if `rounds` more complete, rematch-free rounds can be drawn from open_pairs."""
+    if rounds == 0:
+        return True
+    if (open_pairs, rounds) in failed:
+        return False
+
+    neighbours: Dict[int, Set[int]] = {}
+    for a, b in open_pairs:
+        neighbours.setdefault(a, set()).add(b)
+        neighbours.setdefault(b, set()).add(a)
+
+    def pair_up(unpaired: FrozenSet[int], chosen: List[Tuple[int, int]]) -> bool:
+        budget[0] -= 1
+        if budget[0] < 0:
+            raise _BudgetExceeded()
+        if not unpaired:
+            return _can_split_into_rounds(open_pairs.difference(chosen), rounds - 1, failed, budget)
+        # Most constrained team first keeps the search small
+        team = min(unpaired, key=lambda t: (len(neighbours[t] & unpaired), t))
+        for opponent in sorted(neighbours[team] & unpaired):
+            chosen.append(_pair_key(team, opponent))
+            if pair_up(unpaired - {team, opponent}, chosen):
+                return True
+            chosen.pop()
+        return False
+
+    # Every team needs an open opponent in each of the remaining rounds
+    if all(len(n) >= rounds for n in neighbours.values()) and pair_up(frozenset(neighbours), []):
+        return True
+    failed.add((open_pairs, rounds))
+    return False
+
+
+def pair_round_with_lookahead(
+    team_ids: List[int],
+    played_pairs: Set[Tuple[int, int]],
+    future_rounds: int
+) -> Optional[List[Tuple[int, int]]]:
+    """
+    Pairs team_ids (sorted by rank, even count, may contain BYE) without
+    rematches, such that `future_rounds` more rematch-free rounds remain
+    possible afterwards. Drawing each round greedily paints itself into a
+    corner: two rounds before the end of a round robin the open pairs form
+    cycles, and an odd cycle can't be paired.
+
+    Falls back to less look-ahead if the full one can't be met (or the search
+    runs out of budget); None means this round itself can't avoid a rematch.
+    """
+    open_pairs = frozenset(
+        _pair_key(a, b) for i, a in enumerate(team_ids) for b in team_ids[i+1:]
+    ) - played_pairs
+
+    for lookahead in range(future_rounds, -1, -1):
+        failed: Set[Tuple[FrozenSet[Tuple[int, int]], int]] = set()
+        budget = [LOOKAHEAD_BUDGET]
+        try:
+            for pairing in _round_candidates(team_ids, played_pairs):
+                rest = open_pairs.difference(_pair_key(a, b) for a, b in pairing)
+                if _can_split_into_rounds(rest, lookahead, failed, budget):
+                    return pairing
+        except _BudgetExceeded:
+            continue
+        if lookahead == 0:
+            break
     return None
 
 
@@ -163,50 +268,35 @@ def generate_swiss_round_pairings(tournament_id: int, db: Session) -> List[Tuple
     """
     standings = calculate_standings(tournament_id, db)
     played_pairs = get_played_pairings(tournament_id, db)
-    teams_with_bye = get_teams_with_bye(tournament_id, db)
+    played_pairs |= {_pair_key(t, BYE) for t in get_teams_with_bye(tournament_id, db)}
 
     ordered_team_ids = [s["team_id"] for s in standings]
 
-    # Handle odd number of teams
-    bye_pair = None
-    if len(ordered_team_ids) % 2 != 0:
-        # Give bye to lowest ranked team that hasn't had a bye yet
-        bye_candidate = None
-        for team_id in reversed(ordered_team_ids):
-            if team_id not in teams_with_bye:
-                bye_candidate = team_id
-                break
-        
-        # If all teams had a bye (rare in short tournaments), pick the lowest ranked
-        if bye_candidate is None:
-            bye_candidate = ordered_team_ids[-1]
-
-        ordered_team_ids.remove(bye_candidate)
-        bye_pair = (bye_candidate, None)
-
-    # First round: If round 1, shuffle or pair top half vs bottom half / adjacent
-    matches_count = db.query(TeamMatch).join(Round).filter(
-        Round.tournament_id == tournament_id
+    swiss_rounds_played = db.query(Round).filter(
+        Round.tournament_id == tournament_id,
+        Round.round_type == "swiss"
     ).count()
+    if swiss_rounds_played == 0:
+        # Round 1: random draw
+        random.shuffle(ordered_team_ids)
 
-    pairings = None
-    if matches_count == 0:
-        # Round 1: Randomize team seeds or pair top half vs bottom half
-        shuffled = list(ordered_team_ids)
-        random.shuffle(shuffled)
-        pairings = [(shuffled[i], shuffled[i+1]) for i in range(0, len(shuffled), 2)]
-    else:
-        # Standard Swiss pairing with backtracking
-        pairings = pair_teams_backtrack(ordered_team_ids, played_pairs)
-        
-        # Fallback if strict rematch avoidance is mathematically impossible
-        if pairings is None:
-            pairings = [(ordered_team_ids[i], ordered_team_ids[i+1]) for i in range(0, len(ordered_team_ids), 2)]
+    if len(ordered_team_ids) % 2 != 0:
+        ordered_team_ids.append(BYE)
 
-    if bye_pair:
-        pairings.append(bye_pair)
+    tournament = db.get(Tournament, tournament_id)
+    future_rounds = max(0, min(
+        tournament.swiss_rounds_count - swiss_rounds_played - 1,
+        # A round robin is over after (team count - 1) rounds, BYE included
+        len(ordered_team_ids) - 2 - swiss_rounds_played,
+    ))
 
-    return pairings
+    pairings = pair_round_with_lookahead(ordered_team_ids, played_pairs, future_rounds)
+
+    if pairings is None:
+        # A rematch is unavoidable (more rounds than opponents): pair neighbours
+        pairings = [(ordered_team_ids[i], ordered_team_ids[i+1]) for i in range(0, len(ordered_team_ids), 2)]
+
+    return [(b, None) if a == BYE else (a, None if b == BYE else b) for a, b in pairings]
 
 
 def setup_games_for_match(match: TeamMatch, db: Session):
