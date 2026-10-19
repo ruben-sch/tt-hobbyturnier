@@ -19,11 +19,6 @@ const activeTable = {
   active_game_desc: 'Einzel 2: Anna vs Ben',
   match_score_a: 1,
   match_score_b: 0,
-  current_point_a: 7,
-  current_point_b: 5,
-  sets_won_a: 1,
-  sets_won_b: 0,
-  set_scores_summary: '11:8',
 };
 
 const swissData = {
@@ -57,10 +52,9 @@ describe('HallenMonitor', () => {
     expect(screen.getByText(/Runde 2/)).toBeInTheDocument();
     expect(screen.getByText('1 aktive Paarungen')).toBeInTheDocument();
     expect(screen.getByText('Einzel 2: Anna vs Ben')).toBeInTheDocument();
-    expect(screen.getByText('7 : 5')).toBeInTheDocument();
-    expect(screen.getByText('(11:8)')).toBeInTheDocument();
-    expect(screen.getAllByText('Spiele:', { exact: false }).map((el) => el.querySelector('b').textContent))
-      .toEqual(['1', '0']);
+    // The match score is the live number; there are no set points any more
+    expect(screen.getByText('1 : 0')).toBeInTheDocument();
+    expect(screen.queryByText(/Satzstand/)).not.toBeInTheDocument();
     expect(screen.getByText('Aktuelle Tabelle')).toBeInTheDocument();
     expect(screen.getByText('-2')).toBeInTheDocument();
     expect(screen.getByText('R1:')).toBeInTheDocument();

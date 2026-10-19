@@ -28,7 +28,6 @@ class TournamentBase(BaseModel):
     ko_enabled: bool = False
     ko_teams_count: int = 4
     best_of_sets: int = 5
-    points_per_set: int = 11
     table_count: int = 8
     tables_per_match: int = 1
 
@@ -56,15 +55,6 @@ class TournamentResponse(TournamentBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-class SetScoreSchema(BaseModel):
-    set_number: int
-    score_a: int
-    score_b: int
-    is_completed: bool
-
-    model_config = ConfigDict(from_attributes=True)
-
-
 class IndividualGameResponse(BaseModel):
     id: int
     team_match_id: int
@@ -77,10 +67,6 @@ class IndividualGameResponse(BaseModel):
     sets_won_b: int
     is_completed: bool
     winner_team_side: Optional[str] = None
-    current_set_index: int
-    current_point_a: int
-    current_point_b: int
-    set_scores: List[SetScoreSchema] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -130,20 +116,10 @@ class LineupUpdate(BaseModel):
     team_b_p2_name: str
 
 
-class PointUpdate(BaseModel):
-    point_a: int
-    point_b: int
-    set_number: int
-
-
-class SetResultUpdate(BaseModel):
-    set_number: int
-    score_a: int
-    score_b: int
-
-
-class QuickGameResult(BaseModel):
-    sets: List[SetResultUpdate]  # e.g. [{"set_number": 1, "score_a": 11, "score_b": 9}, ...]
+class GameResultUpdate(BaseModel):
+    # Final set count of a single, e.g. 3:1. 0:0 resets the game.
+    sets_a: int
+    sets_b: int
 
 
 class StandingsRow(BaseModel):
@@ -162,9 +138,6 @@ class StandingsRow(BaseModel):
     sets_won: int
     sets_lost: int
     set_diff: int
-    balls_won: int
-    balls_lost: int
-    ball_diff: int
 
 
 class TableStatusResponse(BaseModel):
@@ -176,9 +149,4 @@ class TableStatusResponse(BaseModel):
     active_game_desc: Optional[str] = None
     match_score_a: int = 0
     match_score_b: int = 0
-    current_point_a: int = 0
-    current_point_b: int = 0
-    sets_won_a: int = 0
-    sets_won_b: int = 0
-    set_scores_summary: str = ""
     is_active: bool = False

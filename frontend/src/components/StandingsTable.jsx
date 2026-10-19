@@ -49,7 +49,7 @@ export default function StandingsTable({ tournament }) {
             <span>Tabelle (Schweizer System)</span>
           </h2>
           <p className="text-sm text-slate-400 mt-1">
-            Sortiert nach: 1. Spielpunkte, 2. Buchholz-Wertung, 3. Satzdifferenz, 4. Balldifferenz
+            Sortiert nach: 1. Spielpunkte, 2. Buchholz-Wertung, 3. Satzdifferenz
           </p>
         </div>
 
@@ -98,7 +98,6 @@ export default function StandingsTable({ tournament }) {
                 <th className="p-3.5 text-center text-emerald-400">Spielpunkte</th>
                 <th className="p-3.5 text-center text-amber-400">Buchholz</th>
                 <th className="p-3.5 text-center">Sätze</th>
-                <th className="p-3.5 text-center">Bälle</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700/60">
@@ -138,18 +137,12 @@ export default function StandingsTable({ tournament }) {
                       ({row.set_diff > 0 ? `+${row.set_diff}` : row.set_diff})
                     </span>
                   </td>
-                  <td className="p-3.5 text-center font-mono text-slate-400 text-xs">
-                    {row.balls_won} : {row.balls_lost}
-                    <span className="text-[10px] text-slate-500 ml-1">
-                      ({row.ball_diff > 0 ? `+${row.ball_diff}` : row.ball_diff})
-                    </span>
-                  </td>
                 </tr>
               ))}
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="p-8 text-center text-slate-500">
+                  <td colSpan={8} className="p-8 text-center text-slate-500">
                     {loading ? "Lade Tabelle..." : "Keine Einträge gefunden."}
                   </td>
                 </tr>

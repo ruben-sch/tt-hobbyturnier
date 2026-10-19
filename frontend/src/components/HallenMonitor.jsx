@@ -165,38 +165,17 @@ export default function HallenMonitor({ tournament }) {
                       </span>
                     </div>
 
-                    <div className="space-y-2 my-3">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-base text-white truncate max-w-[180px]">
-                          {t.team_a_name}
-                        </span>
-                        <span className="font-mono text-xs font-semibold text-slate-400">
-                          Spiele: <b className="text-white">{t.match_score_a}</b> · Sätze: <b className="text-white">{t.sets_won_a}</b>
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-base text-white truncate max-w-[180px]">
-                          {t.team_b_name}
-                        </span>
-                        <span className="font-mono text-xs font-semibold text-slate-400">
-                          Spiele: <b className="text-white">{t.match_score_b}</b> · Sätze: <b className="text-white">{t.sets_won_b}</b>
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Big Live Point Display */}
-                    <div className="bg-slate-950/80 rounded-xl p-3 border border-slate-800 flex items-center justify-between">
-                      <span className="text-xs text-slate-500 uppercase font-bold tracking-wider">
-                        Satzstand:
+                    {/* Teams with the big live match score in between */}
+                    <div className="flex items-center justify-between gap-3 my-3">
+                      <span className="flex-1 font-bold text-base text-white truncate">
+                        {t.team_a_name}
                       </span>
-                      <div className="font-mono text-3xl font-black text-emerald-400 tracking-wider">
-                        {t.current_point_a} : {t.current_point_b}
+                      <div className="bg-slate-950/80 rounded-xl px-3 py-1.5 border border-slate-800 font-mono text-3xl font-black text-emerald-400 tracking-wider whitespace-nowrap">
+                        {t.match_score_a} : {t.match_score_b}
                       </div>
-                      {t.set_scores_summary && (
-                        <span className="text-[11px] font-mono text-slate-400">
-                          ({t.set_scores_summary})
-                        </span>
-                      )}
+                      <span className="flex-1 font-bold text-base text-white truncate text-right">
+                        {t.team_b_name}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -313,31 +292,21 @@ export default function HallenMonitor({ tournament }) {
                     </span>
                   </div>
 
-                  <div className="space-y-3 my-4">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-lg text-white truncate max-w-[160px]">
-                        {t.team_a_name}
-                      </span>
-                      <span className="font-mono text-sm text-slate-400">
-                        Spiele: <b className="text-2xl text-white">{t.match_score_a}</b> · Sätze: <b className="text-slate-200">{t.sets_won_a}</b>
-                      </span>
+                  <div className="space-y-2 my-4">
+                    <div className="font-bold text-lg text-white truncate">
+                      {t.team_a_name}
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-lg text-white truncate max-w-[160px]">
-                        {t.team_b_name}
-                      </span>
-                      <span className="font-mono text-sm text-slate-400">
-                        Spiele: <b className="text-2xl text-white">{t.match_score_b}</b> · Sätze: <b className="text-slate-200">{t.sets_won_b}</b>
-                      </span>
+                    <div className="font-bold text-lg text-white truncate">
+                      {t.team_b_name}
                     </div>
                   </div>
 
                   <div className="bg-slate-950 rounded-xl p-4 border border-slate-800 text-center">
                     <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">
-                      Satzstand
+                      Spielstand
                     </span>
                     <div className="font-mono text-4xl font-black text-emerald-400">
-                      {t.current_point_a} : {t.current_point_b}
+                      {t.match_score_a} : {t.match_score_b}
                     </div>
                   </div>
                 </div>
@@ -364,7 +333,6 @@ export default function HallenMonitor({ tournament }) {
                     <th className="p-3.5 text-center">Spielpunkte</th>
                     <th className="p-3.5 text-center">Buchholz</th>
                     <th className="p-3.5 text-center">Sätze</th>
-                    <th className="p-3.5 text-center">Bälle</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
@@ -390,9 +358,6 @@ export default function HallenMonitor({ tournament }) {
                       </td>
                       <td className="p-3.5 text-center font-mono text-slate-300">
                         {row.sets_won}:{row.sets_lost} ({row.set_diff > 0 ? `+${row.set_diff}` : row.set_diff})
-                      </td>
-                      <td className="p-3.5 text-center font-mono text-slate-400 text-xs">
-                        {row.balls_won}:{row.balls_lost} ({row.ball_diff > 0 ? `+${row.ball_diff}` : row.ball_diff})
                       </td>
                     </tr>
                   ))}

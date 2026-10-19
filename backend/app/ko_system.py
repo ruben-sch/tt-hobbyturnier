@@ -82,7 +82,7 @@ def generate_ko_phase(tournament_id: int, team_count: int, db: Session) -> Round
         db.add(match)
         db.flush()
 
-        setup_games_for_match(match, tournament.best_of_sets, db)
+        setup_games_for_match(match, db)
 
     db.commit()
     db.refresh(ko_round)
@@ -173,7 +173,7 @@ def advance_ko_round(tournament_id: int, db: Session) -> Round:
         db.add(match)
         db.flush()
 
-        setup_games_for_match(match, tournament.best_of_sets, db)
+        setup_games_for_match(match, db)
 
     db.commit()
     db.refresh(new_round)

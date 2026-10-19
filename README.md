@@ -16,7 +16,7 @@ Eine webbasierte Software zur flexiblen Organisation und Durchführung von Tisch
     4. Direkt: Team A Pos. 2 vs. Team B Pos. 2
   - **Feste Aufstellung:** Spieler 1 und 2 sind fest beim Team hinterlegt – kein zeitaufwändiges Erfassen der Aufstellung vor jedem Spiel.
   - **Wertung:** Direkte Zählung gewonnener Einzelspiele (z. B. 4:0, 3:1, 2:2). Unentschieden möglich.
-  - **Tie-Breaker:** 1. Gewonnene Spielpunkte, 2. Buchholz-Wertung (Gegnerstärke), 3. Satzdifferenz, 4. Balldifferenz.
+  - **Tie-Breaker:** 1. Gewonnene Spielpunkte, 2. Buchholz-Wertung (Gegnerstärke), 3. Satzdifferenz.
   - **Rematches ausgeschlossen:** Ein Team spielt in der Vorrunde nie zweimal gegen denselben Gegner.
   - **Freilos (BYE):** Automatisches Freilos bei ungerader Teamanzahl mit Punktgutschrift.
   - **Variable Rundenanzahl:** Runden können spontan während des Turniers angepasst oder beendet werden.
@@ -28,9 +28,9 @@ Eine webbasierte Software zur flexiblen Organisation und Durchführung von Tisch
 
 ### 3. Smarte Ergebniserfassung
 - **Authentifizierung ohne Account:** Jede Begegnung kann einfach per 4-stelliger PIN (oder QR-Code) aufgerufen und erfasst werden.
-- **Intelligente Schnelleingabe:**
-  - Direkte Erfassung der Sätze (z. B. Best of 3 / Best of 5).
-  - **Auto-Vervollständigung der Satzpunkte:** Wird eine Zahl `< 10` eingegeben, wird der Gewinner automatisch mit `11` befüllt. Bei Eingaben `>= 10` (z. B. Verlängerung `12`) wird automatisch `Zahl + 2` ergänzt.
+- **Eingabe per Tipp:**
+  - Pro Einzel wird nur der Endstand in Sätzen erfasst – ein Tipp auf z. B. `3:1` oder `2:3` speichert das Ergebnis. Angeboten werden nur Ergebnisse, die im eingestellten Satzmodus (Best of 3 / Best of 5) möglich sind.
+  - Falsch getippt? Einfach das richtige Ergebnis antippen oder das Einzel zurücksetzen.
   - Manuelle Hallen-Tischverwaltung: Tische werden flexibel vor Ort in der Halle belegt.
 
 ### 4. Hallen-Monitor & Großanzeige (Beamer / TV)
@@ -98,7 +98,7 @@ Getestet werden:
 ## 📱 Navigation der Software
 
 - 📊 **Hallen-Monitor (`/`):** Für Beamer / Fernseher in der Halle (mit Vollbildmodus und Live-Ticker).
-- 🏓 **Ergebniserfassung:** Für Tablets/Smartphones zur schnellen Satz- und Matcherfassung.
+- 🏓 **Ergebniserfassung:** Für Tablets/Smartphones zur schnellen Ergebniserfassung.
 - 📈 **Tabelle:** Vollständige Schweizer Rangliste mit Buchholz-Feinwertung und CSV-Download.
 - 🏆 **KO-Baum:** Visualisierung der Halbfinals und Finals mit Siegerweiterleitung.
 - ⚙️ **Turnierleitung:** Anlegen von Teams, CSV-Import, Runden-Auslosung, PIN-Übersicht und Einstellungen.

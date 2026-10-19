@@ -38,6 +38,7 @@ def test_semifinal_to_final_with_deciding_doubles(client, t_id, add_teams, play)
 
     sf2_done = play(sf2["id"], "B")
     assert sf2_done["is_completed"] is True
+
     assert (sf2_done["score_a"], sf2_done["score_b"]) == (2, 3)
     assert sf2_done["winner_team_id"] == seeds[2]
 
@@ -82,3 +83,23 @@ def test_advance_without_ko_round(client, t_id):
     res = client.post(f"/api/tournaments/{t_id}/rounds/advance-ko")
     assert res.status_code == 400
     assert "Keine vorherige KO-Runde" in res.json()["detail"]
+
+
+def test_correcting_a_single_away_from_2_2_drops_the_deciding_doubles(client, t_id, add_teams, play):
+    add_teams(t_id, 4)
+    _, semis = start_ko(client, t_id, 4)
+    sf = by_slot(semis)[0]
+
+    tied = play(sf["id"], "ABAB")
+    assert len(tied["individual_games"]) == 5
+    play(sf["id"], "B")
+
+    # Game 2 was actually won by A: 3:1 after the singles, doubles no longer counts
+    game2 = next(g for g in tied["individual_games"] if g["game_order"] == 2)
+    res = client.post(f"/api/matches/{sf['id']}/games/{game2['id']}/result", json={"sets_a": 3, "sets_b": 2})
+    assert res.status_code == 200
+
+    m = client.get(f"/api/matches/{sf['id']}").json()
+    assert len(m["individual_games"]) == 4
+    assert (m["score_a"], m["score_b"], m["is_completed"]) == (3, 1, True)
+    assert m["winner_team_id"] == sf["team_a_id"]

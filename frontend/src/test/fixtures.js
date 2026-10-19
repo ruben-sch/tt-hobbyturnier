@@ -14,8 +14,5 @@ export const standingsRow = (rank, name, extra = {}) => ({
   sets_won: 15,
   sets_lost: 10,
   set_diff: 5,
-  balls_won: 200,
-  balls_lost: 180,
-  ball_diff: 20,
   ...extra,
 });

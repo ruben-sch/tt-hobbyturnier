@@ -158,23 +158,17 @@ export async function setLineup(matchId, lineupData) {
   return res.json();
 }
 
-export async function updatePoint(matchId, gameId, pointData) {
-  const res = await fetch(`${API_BASE}/matches/${matchId}/games/${gameId}/point`, {
+// Final set count of a single, e.g. 3:1. 0:0 resets the game.
+export async function submitGameResult(matchId, gameId, setsA, setsB) {
+  const res = await fetch(`${API_BASE}/matches/${matchId}/games/${gameId}/result`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(pointData),
+    body: JSON.stringify({ sets_a: setsA, sets_b: setsB }),
   });
-  if (!res.ok) throw new Error("Fehler beim Aktualisieren des Punktestands");
-  return res.json();
-}
-
-export async function submitQuickResult(matchId, gameId, sets) {
-  const res = await fetch(`${API_BASE}/matches/${matchId}/games/${gameId}/quick-result`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sets }),
-  });
-  if (!res.ok) throw new Error("Fehler beim Speichern des Schnellergebnisses");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Fehler beim Speichern des Ergebnisses");
+  }
   return res.json();
 }
 

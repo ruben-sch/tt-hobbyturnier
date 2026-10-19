@@ -12,79 +12,60 @@ def first_game(match):
     return next(g for g in match["individual_games"] if g["game_order"] == 1)
 
 
-def point(client, match, game, set_number, a, b):
-    res = client.post(f"/api/matches/{match['id']}/games/{game['id']}/point",
-                      json={"set_number": set_number, "point_a": a, "point_b": b})
-    assert res.status_code == 200
-    return res.json()
+def result(client, match, game, a, b):
+    return client.post(f"/api/matches/{match['id']}/games/{game['id']}/result", json={"sets_a": a, "sets_b": b})
 
 
-def test_point_by_point_scoring(client, match):
+def test_result_records_the_set_count(client, match):
     game = first_game(match)
 
-    g = point(client, match, game, 1, 5, 3)
-    assert (g["current_point_a"], g["current_point_b"], g["sets_won_a"]) == (5, 3, 0)
+    res = result(client, match, game, 3, 1)
+    assert res.status_code == 200
+    g = res.json()
+    assert (g["sets_won_a"], g["sets_won_b"], g["is_completed"], g["winner_team_side"]) == (3, 1, True, "A")
 
-    # Deuce: 11:10 does not win the set
-    g = point(client, match, game, 1, 11, 10)
-    assert g["sets_won_a"] == 0
-    assert g["current_set_index"] == 1
-
-    # Two points ahead wins the set and resets the points for the next set
-    g = point(client, match, game, 1, 12, 10)
-    assert (g["sets_won_a"], g["current_set_index"]) == (1, 2)
-    assert (g["current_point_a"], g["current_point_b"]) == (0, 0)
-    set1 = next(s for s in g["set_scores"] if s["set_number"] == 1)
-    assert (set1["score_a"], set1["score_b"], set1["is_completed"]) == (12, 10, True)
-
-    # Negative input is clamped
-    g = point(client, match, game, 2, -3, 4)
-    assert (g["current_point_a"], g["current_point_b"]) == (0, 4)
-
-    point(client, match, game, 2, 3, 11)
-    point(client, match, game, 3, 11, 2)
-    g = point(client, match, game, 4, 11, 8)
-    assert g["is_completed"] is True
-    assert g["winner_team_side"] == "A"
-    assert (g["sets_won_a"], g["sets_won_b"]) == (3, 1)
+    g = result(client, match, game, 2, 3).json()
+    assert (g["sets_won_a"], g["sets_won_b"], g["winner_team_side"]) == (2, 3, "B")
 
     m = client.get(f"/api/matches/{match['id']}").json()
-    assert (m["score_a"], m["score_b"], m["is_completed"]) == (1, 0, False)
+    assert (m["score_a"], m["score_b"], m["is_completed"]) == (0, 1, False)
 
 
-def test_point_and_result_unknown_ids(client, match):
+@pytest.mark.parametrize("a,b", [(3, 3), (4, 0), (2, 1), (1, 0), (-1, 3), (3, -1)])
+def test_result_rejects_impossible_counts_in_best_of_5(client, match, a, b):
+    res = result(client, match, first_game(match), a, b)
+    assert res.status_code == 400
+    assert "3 Gewinnsätze" in res.json()["detail"]
+
+
+def test_result_follows_best_of_3(client, t_id, match):
+    client.put(f"/api/tournaments/{t_id}", json={"best_of_sets": 3})
     game = first_game(match)
-    body = {"set_number": 1, "point_a": 1, "point_b": 0}
-    assert client.post(f"/api/matches/9999/games/{game['id']}/point", json=body).status_code == 404
-    assert client.post(f"/api/matches/{match['id']}/games/9999/point", json=body).status_code == 404
+    assert result(client, match, game, 2, 1).status_code == 200
+    assert result(client, match, game, 3, 0).status_code == 400
 
-    sets = {"sets": [{"set_number": 1, "score_a": 11, "score_b": 3}]}
-    assert client.post(f"/api/matches/9999/games/{game['id']}/quick-result", json=sets).status_code == 404
-    assert client.post(f"/api/matches/{match['id']}/games/9999/quick-result", json=sets).status_code == 404
+
+def test_result_unknown_ids(client, match):
+    game = first_game(match)
+    body = {"sets_a": 3, "sets_b": 0}
+    assert client.post(f"/api/matches/9999/games/{game['id']}/result", json=body).status_code == 404
+    assert client.post(f"/api/matches/{match['id']}/games/9999/result", json=body).status_code == 404
 
     assert client.get("/api/matches/9999").status_code == 404
     lineup = {"team_a_p1_name": "a", "team_a_p2_name": "b", "team_b_p1_name": "c", "team_b_p2_name": "d"}
     assert client.post("/api/matches/9999/lineup", json=lineup).status_code == 404
 
 
-def test_quick_result_can_be_corrected_to_unfinished(client, match):
-    game = first_game(match)
-    url = f"/api/matches/{match['id']}/games/{game['id']}/quick-result"
-
-    done = client.post(url, json={"sets": [
-        {"set_number": n, "score_a": 11, "score_b": 9} for n in (1, 2, 3)
-    ]}).json()
+def test_zero_zero_resets_a_game_and_reopens_the_match(client, match, play):
+    done = play(match["id"], "AAAB")
     assert done["is_completed"] is True
 
-    partial = client.post(url, json={"sets": [
-        {"set_number": 1, "score_a": 11, "score_b": 9},
-        {"set_number": 2, "score_a": 8, "score_b": 11},
-    ]}).json()
-    assert partial["is_completed"] is False
-    assert partial["winner_team_side"] is None
-    assert (partial["sets_won_a"], partial["sets_won_b"]) == (1, 1)
-    # Old set scores are replaced, not appended
-    assert len(partial["set_scores"]) == 2
+    game = first_game(done)
+    g = result(client, match, game, 0, 0).json()
+    assert (g["sets_won_a"], g["sets_won_b"], g["is_completed"], g["winner_team_side"]) == (0, 0, False, None)
+
+    m = client.get(f"/api/matches/{match['id']}").json()
+    assert (m["score_a"], m["score_b"], m["is_completed"], m["winner_team_id"]) == (2, 1, False, None)
 
 
 def test_lineup_sets_player_names_per_game(client, match):

@@ -112,7 +112,7 @@ async def create_next_swiss_round(tournament_id: int, db: Session = Depends(get_
         db.flush()
 
         if not is_bye:
-            setup_games_for_match(match, tournament.best_of_sets, db)
+            setup_games_for_match(match, db)
 
     db.commit()
     db.refresh(new_round)
@@ -179,13 +179,12 @@ async def swap_pairings(round_id: int, payload: SwapPairingsRequest, db: Session
     m2.team_b_p2_name = t_b2.player2_name if t_b2 else None
 
     # Re-setup games
-    tournament = m1.round.tournament
     for m in [m1, m2]:
         for g in m.individual_games:
             db.delete(g)
         db.flush()
         if m.team_b_id is not None:
-            setup_games_for_match(m, tournament.best_of_sets, db)
+            setup_games_for_match(m, db)
 
     db.commit()
     await ws_manager.broadcast({"type": "ROUND_UPDATED", "round_id": round_id})

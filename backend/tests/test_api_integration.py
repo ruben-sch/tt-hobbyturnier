@@ -58,16 +58,10 @@ def test_full_tournament_lifecycle():
     assert lineup_res.status_code == 200
     assert lineup_res.json()["lineup_confirmed"] == True
 
-    # 5. Enter quick scores for match 1 (all 4 games won by Team A: 4:0)
+    # 5. Enter results for match 1 (all 4 games won by Team A: 4:0)
     m1_updated = client.get(f"/api/matches/{match1['id']}").json()
     for g in m1_updated["individual_games"]:
-        g_res = client.post(f"/api/matches/{match1['id']}/games/{g['id']}/quick-result", json={
-            "sets": [
-                {"set_number": 1, "score_a": 11, "score_b": 7},
-                {"set_number": 2, "score_a": 11, "score_b": 5},
-                {"set_number": 3, "score_a": 11, "score_b": 8}
-            ]
-        })
+        g_res = client.post(f"/api/matches/{match1['id']}/games/{g['id']}/result", json={"sets_a": 3, "sets_b": 0})
         assert g_res.status_code == 200
         assert g_res.json()["is_completed"] == True
 
@@ -77,18 +71,11 @@ def test_full_tournament_lifecycle():
     assert m1_final["score_b"] == 0
     assert m1_final["is_completed"] == True
 
-    # 6. Enter quick scores for match 2 (won 3:1)
+    # 6. Enter results for match 2 (won 3:1)
     m2_updated = client.get(f"/api/matches/{match2['id']}").json()
     for idx, g in enumerate(m2_updated["individual_games"]):
-        score_a = 11 if idx < 3 else 5
-        score_b = 6 if idx < 3 else 11
-        client.post(f"/api/matches/{match2['id']}/games/{g['id']}/quick-result", json={
-            "sets": [
-                {"set_number": 1, "score_a": score_a, "score_b": score_b},
-                {"set_number": 2, "score_a": score_a, "score_b": score_b},
-                {"set_number": 3, "score_a": score_a, "score_b": score_b}
-            ]
-        })
+        sets = {"sets_a": 3, "sets_b": 1} if idx < 3 else {"sets_a": 1, "sets_b": 3}
+        client.post(f"/api/matches/{match2['id']}/games/{g['id']}/result", json=sets)
 
     m2_final = client.get(f"/api/matches/{match2['id']}").json()
     assert m2_final["is_completed"] == True
@@ -150,9 +137,7 @@ def test_monitor_shows_match_score_of_running_match():
     games = sorted(client.get(f"/api/matches/{match['id']}").json()["individual_games"], key=lambda g: g["game_order"])
 
     # Team A wins Einzel 1
-    client.post(f"/api/matches/{match['id']}/games/{games[0]['id']}/quick-result", json={
-        "sets": [{"set_number": n, "score_a": 11, "score_b": 5} for n in (1, 2, 3)]
-    })
+    client.post(f"/api/matches/{match['id']}/games/{games[0]['id']}/result", json={"sets_a": 3, "sets_b": 0})
 
     tables = client.get(f"/api/monitors/{t_id}/dashboard").json()["tables"]
     table = next(t for t in tables if t["current_team_match_id"] == match["id"])

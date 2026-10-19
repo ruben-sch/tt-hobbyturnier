@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from sqlalchemy.orm import Session
 
-from backend.app.models import IndividualGame, Round, SetScore, Team, TeamMatch
+from backend.app.models import IndividualGame, Round, Team, TeamMatch
 
 
 def calculate_standings(tournament_id: int, db: Session) -> List[Dict]:
@@ -34,9 +34,6 @@ def calculate_standings(tournament_id: int, db: Session) -> List[Dict]:
             "sets_won": 0,
             "sets_lost": 0,
             "set_diff": 0,
-            "balls_won": 0,
-            "balls_lost": 0,
-            "ball_diff": 0,
         }
         opponents_map[t.id] = []
 
@@ -60,8 +57,6 @@ def calculate_standings(tournament_id: int, db: Session) -> List[Dict]:
                 stats[a_id]["game_points_lost"] += m.score_b
                 stats[a_id]["sets_won"] += 12
                 stats[a_id]["sets_lost"] += 0
-                stats[a_id]["balls_won"] += 132
-                stats[a_id]["balls_lost"] += 0
             continue
 
         if a_id in stats and b_id in stats:
@@ -85,34 +80,26 @@ def calculate_standings(tournament_id: int, db: Session) -> List[Dict]:
                 stats[a_id]["drawn_matches"] += 1
                 stats[b_id]["drawn_matches"] += 1
 
-            # Accumulate sets and ball scores from individual games
+            # Accumulate sets from individual games
             for g in m.individual_games:
                 stats[a_id]["sets_won"] += g.sets_won_a
                 stats[a_id]["sets_lost"] += g.sets_won_b
                 stats[b_id]["sets_won"] += g.sets_won_b
                 stats[b_id]["sets_lost"] += g.sets_won_a
 
-                for s in g.set_scores:
-                    stats[a_id]["balls_won"] += s.score_a
-                    stats[a_id]["balls_lost"] += s.score_b
-                    stats[b_id]["balls_won"] += s.score_b
-                    stats[b_id]["balls_lost"] += s.score_a
-
     # Calculate Buchholz score (sum of game_points of all opponents played)
     for team_id, opp_list in opponents_map.items():
         buchholz_sum = sum(stats[opp_id]["game_points"] for opp_id in opp_list if opp_id in stats)
         stats[team_id]["buchholz"] = float(buchholz_sum)
         stats[team_id]["set_diff"] = stats[team_id]["sets_won"] - stats[team_id]["sets_lost"]
-        stats[team_id]["ball_diff"] = stats[team_id]["balls_won"] - stats[team_id]["balls_lost"]
 
     # Sort standings:
     # 1. game_points (descending)
     # 2. buchholz (descending)
     # 3. set_diff (descending)
-    # 4. ball_diff (descending)
     sorted_teams = sorted(
         stats.values(),
-        key=lambda x: (x["game_points"], x["buchholz"], x["set_diff"], x["ball_diff"]),
+        key=lambda x: (x["game_points"], x["buchholz"], x["set_diff"]),
         reverse=True
     )
 
@@ -222,7 +209,7 @@ def generate_swiss_round_pairings(tournament_id: int, db: Session) -> List[Tuple
     return pairings
 
 
-def setup_games_for_match(match: TeamMatch, best_of_sets: int, db: Session):
+def setup_games_for_match(match: TeamMatch, db: Session):
     """
     Creates the 4 standard individual games for a 2-player team match.
     Game 1: A1 vs B2 (Over-cross)
@@ -250,26 +237,11 @@ def setup_games_for_match(match: TeamMatch, best_of_sets: int, db: Session):
             player_a_name=p_a,
             player_b_name=p_b,
             table_number=tbl,
-            current_set_index=1,
-            current_point_a=0,
-            current_point_b=0,
         )
         db.add(game)
-        db.flush()
-
-        # Initialize SetScores
-        for s_idx in range(1, best_of_sets + 1):
-            s = SetScore(
-                individual_game_id=game.id,
-                set_number=s_idx,
-                score_a=0,
-                score_b=0,
-                is_completed=False
-            )
-            db.add(s)
 
 
-def add_deciding_doubles_game(match: TeamMatch, best_of_sets: int, db: Session):
+def add_deciding_doubles_game(match: TeamMatch, db: Session):
     """
     Creates the 5th game (Entscheidungsdoppel) for KO matches tied at 2:2.
     """
@@ -290,21 +262,7 @@ def add_deciding_doubles_game(match: TeamMatch, best_of_sets: int, db: Session):
         player_a_name=p_a,
         player_b_name=p_b,
         table_number=match.table_number,
-        current_set_index=1,
-        current_point_a=0,
-        current_point_b=0,
     )
     db.add(game)
     db.flush()
-
-    for s_idx in range(1, best_of_sets + 1):
-        s = SetScore(
-            individual_game_id=game.id,
-            set_number=s_idx,
-            score_a=0,
-            score_b=0,
-            is_completed=False
-        )
-        db.add(s)
-
     return game

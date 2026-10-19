@@ -64,18 +64,12 @@ def test_table_status_shows_running_game(client, t_id, add_teams):
     add_teams(t_id, 2)
     match = client.post(f"/api/tournaments/{t_id}/rounds/next-swiss").json()["team_matches"][0]
     game = next(g for g in match["individual_games"] if g["game_order"] == 1)
-    client.post(f"/api/matches/{match['id']}/games/{game['id']}/point",
-                json={"set_number": 1, "point_a": 11, "point_b": 4})
-    client.post(f"/api/matches/{match['id']}/games/{game['id']}/point",
-                json={"set_number": 2, "point_a": 3, "point_b": 2})
 
     tables = client.get(f"/api/tables/status/{t_id}").json()
     busy = next(t for t in tables if t["table_number"] == match["table_number"])
     assert busy["is_active"] is True
     assert busy["current_team_match_id"] == match["id"]
     assert busy["active_game_desc"] == f"Einzel 1: {game['player_a_name']} vs {game['player_b_name']}"
-    assert (busy["current_point_a"], busy["current_point_b"], busy["sets_won_a"]) == (3, 2, 1)
-    assert busy["set_scores_summary"] == "11:4"
     assert sum(t["is_active"] for t in tables) == 1
 
 

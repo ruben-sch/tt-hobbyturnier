@@ -135,6 +135,6 @@ def test_ko_phase_and_deciding_doubles(db_session):
     assert match1.individual_games[3].game_order == 4
 
     # Test Deciding Doubles on 2:2
-    doubles_game = add_deciding_doubles_game(match1, 5, db_session)
+    doubles_game = add_deciding_doubles_game(match1, db_session)
     assert doubles_game.game_order == 5
     assert doubles_game.is_doubles == True

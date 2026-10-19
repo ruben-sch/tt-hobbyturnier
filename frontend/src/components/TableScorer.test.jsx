@@ -10,10 +10,10 @@ vi.mock('../services/api', () => ({
   authenticatePin: vi.fn(),
   fetchMatch: vi.fn(),
   setLineup: vi.fn(),
-  submitQuickResult: vi.fn(),
+  submitGameResult: vi.fn(),
 }));
 
-const tournament = { id: 1, name: 'Testturnier' };
+const tournament = { id: 1, name: 'Testturnier', best_of_sets: 5 };
 
 const game = (id, order, extra = {}) => ({
   id,
@@ -21,7 +21,8 @@ const game = (id, order, extra = {}) => ({
   player_a_name: `A${order}`,
   player_b_name: `B${order}`,
   is_completed: false,
-  set_scores: [],
+  sets_won_a: 0,
+  sets_won_b: 0,
   ...extra,
 });
 
@@ -40,7 +41,7 @@ describe('TableScorer', () => {
     vi.resetAllMocks();
     api.fetchTablesStatus.mockResolvedValue([]);
     api.fetchMatch.mockResolvedValue(match);
-    api.submitQuickResult.mockResolvedValue({});
+    api.submitGameResult.mockResolvedValue({});
   });
 
   it('shows an error for a wrong PIN', async () => {
@@ -55,7 +56,7 @@ describe('TableScorer', () => {
     expect(api.authenticatePin).toHaveBeenCalledWith(1, '0000');
   });
 
-  it('opens the match via PIN, auto-fills set scores and submits them', async () => {
+  it('opens the match via PIN and saves the tapped set count', async () => {
     api.authenticatePin.mockResolvedValue({ authenticated: true, match_id: 42, table_number: null });
     const user = userEvent.setup();
     render(<TableScorer tournament={tournament} />);
@@ -64,27 +65,35 @@ describe('TableScorer', () => {
     await user.click(screen.getByRole('button', { name: 'Start' }));
 
     expect(await screen.findByText(/Ergebnis eintragen \(A1 vs\. B1\)/)).toBeInTheDocument();
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
 
-    const set1 = within(screen.getByText('Satz 1').parentElement).getAllByRole('spinbutton');
-    const set2 = within(screen.getByText('Satz 2').parentElement).getAllByRole('spinbutton');
-
-    // Loser of set 1 is B with 7 points -> A gets 11
-    await user.type(set1[1], '7');
-    expect(set1[0]).toHaveValue(11);
-
-    // Deuce in set 2: A loses with 12 -> B gets 14
-    await user.type(set2[0], '12');
-    expect(set2[1]).toHaveValue(14);
-
-    await user.click(screen.getByRole('button', { name: 'Ergebnis speichern' }));
-
-    expect(api.submitQuickResult).toHaveBeenCalledWith(42, 101, [
-      { set_number: 1, score_a: 11, score_b: 7 },
-      { set_number: 2, score_a: 12, score_b: 14 },
-    ]);
+    await user.click(screen.getByRole('button', { name: '3:1' }));
+    expect(api.submitGameResult).toHaveBeenCalledWith(42, 101, 3, 1);
   });
 
-  it('refreshes the open match on updates from other devices and keeps typed-in sets', async () => {
+  it('offers exactly the possible results for best of 5 and best of 3', async () => {
+    api.authenticatePin.mockResolvedValue({ authenticated: true, match_id: 42, table_number: null });
+    const user = userEvent.setup();
+    const { unmount } = render(<TableScorer tournament={tournament} />);
+    await user.type(screen.getByPlaceholderText('z.B. Match-PIN'), '1234');
+    await user.click(screen.getByRole('button', { name: 'Start' }));
+    await screen.findByText(/Ergebnis eintragen/);
+
+    const labels = () => screen.getAllByRole('button', { name: /^\d:\d$/ }).map(b => b.textContent);
+    expect(within(screen.getByText('Sieg A1').parentElement).getAllByRole('button').map(b => b.textContent))
+      .toEqual(['3:0', '3:1', '3:2']);
+    expect(within(screen.getByText('Sieg B1').parentElement).getAllByRole('button').map(b => b.textContent))
+      .toEqual(['0:3', '1:3', '2:3']);
+    unmount();
+
+    render(<TableScorer tournament={{ ...tournament, best_of_sets: 3 }} />);
+    await user.type(screen.getByPlaceholderText('z.B. Match-PIN'), '1234');
+    await user.click(screen.getByRole('button', { name: 'Start' }));
+    await screen.findByText(/Ergebnis eintragen/);
+    expect(labels()).toEqual(['2:0', '2:1', '0:2', '1:2']);
+  });
+
+  it('refreshes the open match on updates from other devices', async () => {
     api.authenticatePin.mockResolvedValue({ authenticated: true, match_id: 42, table_number: null });
     const events = createLiveEvents();
     const user = userEvent.setup();
@@ -98,14 +107,11 @@ describe('TableScorer', () => {
     await user.click(screen.getByRole('button', { name: 'Start' }));
     await screen.findByText(/Ergebnis eintragen/);
 
-    const set1 = within(screen.getByText('Satz 1').parentElement).getAllByRole('spinbutton');
-    await user.type(set1[1], '7');
-
-    // Another table enters a result for game 2 of the same match
+    // Another device enters a result for game 2 of the same match
     api.fetchMatch.mockResolvedValue({
       ...match,
       score_b: 1,
-      individual_games: [game(101, 1), game(102, 2, { is_completed: true })],
+      individual_games: [game(101, 1), game(102, 2, { is_completed: true, sets_won_b: 3, winner_team_side: 'B' })],
     });
     const fetchesBefore = api.fetchMatch.mock.calls.length;
     await act(async () => {
@@ -114,8 +120,8 @@ describe('TableScorer', () => {
 
     expect(api.fetchMatch.mock.calls.length).toBe(fetchesBefore + 1);
     expect(await screen.findByText('0 : 1')).toBeInTheDocument();
-    expect(set1[1]).toHaveValue(7);
-    expect(set1[0]).toHaveValue(11);
+    // The selected game stays where the user was
+    expect(screen.getByText('Ergebnis eintragen (A1 vs. B1)')).toBeInTheDocument();
 
     // Events for other matches don't refetch this one
     await act(async () => {
@@ -128,7 +134,7 @@ describe('TableScorer', () => {
     api.fetchTablesStatus.mockResolvedValue([
       { table_number: 1, pin_code: '1001', is_active: true, current_team_match_id: 42,
         team_a_name: 'Team Alpha', team_b_name: 'Team Beta', active_game_desc: 'Einzel 1: A1 vs B2',
-        current_point_a: 4, current_point_b: 2 },
+        match_score_a: 2, match_score_b: 1 },
       { table_number: 2, pin_code: '1002', is_active: false, current_team_match_id: null },
     ]);
     const user = userEvent.setup();
@@ -136,7 +142,7 @@ describe('TableScorer', () => {
 
     expect(await screen.findByText('2 Begegnungen')).toBeInTheDocument();
     expect(screen.getByText('Einzel 1: A1 vs B2')).toBeInTheDocument();
-    expect(screen.getByText('4 : 2')).toBeInTheDocument();
+    expect(screen.getByText('2 : 1')).toBeInTheDocument();
 
     await user.click(screen.getByText('Aktuell kein Spiel zugewiesen'));
     expect(api.fetchMatch).not.toHaveBeenCalled();
@@ -225,8 +231,7 @@ describe('TableScorer', () => {
       ...match,
       score_a: 1,
       individual_games: [
-        game(101, 1, { is_completed: true, winner_team_side: 'A', sets_won_a: 3, sets_won_b: 0,
-          set_scores: [{ set_number: 1, score_a: 11, score_b: 4 }, { set_number: 6, score_a: 1, score_b: 0 }] }),
+        game(101, 1, { is_completed: true, winner_team_side: 'A', sets_won_a: 3, sets_won_b: 1 }),
         game(102, 2),
         game(105, 5, { is_doubles: true }),
       ],
@@ -241,39 +246,27 @@ describe('TableScorer', () => {
       await screen.findByText(/Ergebnis eintragen/);
     }
 
-    it('starts at the first open game and shows finished games with their sets', async () => {
+    it('starts at the first open game and marks the result of finished games', async () => {
       const user = userEvent.setup();
       await openScorer(user);
 
       expect(screen.getByText('Ergebnis eintragen (A2 vs. B2)')).toBeInTheDocument();
       expect(screen.getByText('5. Doppel')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Ergebnis zurücksetzen' })).not.toBeInTheDocument();
 
       await user.click(screen.getByRole('button', { name: /1\. Einzel/ }));
       expect(screen.getByText('Spiel beendet! Sieger: A1')).toBeInTheDocument();
-      const set1 = within(screen.getByText('Satz 1').parentElement).getAllByRole('spinbutton');
-      expect(set1[0]).toHaveValue(11);
-      expect(set1[1]).toHaveValue(4);
-    });
-
-    it('needs at least one set', async () => {
-      const alert = vi.spyOn(window, 'alert').mockImplementation(() => {});
-      const user = userEvent.setup();
-      await openScorer(user);
-
-      await user.click(screen.getByRole('button', { name: 'Ergebnis speichern' }));
-      expect(alert).toHaveBeenCalledWith('Bitte mindestens einen Satz eingeben.');
-      expect(api.submitQuickResult).not.toHaveBeenCalled();
+      expect(screen.getByRole('button', { name: '3:1' })).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByRole('button', { name: '3:0' })).toHaveAttribute('aria-pressed', 'false');
     });
 
     it('moves on to the next game after saving', async () => {
       const user = userEvent.setup();
       await openScorer(user);
 
-      const set1 = within(screen.getByText('Satz 1').parentElement).getAllByRole('spinbutton');
-      await user.type(set1[1], '5');
-      await user.click(screen.getByRole('button', { name: 'Ergebnis speichern' }));
+      await user.click(screen.getByRole('button', { name: '0:3' }));
 
-      expect(api.submitQuickResult).toHaveBeenCalledWith(42, 102, [{ set_number: 1, score_a: 11, score_b: 5 }]);
+      expect(api.submitGameResult).toHaveBeenCalledWith(42, 102, 0, 3);
       expect(await screen.findByText('Ergebnis eintragen (A5 vs. B5)')).toBeInTheDocument();
     });
 
@@ -282,24 +275,31 @@ describe('TableScorer', () => {
       await openScorer(user);
       await user.click(screen.getByRole('button', { name: /5\. Doppel/ }));
 
-      const set1 = within(screen.getByText('Satz 1').parentElement).getAllByRole('spinbutton');
-      await user.type(set1[0], '9');
-      await user.click(screen.getByRole('button', { name: 'Ergebnis speichern' }));
+      await user.click(screen.getByRole('button', { name: '2:3' }));
 
-      expect(api.submitQuickResult).toHaveBeenCalledWith(42, 105, [{ set_number: 1, score_a: 9, score_b: 11 }]);
+      expect(api.submitGameResult).toHaveBeenCalledWith(42, 105, 2, 3);
       expect(await screen.findByText('Ergebnis eintragen (A2 vs. B2)')).toBeInTheDocument();
     });
 
+    it('resets a finished game and stays on it', async () => {
+      const user = userEvent.setup();
+      await openScorer(user);
+      await user.click(screen.getByRole('button', { name: /1\. Einzel/ }));
+
+      await user.click(screen.getByRole('button', { name: 'Ergebnis zurücksetzen' }));
+
+      expect(api.submitGameResult).toHaveBeenCalledWith(42, 101, 0, 0);
+      expect(await screen.findByText('Ergebnis eintragen (A1 vs. B1)')).toBeInTheDocument();
+    });
+
     it('alerts when saving fails', async () => {
-      api.submitQuickResult.mockRejectedValue(new Error('Server weg'));
+      api.submitGameResult.mockRejectedValue(new Error('Ungültiges Ergebnis 3:3.'));
       const alert = vi.spyOn(window, 'alert').mockImplementation(() => {});
       const user = userEvent.setup();
       await openScorer(user);
 
-      const set1 = within(screen.getByText('Satz 1').parentElement).getAllByRole('spinbutton');
-      await user.type(set1[1], '5');
-      await user.click(screen.getByRole('button', { name: 'Ergebnis speichern' }));
-      expect(alert).toHaveBeenCalledWith('Fehler: Server weg');
+      await user.click(screen.getByRole('button', { name: '3:0' }));
+      expect(alert).toHaveBeenCalledWith('Fehler: Ungültiges Ergebnis 3:3.');
     });
   });
 });
