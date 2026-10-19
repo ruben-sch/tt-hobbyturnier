@@ -20,7 +20,6 @@ class Tournament(Base):
     ko_enabled = Column(Boolean, default=False)
     ko_teams_count = Column(Integer, default=4)  # 4 or 8
     best_of_sets = Column(Integer, default=5)     # 3 or 5
-    points_per_set = Column(Integer, default=11)
     table_count = Column(Integer, default=8)
     tables_per_match = Column(Integer, default=1)  # 1 or 2
     admin_pin = Column(String(20), default="admin123")
@@ -132,25 +131,5 @@ class IndividualGame(Base):
     is_completed = Column(Boolean, default=False)
     winner_team_side = Column(String(1), nullable=True)  # "A" or "B"
 
-    # Live point-by-point tracking for intermediate score display
-    current_set_index = Column(Integer, default=1)
-    current_point_a = Column(Integer, default=0)
-    current_point_b = Column(Integer, default=0)
-
     team_match = relationship("TeamMatch", back_populates="individual_games")
-    set_scores = relationship(
-        "SetScore", back_populates="individual_game", cascade="all, delete-orphan", order_by="SetScore.set_number"
-    )
 
-
-class SetScore(Base):
-    __tablename__ = "set_scores"
-
-    id = Column(Integer, primary_key=True, index=True)
-    individual_game_id = Column(Integer, ForeignKey("individual_games.id"), nullable=False)
-    set_number = Column(Integer, nullable=False)  # 1..5
-    score_a = Column(Integer, default=0)
-    score_b = Column(Integer, default=0)
-    is_completed = Column(Boolean, default=False)
-
-    individual_game = relationship("IndividualGame", back_populates="set_scores")

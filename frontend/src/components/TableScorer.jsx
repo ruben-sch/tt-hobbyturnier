@@ -4,9 +4,8 @@ import {
   authenticatePin, 
   fetchMatch, 
   setLineup, 
-  submitQuickResult 
+  submitGameResult
 } from '../services/api';
-import { applyQuickScore, toValidSets } from '../utils/quickSets';
 import { useLiveEvent, MATCH_EVENTS } from '../hooks/useLiveEvents';
 import { 
   KeyRound, 
@@ -31,37 +30,6 @@ export default function TableScorer({ tournament }) {
     team_b_p1: '',
     team_b_p2: '',
   });
-
-  // Quick results state
-  const [quickSets, setQuickSets] = useState([
-    { set_number: 1, score_a: '', score_b: '' },
-    { set_number: 2, score_a: '', score_b: '' },
-    { set_number: 3, score_a: '', score_b: '' },
-    { set_number: 4, score_a: '', score_b: '' },
-    { set_number: 5, score_a: '', score_b: '' },
-  ]);
-
-  const resetOrLoadQuickSets = (game) => {
-    const defaultSets = [
-      { set_number: 1, score_a: '', score_b: '' },
-      { set_number: 2, score_a: '', score_b: '' },
-      { set_number: 3, score_a: '', score_b: '' },
-      { set_number: 4, score_a: '', score_b: '' },
-      { set_number: 5, score_a: '', score_b: '' },
-    ];
-    if (game?.set_scores && game.set_scores.length > 0) {
-      game.set_scores.forEach(s => {
-        if (s.set_number >= 1 && s.set_number <= 5) {
-          defaultSets[s.set_number - 1] = {
-            set_number: s.set_number,
-            score_a: String(s.score_a),
-            score_b: String(s.score_b),
-          };
-        }
-      });
-    }
-    setQuickSets(defaultSets);
-  };
 
   const loadTables = useCallback(async () => {
     try {
@@ -121,7 +89,6 @@ export default function TableScorer({ tournament }) {
           const target = data.individual_games.find(g => g.id === targetGameId);
           if (target) {
             setActiveGameId(target.id);
-            resetOrLoadQuickSets(target);
             return data;
           }
         }
@@ -131,7 +98,6 @@ export default function TableScorer({ tournament }) {
         const target = uncompleted || data.individual_games[0];
         if (target) {
           setActiveGameId(target.id);
-          resetOrLoadQuickSets(target);
         }
       }
       return data;
@@ -151,7 +117,6 @@ export default function TableScorer({ tournament }) {
 
   const handleSelectGame = (game) => {
     setActiveGameId(game.id);
-    resetOrLoadQuickSets(game);
   };
 
   const handlePinSubmit = async (e) => {
@@ -194,26 +159,21 @@ export default function TableScorer({ tournament }) {
 
   const activeGame = matchData?.individual_games?.find(g => g.id === activeGameId);
 
-  const handleQuickScoreChange = (idx, side, value) => {
-    setQuickSets(applyQuickScore(quickSets, idx, side, value));
-  };
+  // Valid final set counts, e.g. best of 5: A wins 3:0 3:1 3:2, B wins 0:3 1:3 2:3
+  const setsToWin = tournament?.best_of_sets === 3 ? 2 : 3;
+  const resultOptions = (side) => Array.from({ length: setsToWin }, (_, loserSets) => (
+    side === 'A' ? [setsToWin, loserSets] : [loserSets, setsToWin]
+  ));
 
-  const handleQuickSubmit = async (e) => {
-    e.preventDefault();
+  const handleResult = async (setsA, setsB) => {
     if (!activeGame || !matchData) return;
-
-    const validSets = toValidSets(quickSets);
-
-    if (validSets.length === 0) {
-      alert("Bitte mindestens einen Satz eingeben.");
-      return;
-    }
-
+    const isReset = setsA === 0 && setsB === 0;
     try {
-      await submitQuickResult(matchData.id, activeGame.id, validSets);
+      await submitGameResult(matchData.id, activeGame.id, setsA, setsB);
       const updatedMatch = await fetchMatch(matchData.id);
       setMatchData(updatedMatch);
       loadTables();
+      if (isReset) return;
 
       // Find the next game in order (e.g. Einzel 2 after Einzel 1) or next uncompleted
       const currentIndex = updatedMatch.individual_games.findIndex(g => g.id === activeGame.id);
@@ -226,7 +186,6 @@ export default function TableScorer({ tournament }) {
 
       if (nextGame) {
         setActiveGameId(nextGame.id);
-        resetOrLoadQuickSets(nextGame);
       }
     } catch (err) {
       alert("Fehler: " + err.message);
@@ -313,14 +272,12 @@ export default function TableScorer({ tournament }) {
                   <div className="text-xs text-slate-400 truncate">
                     {t.active_game_desc || 'Spiel läuft...'}
                   </div>
-                  {t.current_point_a !== undefined && (
-                    <div className="mt-3 flex items-center justify-between text-xs bg-slate-900/60 p-2 rounded-lg border border-slate-700/40">
-                      <span className="text-slate-400">Aktueller Satz:</span>
-                      <span className="font-bold font-mono text-emerald-400 text-sm">
-                        {t.current_point_a} : {t.current_point_b}
-                      </span>
-                    </div>
-                  )}
+                  <div className="mt-3 flex items-center justify-between text-xs bg-slate-900/60 p-2 rounded-lg border border-slate-700/40">
+                    <span className="text-slate-400">Spielstand:</span>
+                    <span className="font-bold font-mono text-emerald-400 text-sm">
+                      {t.match_score_a ?? 0} : {t.match_score_b ?? 0}
+                    </span>
+                  </div>
                 </div>
               ) : (
                 <div className="text-xs text-slate-500 italic py-2">
@@ -543,7 +500,7 @@ export default function TableScorer({ tournament }) {
             Ergebnis eintragen ({activeGame.player_a_name} vs. {activeGame.player_b_name})
           </h4>
           <p className="text-xs text-slate-400 mb-6">
-            Gib die Satzergebnisse direkt ein – die Gegenpunktzahl wird automatisch ergänzt.
+            Tippe auf den Endstand in Sätzen – das Ergebnis wird sofort gespeichert.
           </p>
 
           {activeGame.is_completed && (
@@ -557,41 +514,45 @@ export default function TableScorer({ tournament }) {
             </div>
           )}
 
-          <form onSubmit={handleQuickSubmit} className="space-y-3">
-            {quickSets.map((s, idx) => (
-              <div key={idx} className="flex items-center gap-3 bg-slate-900/60 p-3 rounded-xl border border-slate-700/60">
-                <span className="w-16 text-xs font-semibold text-slate-400">
-                  Satz {s.set_number}
-                </span>
-                <input
-                  type="number"
-                  min={0}
-                  max={40}
-                  placeholder="0"
-                  value={s.score_a}
-                  onChange={(e) => handleQuickScoreChange(idx, 'a', e.target.value)}
-                  className="w-20 bg-slate-800 border border-slate-700 rounded-lg p-2 text-center text-white font-mono font-bold"
-                />
-                <span className="text-slate-500 font-bold">:</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={40}
-                  placeholder="0"
-                  value={s.score_b}
-                  onChange={(e) => handleQuickScoreChange(idx, 'b', e.target.value)}
-                  className="w-20 bg-slate-800 border border-slate-700 rounded-lg p-2 text-center text-white font-mono font-bold"
-                />
+          <div className="space-y-3">
+            {['A', 'B'].map((side) => (
+              <div key={side} className="bg-slate-900/60 p-3 rounded-xl border border-slate-700/60">
+                <div className="text-xs font-semibold text-slate-400 mb-2 truncate">
+                  Sieg {side === 'A' ? activeGame.player_a_name || 'A' : activeGame.player_b_name || 'B'}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {resultOptions(side).map(([a, b]) => {
+                    const isCurrent = activeGame.is_completed && activeGame.sets_won_a === a && activeGame.sets_won_b === b;
+                    return (
+                      <button
+                        key={`${a}:${b}`}
+                        type="button"
+                        onClick={() => handleResult(a, b)}
+                        aria-pressed={isCurrent}
+                        className={`py-3.5 rounded-xl font-mono text-lg font-black transition ${
+                          isCurrent
+                            ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
+                            : 'bg-slate-800 border border-slate-700 text-white hover:bg-sky-500 hover:border-sky-500'
+                        }`}
+                      >
+                        {a}:{b}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             ))}
 
-            <button
-              type="submit"
-              className="w-full mt-4 bg-sky-500 hover:bg-sky-400 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-sky-500/20 transition"
-            >
-              Ergebnis speichern
-            </button>
-          </form>
+            {activeGame.is_completed && (
+              <button
+                type="button"
+                onClick={() => handleResult(0, 0)}
+                className="w-full mt-2 text-xs font-semibold text-slate-400 hover:text-rose-300 py-2 transition"
+              >
+                Ergebnis zurücksetzen
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

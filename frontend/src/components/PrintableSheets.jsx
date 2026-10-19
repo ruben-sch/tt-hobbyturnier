@@ -135,13 +135,8 @@ export default function PrintableSheets({ tournament }) {
                   <th className="border border-black p-2 w-8">Nr.</th>
                   <th className="border border-black p-2 text-left">Spieler A</th>
                   <th className="border border-black p-2 text-left">Spieler B</th>
-                  <th className="border border-black p-2 w-12">1. Satz</th>
-                  <th className="border border-black p-2 w-12">2. Satz</th>
-                  <th className="border border-black p-2 w-12">3. Satz</th>
-                  <th className="border border-black p-2 w-12">4. Satz</th>
-                  <th className="border border-black p-2 w-12">5. Satz</th>
-                  <th className="border border-black p-2 w-14">Sätze</th>
-                  <th className="border border-black p-2 w-14">Punkte</th>
+                  <th className="border border-black p-2 w-20">Sätze</th>
+                  <th className="border border-black p-2 w-20">Punkte</th>
                 </tr>
               </thead>
               <tbody>
@@ -149,11 +144,6 @@ export default function PrintableSheets({ tournament }) {
                   <td className="border border-black p-2 text-center font-bold">1</td>
                   <td className="border border-black p-2">A1: {match.team_a_p1_name || 'Spieler A1'}</td>
                   <td className="border border-black p-2">B2: {match.team_b_p2_name || 'Spieler B2'}</td>
-                  <td className="border border-black p-2 text-center"> : </td>
-                  <td className="border border-black p-2 text-center"> : </td>
-                  <td className="border border-black p-2 text-center"> : </td>
-                  <td className="border border-black p-2 text-center"> : </td>
-                  <td className="border border-black p-2 text-center"> : </td>
                   <td className="border border-black p-2 text-center font-bold"> : </td>
                   <td className="border border-black p-2 text-center font-bold"> : </td>
                 </tr>
@@ -161,11 +151,6 @@ export default function PrintableSheets({ tournament }) {
                   <td className="border border-black p-2 text-center font-bold">2</td>
                   <td className="border border-black p-2">A2: {match.team_a_p2_name || 'Spieler A2'}</td>
                   <td className="border border-black p-2">B1: {match.team_b_p1_name || 'Spieler B1'}</td>
-                  <td className="border border-black p-2 text-center"> : </td>
-                  <td className="border border-black p-2 text-center"> : </td>
-                  <td className="border border-black p-2 text-center"> : </td>
-                  <td className="border border-black p-2 text-center"> : </td>
-                  <td className="border border-black p-2 text-center"> : </td>
                   <td className="border border-black p-2 text-center font-bold"> : </td>
                   <td className="border border-black p-2 text-center font-bold"> : </td>
                 </tr>
@@ -173,11 +158,6 @@ export default function PrintableSheets({ tournament }) {
                   <td className="border border-black p-2 text-center font-bold">3</td>
                   <td className="border border-black p-2">A1: {match.team_a_p1_name || 'Spieler A1'}</td>
                   <td className="border border-black p-2">B1: {match.team_b_p1_name || 'Spieler B1'}</td>
-                  <td className="border border-black p-2 text-center"> : </td>
-                  <td className="border border-black p-2 text-center"> : </td>
-                  <td className="border border-black p-2 text-center"> : </td>
-                  <td className="border border-black p-2 text-center"> : </td>
-                  <td className="border border-black p-2 text-center"> : </td>
                   <td className="border border-black p-2 text-center font-bold"> : </td>
                   <td className="border border-black p-2 text-center font-bold"> : </td>
                 </tr>
@@ -185,11 +165,6 @@ export default function PrintableSheets({ tournament }) {
                   <td className="border border-black p-2 text-center font-bold">4</td>
                   <td className="border border-black p-2">A2: {match.team_a_p2_name || 'Spieler A2'}</td>
                   <td className="border border-black p-2">B2: {match.team_b_p2_name || 'Spieler B2'}</td>
-                  <td className="border border-black p-2 text-center"> : </td>
-                  <td className="border border-black p-2 text-center"> : </td>
-                  <td className="border border-black p-2 text-center"> : </td>
-                  <td className="border border-black p-2 text-center"> : </td>
-                  <td className="border border-black p-2 text-center"> : </td>
                   <td className="border border-black p-2 text-center font-bold"> : </td>
                   <td className="border border-black p-2 text-center font-bold"> : </td>
                 </tr>
@@ -199,18 +174,13 @@ export default function PrintableSheets({ tournament }) {
                     <td className="border border-black p-2 italic" colSpan={2}>
                       Entscheidungsdoppel (nur bei 2:2 Gleichstand)
                     </td>
-                    <td className="border border-black p-2 text-center"> : </td>
-                    <td className="border border-black p-2 text-center"> : </td>
-                    <td className="border border-black p-2 text-center"> : </td>
-                    <td className="border border-black p-2 text-center"> : </td>
-                    <td className="border border-black p-2 text-center"> : </td>
-                    <td className="border border-black p-2 text-center font-bold"> : </td>
+                              <td className="border border-black p-2 text-center font-bold"> : </td>
                     <td className="border border-black p-2 text-center font-bold"> : </td>
                   </tr>
                 )}
                 {/* Total Line */}
                 <tr className="bg-neutral-100 font-black">
-                  <td className="border border-black p-2 text-right" colSpan={8}>
+                  <td className="border border-black p-2 text-right" colSpan={3}>
                     GESAMTERGEBNIS:
                   </td>
                   <td className="border border-black p-2 text-center font-bold text-sm">

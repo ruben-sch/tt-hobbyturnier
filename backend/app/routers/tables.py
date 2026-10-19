@@ -67,20 +67,9 @@ def get_tables_status(tournament_id: int, db: Session = Depends(get_db)):
                 active_game = g
 
         game_desc = ""
-        pt_a = 0
-        pt_b = 0
-        sw_a = 0
-        sw_b = 0
-        set_summary = ""
-
         if active_game:
             label = "Doppel" if active_game.is_doubles else f"Einzel {active_game.game_order}"
             game_desc = f"{label}: {active_game.player_a_name or 'A'} vs {active_game.player_b_name or 'B'}"
-            pt_a = active_game.current_point_a
-            pt_b = active_game.current_point_b
-            sw_a = active_game.sets_won_a
-            sw_b = active_game.sets_won_b
-            set_summary = " ".join([f"{s.score_a}:{s.score_b}" for s in active_game.set_scores if s.is_completed])
 
         response.append(TableStatusResponse(
             table_number=t.table_number,
@@ -91,11 +80,6 @@ def get_tables_status(tournament_id: int, db: Session = Depends(get_db)):
             active_game_desc=game_desc,
             match_score_a=match.score_a or 0,
             match_score_b=match.score_b or 0,
-            current_point_a=pt_a,
-            current_point_b=pt_b,
-            sets_won_a=sw_a,
-            sets_won_b=sw_b,
-            set_scores_summary=set_summary,
             is_active=True
         ))
 

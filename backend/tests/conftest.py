@@ -7,8 +7,8 @@ from backend.app.main import app
 # Sent on every request so the tests also pass where admin endpoints check the PIN.
 ADMIN = {"X-Admin-Pin": "admin123"}
 
-WIN_A = [{"set_number": n, "score_a": 11, "score_b": 5} for n in (1, 2, 3)]
-WIN_B = [{"set_number": n, "score_a": 5, "score_b": 11} for n in (1, 2, 3)]
+WIN_A = {"sets_a": 3, "sets_b": 0}
+WIN_B = {"sets_a": 0, "sets_b": 3}
 
 
 @pytest.fixture
@@ -51,8 +51,8 @@ def play(client):
             match = client.get(f"/api/matches/{match_id}").json()
             game = next(g for g in sorted(match["individual_games"], key=lambda g: g["game_order"])
                         if not g["is_completed"])
-            res = client.post(f"/api/matches/{match_id}/games/{game['id']}/quick-result",
-                              json={"sets": WIN_A if side == "A" else WIN_B})
+            res = client.post(f"/api/matches/{match_id}/games/{game['id']}/result",
+                              json=WIN_A if side == "A" else WIN_B)
             assert res.status_code == 200
         return client.get(f"/api/matches/{match_id}").json()
     return _play

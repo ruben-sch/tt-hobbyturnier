@@ -75,9 +75,7 @@ def test_result_entry_stays_open(client, t_id):
     match = r["team_matches"][0]
     game = match["individual_games"][0]
 
-    res = client.post(f"/api/matches/{match['id']}/games/{game['id']}/quick-result", json={
-        "sets": [{"set_number": n, "score_a": 11, "score_b": 3} for n in (1, 2, 3)]
-    })
+    res = client.post(f"/api/matches/{match['id']}/games/{game['id']}/result", json={"sets_a": 3, "sets_b": 0})
     assert res.status_code == 200
 
 

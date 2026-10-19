@@ -46,7 +46,6 @@ def create_tournament(payload: TournamentCreate, db: Session = Depends(get_db)):
         ko_enabled=payload.ko_enabled,
         ko_teams_count=payload.ko_teams_count,
         best_of_sets=payload.best_of_sets,
-        points_per_set=payload.points_per_set,
         table_count=payload.table_count,
         tables_per_match=payload.tables_per_match,
         admin_pin=validate_admin_pin(payload.admin_pin),
@@ -80,7 +79,6 @@ def get_active_tournament(db: Session = Depends(get_db)):
             ko_enabled=False,
             ko_teams_count=4,
             best_of_sets=5,
-            points_per_set=11,
             table_count=8,
             tables_per_match=1,
             admin_pin="admin123",
@@ -182,7 +180,7 @@ def export_standings_csv(tournament_id: int, db: Session = Depends(get_db)):
     writer.writerow([
         "Platz", "Mannschaft", "Spieler 1", "Spieler 2",
         "Spiele", "S", "U", "N", "Spielpunkte", "Gegenpunkte",
-        "Buchholz", "Sätze+", "Sätze-", "Satz-Diff", "Bälle+", "Bälle-", "Ball-Diff"
+        "Buchholz", "Sätze+", "Sätze-", "Satz-Diff"
     ])
 
     for s in standings:
@@ -190,8 +188,7 @@ def export_standings_csv(tournament_id: int, db: Session = Depends(get_db)):
             s["rank"], s["team_name"], s["player1"], s["player2"],
             s["matches_played"], s["won_matches"], s["drawn_matches"], s["lost_matches"],
             s["game_points"], s["game_points_lost"], s["buchholz"],
-            s["sets_won"], s["sets_lost"], s["set_diff"],
-            s["balls_won"], s["balls_lost"], s["ball_diff"]
+            s["sets_won"], s["sets_lost"], s["set_diff"]
         ])
 
     output.seek(0)

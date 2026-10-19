@@ -19,7 +19,8 @@ describe('StandingsTable', () => {
   it('renders the standings with signed differences', async () => {
     api.fetchStandings.mockResolvedValue([
       standingsRow(1, 'Asse'),
-      standingsRow(2, 'Blocker', { set_diff: -3, ball_diff: 0 }),
+      standingsRow(2, 'Blocker', { set_diff: -3 }),
+      standingsRow(3, 'Chopper', { set_diff: 0 }),
     ]);
     render(<StandingsTable tournament={tournament} />);
 
@@ -28,6 +29,7 @@ describe('StandingsTable', () => {
     expect(screen.getByText('(+5)')).toBeInTheDocument();
     expect(screen.getByText('(-3)')).toBeInTheDocument();
     expect(screen.getByText('(0)')).toBeInTheDocument();
+    expect(screen.queryByText('Bälle')).not.toBeInTheDocument();
   });
 
   it('filters by team and player name', async () => {

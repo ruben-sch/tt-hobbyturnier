@@ -77,8 +77,7 @@ describe('endpoints', () => {
     [() => api.fetchStandings(1), '/api/tournaments/1/standings', undefined, 'Fehler beim Laden der Tabelle'],
     [() => api.fetchMatch(7), '/api/matches/7', undefined, 'Fehler beim Laden des Spiels'],
     [() => api.setLineup(7, {}), '/api/matches/7/lineup', 'POST', 'Fehler beim Bestätigen der Aufstellung'],
-    [() => api.updatePoint(7, 3, {}), '/api/matches/7/games/3/point', 'POST', 'Fehler beim Aktualisieren des Punktestands'],
-    [() => api.submitQuickResult(7, 3, []), '/api/matches/7/games/3/quick-result', 'POST', 'Fehler beim Speichern des Schnellergebnisses'],
+    [() => api.submitGameResult(7, 3, 3, 1), '/api/matches/7/games/3/result', 'POST', 'Fehler beim Speichern des Ergebnisses'],
     [() => api.fetchTablesStatus(1), '/api/tables/status/1', undefined, 'Fehler beim Laden der Begegnungen'],
     [() => api.authenticatePin(1, '1001'), '/api/tables/auth/1', 'POST', 'PIN-Prüfung fehlgeschlagen'],
     [() => api.fetchMonitorDashboard(1), '/api/monitors/1/dashboard', undefined, 'Fehler beim Laden der Monitor-Daten'],
@@ -104,8 +103,8 @@ describe('endpoints', () => {
     await api.swapPairings(5, 1, 2);
     expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ match_id_1: 1, match_id_2: 2 });
 
-    await api.submitQuickResult(7, 3, [{ set_number: 1, score_a: 11, score_b: 4 }]);
-    expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({ sets: [{ set_number: 1, score_a: 11, score_b: 4 }] });
+    await api.submitGameResult(7, 3, 3, 1);
+    expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({ sets_a: 3, sets_b: 1 });
   });
 
   it('verifyAdminPin throws on server errors', async () => {
