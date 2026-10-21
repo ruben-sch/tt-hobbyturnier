@@ -30,3 +30,17 @@ Architecture decisions, requirements (laptop + own router on tournament day, one
 - User-facing text (UI, API error messages) is German; identifiers and comments are English. Existing German domain names (`HallenMonitor`, KO stages "Viertelfinale"/"Halbfinale"/"Finale") stay as they are.
 - Frontend is plain JSX + Tailwind, no router: navigation is the `currentTab` state in `App.jsx`. All HTTP calls go through `frontend/src/services/api.js`.
 - Commits use conventional-commit prefixes (`feat:`, `fix:`, `chore:` …).
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues on `ruben-sch/tt-hobbyturnier` (via `gh`). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` + `docs/adr/` at the repo root, plus `docs/architecture.md` for existing decisions. See `docs/agents/domain.md`.
