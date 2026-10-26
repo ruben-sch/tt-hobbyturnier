@@ -1,3 +1,8 @@
+from fastapi.testclient import TestClient
+
+from backend.app.main import app
+
+
 def test_create_tournament_replaces_active_one(client, t_id):
     res = client.post("/api/tournaments", json={"name": "Sommerturnier", "table_count": 3})
     assert res.status_code == 200
@@ -109,3 +114,17 @@ def test_monitor_dashboard(client, t_id, add_teams, play):
     assert (data["current_round"], data["round_type"], data["ko_stage"]) == (1, "swiss", None)
     assert data["ticker"][0]["score"] == "3:1"
     assert data["ko_tree"] == []
+
+
+def test_default_admin_pin_comes_from_env(clean_db, monkeypatch):
+    monkeypatch.setenv("TT_ADMIN_PIN", " geheim42 ")
+    client = TestClient(app)
+    t_id = client.get("/api/tournaments/active").json()["id"]
+    url = f"/api/tournaments/{t_id}/admin-check"
+    assert client.get(url, headers={"X-Admin-Pin": "admin123"}).status_code == 403
+    assert client.get(url, headers={"X-Admin-Pin": "geheim42"}).status_code == 200
+
+    # A new tournament without an explicit PIN gets the configured one as well
+    res = client.post("/api/tournaments", json={"name": "Herbst"}, headers={"X-Admin-Pin": "geheim42"})
+    new_url = f"/api/tournaments/{res.json()['id']}/admin-check"
+    assert client.get(new_url, headers={"X-Admin-Pin": "geheim42"}).status_code == 200

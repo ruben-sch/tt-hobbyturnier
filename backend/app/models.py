@@ -1,9 +1,15 @@
+import os
 from datetime import datetime
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Query, Session, relationship
 
 from backend.app.database import Base
+
+
+def default_admin_pin() -> str:
+    """Admin PIN of a new tournament. Set TT_ADMIN_PIN on a public server, where admin123 is guessable."""
+    return os.getenv("TT_ADMIN_PIN", "").strip() or "admin123"
 
 
 class Tournament(Base):
@@ -22,7 +28,7 @@ class Tournament(Base):
     best_of_sets = Column(Integer, default=5)     # 3 or 5
     table_count = Column(Integer, default=8)
     tables_per_match = Column(Integer, default=1)  # 1 or 2
-    admin_pin = Column(String(20), default="admin123")
+    admin_pin = Column(String(20), default=default_admin_pin)
 
     teams = relationship("Team", back_populates="tournament", cascade="all, delete-orphan")
     rounds = relationship("Round", back_populates="tournament", cascade="all, delete-orphan")

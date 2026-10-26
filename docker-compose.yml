@@ -1,5 +1,5 @@
-version: '3.8'
-
+# Local test of the production image: docker compose up --build -d
+# The server deployment uses deploy/docker-compose.yml with the released image.
 services:
   tt-turnier:
     build: .
@@ -7,7 +7,10 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/app/data
+      - tt-data:/app/data
     environment:
-      - DATABASE_URL=sqlite:////app/data/turnier.db
+      - TT_ADMIN_PIN=${TT_ADMIN_PIN:-}
     restart: unless-stopped
+
+volumes:
+  tt-data:

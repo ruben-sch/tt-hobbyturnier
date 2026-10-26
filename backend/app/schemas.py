@@ -1,6 +1,8 @@
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+from backend.app.models import default_admin_pin
 
 
 class TeamBase(BaseModel):
@@ -32,7 +34,7 @@ class TournamentBase(BaseModel):
 
 
 class TournamentCreate(TournamentBase):
-    admin_pin: str = "admin123"
+    admin_pin: str = Field(default_factory=default_admin_pin)
 
 
 class TournamentUpdate(BaseModel):

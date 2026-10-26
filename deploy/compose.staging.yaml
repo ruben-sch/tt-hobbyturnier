@@ -1,0 +1,5 @@
+# Staging sits behind the BasicAuth middleware "auth" of the shared Traefik.
+services:
+  app:
+    labels:
+      - "traefik.http.routers.${STACK}.middlewares=auth@docker"

@@ -1,0 +1,13 @@
+.git
+.github
+**/node_modules
+**/__pycache__
+backend/venv
+backend/tests
+frontend/dist
+frontend/coverage
+frontend/e2e
+frontend/e2e-results
+*.db
+data
+deploy

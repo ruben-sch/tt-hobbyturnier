@@ -41,6 +41,40 @@ jobs:
       - run: npm run test:coverage
       - run: npm run build
 
+  docker:
+    name: Docker image + deploy files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Server compose files are valid
+        env:
+          STACK: tt-turnier-staging
+          IMAGE_TAG: staging
+          APP_HOST: staging.turnier.example.de
+          TT_ADMIN_PIN: ci-pin
+        run: docker compose -f deploy/compose.yaml -f deploy/compose.staging.yaml config --quiet
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: tt-hobbyturnier:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Container starts and is healthy
+        run: |
+          docker run -d --name tt -e TT_ADMIN_PIN=ci-pin -p 8000:8000 tt-hobbyturnier:ci
+          for _ in $(seq 30); do
+            status="$(docker inspect -f '{{.State.Health.Status}}' tt)"
+            [[ "$status" == healthy ]] && break
+            sleep 2
+          done
+          docker logs tt
+          [[ "$status" == healthy ]] || { echo "::error::Container nicht healthy: $status"; exit 1; }
+          curl -fsS http://localhost:8000/ | grep -q '<div id="root">'
+          curl -fsS -H 'X-Admin-Pin: ci-pin' "http://localhost:8000/api/tournaments/$(curl -fsS http://localhost:8000/api/tournaments/active | jq .id)/admin-check"
+
   e2e:
     name: E2E (full tournament, 17 teams)
     runs-on: ubuntu-latest
