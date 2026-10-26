@@ -1,0 +1,37 @@
+# Only needed if the server has no Traefik yet: Traefik v2.11 like the ubiqiti
+# stack, plus HTTPS with Let's Encrypt. Start once with
+#   ACME_EMAIL=you@example.de docker compose -f deploy/traefik/docker-compose.yml up -d
+# The entrypoint/resolver/network names match the defaults in deploy/.env.example.
+services:
+  traefik:
+    image: traefik:v2.11
+    container_name: traefik
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=rs_proxy
+      - --entrypoints.http.address=:80
+      - --entrypoints.http.http.redirections.entrypoint.to=websecure
+      - --entrypoints.http.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:?ACME_EMAIL setzen}
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=http
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
+    networks:
+      - proxy
+
+volumes:
+  letsencrypt:
+
+networks:
+  proxy:
+    name: rs_proxy

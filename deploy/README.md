@@ -1,6 +1,6 @@
 # Deployment auf dem Server
 
-Gleiches Schema wie der ubiqiti-Stack: Traefik findet den Container über seine Labels im Docker-Netz `rs_proxy`, ein self-hosted Runner auf dem Server führt `deploy/deploy.sh` aus.
+Gleiches Schema wie der ubiqiti-Stack: Traefik findet den Container über seine Labels im Docker-Netz `rs_proxy` und holt das TLS-Zertifikat per Let's Encrypt, ein self-hosted Runner auf dem Server führt `deploy/deploy.sh` aus.
 
 Ablauf:
 1. Commits mit `feat:`/`fix:` auf `main` → release-please hält einen Release-PR offen (Version + `CHANGELOG.md`).
@@ -11,13 +11,19 @@ Schlägt ein Deploy fehl, läuft der alte Container weiter und GitHub schickt ei
 
 ## Einmalige Einrichtung
 
+**0. Traefik mit HTTPS** (nur falls auf dem Server noch keiner läuft): `deploy/traefik/docker-compose.yml` ist Traefik v2.11 wie im ubiqiti-Stack, zusätzlich mit Port 443, Let's-Encrypt-Zertifikaten und einer Umleitung von HTTP auf HTTPS:
+```bash
+ACME_EMAIL=du@example.de docker compose -f deploy/traefik/docker-compose.yml up -d
+```
+Läuft schon ein Traefik, in der `.env` `TT_ENTRYPOINT`, `TT_CERTRESOLVER` und `TT_PROXY_NETWORK` auf dessen Namen setzen.
+
 **1. Stack-Verzeichnis mit `.env`** auf dem Server anlegen (Vorlage `deploy/.env.example`):
 ```bash
 mkdir -p ~/tt-turnier && cp deploy/.env.example ~/tt-turnier/.env && chmod 600 ~/tt-turnier/.env
 ```
 `TT_HOST` = Subdomain, `TT_ADMIN_PIN` = lange, zufällige PIN (gilt für jedes neu angelegte Turnier, statt `admin123`).
 
-**2. DNS:** A-/AAAA-Record der Subdomain auf den Server.
+**2. DNS:** A-/AAAA-Record der Subdomain auf den Server, Ports 80 und 443 in der Hetzner-Firewall offen.
 
 **3. Self-hosted Runner** für dieses Repo: GitHub → Settings → Actions → Runners → *New self-hosted runner* (Linux x64). Label `hetzner` vergeben (anderes Label: Repo-Variable `DEPLOY_RUNNER_LABEL`), als Dienst installieren:
 ```bash

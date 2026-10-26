@@ -1,6 +1,6 @@
 # Server stack, same pattern as the ubiqiti stack: Traefik finds the container
 # through its labels on the shared rs_proxy network. deploy/deploy.sh runs it with
-# the .env from STACK_DIR (TT_HOST, TT_ADMIN_PIN, TT_IMAGE_TAG).
+# the .env from STACK_DIR (see deploy/.env.example).
 x-logging: &default-logging
   driver: local
   options:
@@ -23,9 +23,11 @@ services:
       - proxy
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=rs_proxy"
+      - "traefik.docker.network=${TT_PROXY_NETWORK:-rs_proxy}"
       - "traefik.http.routers.tt-turnier.rule=Host(`${TT_HOST:?TT_HOST in .env setzen}`)"
-      - "traefik.http.routers.tt-turnier.entrypoints=${TT_ENTRYPOINT:-http}"
+      - "traefik.http.routers.tt-turnier.entrypoints=${TT_ENTRYPOINT:-websecure}"
+      - "traefik.http.routers.tt-turnier.tls=${TT_TLS:-true}"
+      - "traefik.http.routers.tt-turnier.tls.certresolver=${TT_CERTRESOLVER:-letsencrypt}"
       - "traefik.http.services.tt-turnier.loadbalancer.server.port=8000"
 
 volumes:
@@ -34,5 +36,5 @@ volumes:
 
 networks:
   proxy:
-    name: rs_proxy
+    name: ${TT_PROXY_NETWORK:-rs_proxy}
     external: true

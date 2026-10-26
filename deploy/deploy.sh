@@ -43,7 +43,6 @@ if ! check_space; then
 fi
 
 # 2) Deploy. Pull first, then swap: a failed pull leaves the running container alone.
-docker network inspect rs_proxy >/dev/null || die "Docker-Netz rs_proxy fehlt (läuft der Traefik-Stack?)."
 compose config --quiet
 if (( CHECK_ONLY )); then
   log "Check ok: .env da, genug Platz, Compose-Datei gültig. Nichts geändert."
