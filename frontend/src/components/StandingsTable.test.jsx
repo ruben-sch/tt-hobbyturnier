@@ -58,6 +58,16 @@ describe('StandingsTable', () => {
     expect(open).toHaveBeenCalledWith('/api/tournaments/7/export/csv', '_blank');
   });
 
+  it('opens the PDF archive', async () => {
+    api.fetchStandings.mockResolvedValue([]);
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const user = userEvent.setup();
+    render(<StandingsTable tournament={tournament} />);
+
+    await user.click(screen.getByRole('button', { name: /PDF-Archiv/ }));
+    expect(open).toHaveBeenCalledWith('/api/tournaments/7/export/pdf', '_blank');
+  });
+
   it('shows an empty table when loading fails', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     api.fetchStandings.mockRejectedValue(new Error('offline'));

@@ -78,6 +78,22 @@ def complete_round(round_obj: Round) -> None:
     _close(round_obj)
 
 
+def reset_tournament(tournament: Tournament, db: Session) -> None:
+    """Deletes every team, round, match and game; settings and admin PIN stay. Older tournaments go too."""
+    for round_obj in list(tournament.rounds):
+        db.delete(round_obj)
+    db.flush()  # matches reference teams, so they go first
+    for team in list(tournament.teams):
+        db.delete(team)
+    for table in tournament.tables:
+        table.current_team_match_id = None
+        table.current_game_id = None
+    tournament.current_round_number = 0
+    for old in db.query(Tournament).filter(Tournament.id != tournament.id).all():
+        db.delete(old)
+    db.flush()
+
+
 def _close(round_obj: Round) -> None:
     round_obj.is_completed = True
     round_obj.is_active = False

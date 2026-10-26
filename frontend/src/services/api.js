@@ -69,6 +69,12 @@ export async function updateTournament(tournamentId, data) {
   }, "Fehler beim Aktualisieren");
 }
 
+export async function resetTournament(tournamentId) {
+  return adminFetch(`${API_BASE}/tournaments/${tournamentId}/reset`, {
+    method: 'POST',
+  }, "Fehler beim Zurücksetzen des Turniers");
+}
+
 export async function fetchTeams(tournamentId) {
   const res = await fetch(`${API_BASE}/tournaments/${tournamentId}/teams`);
   if (!res.ok) throw new Error("Fehler beim Laden der Teams");

@@ -65,6 +65,7 @@ describe('endpoints', () => {
   const cases = [
     [() => api.fetchActiveTournament(), '/api/tournaments/active', undefined, 'Fehler beim Laden des Turniers'],
     [() => api.updateTournament(1, { name: 'X' }), '/api/tournaments/1', 'PUT', 'Fehler beim Aktualisieren'],
+    [() => api.resetTournament(1), '/api/tournaments/1/reset', 'POST', 'Fehler beim Zurücksetzen des Turniers'],
     [() => api.fetchTeams(1), '/api/tournaments/1/teams', undefined, 'Fehler beim Laden der Teams'],
     [() => api.deleteTeam(1, 9), '/api/tournaments/1/teams/9', 'DELETE', 'Fehler beim Löschen des Teams'],
     [() => api.uploadTeamsCsv(1, new Blob(['a;b;c'])), '/api/tournaments/1/teams/csv', 'POST', 'Fehler beim CSV-Import'],

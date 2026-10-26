@@ -18,6 +18,7 @@ vi.mock('../services/api', () => ({
   fetchTablesStatus: vi.fn(),
   getAdminPin: vi.fn(),
   setAdminPin: vi.fn(),
+  resetTournament: vi.fn(),
 }));
 
 const tournament = {
@@ -71,7 +72,7 @@ describe('AdminDashboard', () => {
     confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
     alert = vi.spyOn(window, 'alert').mockImplementation(() => {});
     for (const fn of ['updateTournament', 'createTeam', 'deleteTeam', 'generateNextSwissRound',
-      'startKoRound', 'completeRound', 'swapPairings']) {
+      'startKoRound', 'completeRound', 'swapPairings', 'resetTournament']) {
       api[fn].mockResolvedValue({});
     }
   });
@@ -325,6 +326,33 @@ describe('AdminDashboard', () => {
       await user.click(screen.getByRole('button', { name: /Änderungen speichern/ }));
       expect(alert).toHaveBeenCalledWith('Fehler: Die Admin-PIN darf nicht leer sein.');
       expect(api.setAdminPin).not.toHaveBeenCalled();
+    });
+
+    it('resets the tournament only after typing RESET', async () => {
+      const prompt = vi.spyOn(window, 'prompt').mockReturnValue('nein');
+      const { user, onTournamentChange } = setup();
+      await user.click(await screen.findByRole('button', { name: 'Einstellungen' }));
+      const button = screen.getByRole('button', { name: /Turnier zurücksetzen/ });
+
+      await user.click(button);
+      expect(prompt).toHaveBeenCalledWith(expect.stringContaining('endgültig gelöscht'));
+      expect(api.resetTournament).not.toHaveBeenCalled();
+
+      prompt.mockReturnValue(' reset ');
+      await user.click(button);
+      expect(api.resetTournament).toHaveBeenCalledWith(1);
+      expect(onTournamentChange).toHaveBeenCalled();
+      expect(alert).toHaveBeenCalledWith('Turnier zurückgesetzt.');
+    });
+
+    it('reports a failed reset', async () => {
+      vi.spyOn(window, 'prompt').mockReturnValue('RESET');
+      api.resetTournament.mockRejectedValue(new Error('Falsche Admin-PIN.'));
+      const { user } = setup();
+      await user.click(await screen.findByRole('button', { name: 'Einstellungen' }));
+
+      await user.click(screen.getByRole('button', { name: /Turnier zurücksetzen/ }));
+      expect(alert).toHaveBeenCalledWith('Fehler: Falsche Admin-PIN.');
     });
 
     it('locks the admin area', async () => {
