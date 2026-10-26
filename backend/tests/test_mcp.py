@@ -1,24 +1,18 @@
 import pytest
-from fastapi.testclient import TestClient
+from mcp.server.mcpserver.exceptions import ToolError
 
-from backend.app.main import app
+from backend.app import mcp_server
 
 ADMIN = {"X-Admin-Pin": "admin123"}
 MCP_HEADERS = {"Accept": "application/json, text/event-stream"}
-
-
-@pytest.fixture(scope="session")
-def mcp_http():
-    # The MCP session manager runs in the app lifespan, which may only start once
-    with TestClient(app) as http:
-        yield http
+LIST_TOOLS = {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
 
 
 @pytest.fixture
 def call(mcp_http, clean_db):
-    """Calls an MCP tool; returns (is_error, structured result or error text)."""
-    def _call(tool, arguments=None, headers=None):
-        res = mcp_http.post("/mcp", headers={**MCP_HEADERS, **(headers or {})}, json={
+    """Calls an MCP tool with the admin PIN; returns (is_error, structured result or error text)."""
+    def _call(tool, arguments=None, headers=ADMIN):
+        res = mcp_http.post("/mcp", headers={**MCP_HEADERS, **headers}, json={
             "jsonrpc": "2.0", "id": 1, "method": "tools/call",
             "params": {"name": tool, "arguments": arguments or {}},
         })
@@ -36,8 +30,8 @@ def running_match(client, t_id, add_teams):
     return client.post(f"/api/tournaments/{t_id}/rounds/next-swiss").json()["team_matches"][0]
 
 
-def test_lists_the_tools(mcp_http):
-    res = mcp_http.post("/mcp", headers=MCP_HEADERS, json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+def test_lists_the_tools(mcp_http, t_id):
+    res = mcp_http.post("/mcp", headers={**MCP_HEADERS, **ADMIN}, json=LIST_TOOLS)
     names = {t["name"] for t in res.json()["result"]["tools"]}
     assert names == {"get_tournament", "get_standings", "get_round", "get_live_status", "enter_game_result"}
 
@@ -82,22 +76,29 @@ def test_enter_game_result_with_admin_pin(call, running_match, headers):
     assert (busy["match_score_a"], busy["match_score_b"]) == (1, 0)
 
 
-def test_enter_game_result_rejects_missing_wrong_pin_and_bad_results(call, running_match):
+@pytest.mark.parametrize("headers", [{}, {"X-Admin-Pin": "falsch"}, {"Authorization": "Bearer falsch"}])
+def test_requires_the_admin_pin_or_a_token(mcp_http, t_id, headers):
+    res = mcp_http.post("/mcp", headers={**MCP_HEADERS, **headers}, json=LIST_TOOLS)
+    assert res.status_code == 401
+    assert "oauth-protected-resource" in res.headers["www-authenticate"]
+
+
+def test_enter_game_result_rejects_bad_results(call, running_match):
     game_id = running_match["individual_games"][0]["id"]
     args = {"match_id": running_match["id"], "game_id": game_id, "sets_a": 3, "sets_b": 0}
 
-    assert call("enter_game_result", args) == (True, "Admin-PIN erforderlich.")
-    assert call("enter_game_result", args, {"X-Admin-Pin": "falsch"}) == (True, "Falsche Admin-PIN.")
-    error, message = call("enter_game_result", {**args, "sets_a": 4}, ADMIN)
+    error, message = call("enter_game_result", {**args, "sets_a": 4})
     assert error and "Ungültiges Ergebnis" in message
-    assert call("enter_game_result", {**args, "match_id": 999}, ADMIN) == (True, "Begegnung nicht gefunden")
+    assert call("enter_game_result", {**args, "match_id": 999}) == (True, "Begegnung nicht gefunden")
 
     _, round_ = call("get_round")
     assert round_["matches"][0]["score"] == "0:0"
 
 
-def test_without_tournament(call):
-    assert call("get_live_status") == (True, "Kein aktives Turnier.")
+def test_without_tournament(clean_db):
+    # Unreachable over HTTP: without a tournament there is no PIN to authenticate with
+    with pytest.raises(ToolError, match="Kein aktives Turnier."):
+        mcp_server.get_live_status()
 
 
 def test_before_the_first_round(call, t_id):

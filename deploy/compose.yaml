@@ -9,6 +9,8 @@ services:
     environment:
       # Admin PIN of every new tournament instead of the guessable admin123
       TT_ADMIN_PIN: ${TT_ADMIN_PIN:?}
+      # Public base URL, the OAuth issuer that claude.ai connects to for the MCP server
+      TT_PUBLIC_URL: https://${APP_HOST:?}
     volumes:
       - data:/app/data
     networks:
