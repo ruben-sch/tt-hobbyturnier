@@ -137,6 +137,17 @@ def test_ko_tables_wrap_around_the_table_count(client, t_id, add_teams, play):
         assert all((m["table_number"], m["table_number_b"]) == (1, 2) for m in r["team_matches"])
 
 
+def test_deciding_doubles_uses_the_registered_players(client, t_id, add_teams, play):
+    add_teams(t_id, 4)
+    _, semis = start_ko(client, t_id, 4)
+    sf = by_slot(semis)[0]
+
+    tied = play(sf["id"], "ABAB")
+
+    doubles = next(g for g in tied["individual_games"] if g["is_doubles"])
+    assert (doubles["player_a_name"], doubles["player_b_name"]) == ("P0A / P0B", "P3A / P3B")
+
+
 @pytest.mark.parametrize("team_count", [2, 6, 16])
 def test_ko_starts_with_4_or_8_teams_only(client, t_id, add_teams, team_count):
     add_teams(t_id, 16)

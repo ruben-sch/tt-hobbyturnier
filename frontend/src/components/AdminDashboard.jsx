@@ -11,7 +11,8 @@ import {
   completeRound,
   swapPairings,
   getAdminPin,
-  setAdminPin
+  setAdminPin,
+  resetTournament
 } from '../services/api';
 import { useLiveEvent, MATCH_EVENTS, TEAM_EVENTS } from '../hooks/useLiveEvents';
 import { 
@@ -25,7 +26,8 @@ import {
   ArrowLeftRight, 
   Sparkles,
   Save,
-  Lock
+  Lock,
+  RotateCcw
 } from 'lucide-react';
 
 export default function AdminDashboard({ tournament, onTournamentChange }) {
@@ -89,6 +91,24 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
       setAdminPin(settingsForm.admin_pin.trim());
       onTournamentChange && onTournamentChange();
       alert("Einstellungen gespeichert!");
+    } catch (e) {
+      alert("Fehler: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReset = async () => {
+    const answer = prompt(
+      "Turnier zurücksetzen: Alle Teams, Runden und Ergebnisse werden endgültig gelöscht. " +
+      "Einstellungen und Admin-PIN bleiben erhalten.\n\nZum Bestätigen RESET eingeben:"
+    );
+    if (answer?.trim().toUpperCase() !== 'RESET') return;
+    try {
+      setLoading(true);
+      await resetTournament(tournament.id);
+      onTournamentChange && onTournamentChange();
+      alert("Turnier zurückgesetzt.");
     } catch (e) {
       alert("Fehler: " + e.message);
     } finally {
@@ -675,6 +695,23 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
               </button>
             </div>
           </form>
+
+          <div className="mt-8 pt-6 border-t border-rose-500/30">
+            <h4 className="font-bold text-rose-300 text-base mb-1">Turnier zurücksetzen</h4>
+            <p className="text-xs text-slate-400 mb-4">
+              Löscht alle Teams, Runden und Ergebnisse endgültig. Einstellungen und Admin-PIN bleiben.
+              Vorher am besten das PDF-Archiv unter „Tabelle“ herunterladen.
+            </p>
+            <button
+              type="button"
+              onClick={handleReset}
+              disabled={loading}
+              className="flex items-center gap-2 bg-rose-600 hover:bg-rose-500 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Turnier zurücksetzen</span>
+            </button>
+          </div>
         </div>
       )}
 
