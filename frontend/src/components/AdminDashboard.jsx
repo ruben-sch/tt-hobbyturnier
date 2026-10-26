@@ -443,7 +443,7 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
 
                     <div className="mt-3 pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs">
                       <span className={m.is_completed ? 'text-emerald-400 font-semibold' : 'text-slate-400'}>
-                        {m.is_completed ? '✓ Match beendet' : (m.lineup_confirmed ? 'Spiel läuft...' : 'Aufstellung offen')}
+                        {m.is_completed ? '✓ Match beendet' : (m.individual_games.some(g => g.is_completed) ? 'Spiel läuft...' : 'Noch nicht begonnen')}
                       </span>
                       <span className="text-slate-500 font-mono">
                         {m.individual_games.filter(g => g.is_completed).length} / {m.individual_games.length} Einzel gespielt

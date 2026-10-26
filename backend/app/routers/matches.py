@@ -6,7 +6,6 @@ from backend.app.models import IndividualGame, TeamMatch
 from backend.app.schemas import (
     GameResultUpdate,
     IndividualGameResponse,
-    LineupUpdate,
     TeamMatchResponse,
 )
 from backend.app.swiss_system import add_deciding_doubles_game
@@ -20,46 +19,6 @@ def get_match(match_id: int, db: Session = Depends(get_db)):
     match = db.query(TeamMatch).filter(TeamMatch.id == match_id).first()
     if not match:
         raise HTTPException(status_code=404, detail="Begegnung nicht gefunden")
-    return match
-
-
-@router.post("/{match_id}/lineup", response_model=TeamMatchResponse)
-async def set_lineup(match_id: int, payload: LineupUpdate, db: Session = Depends(get_db)):
-    match = db.query(TeamMatch).filter(TeamMatch.id == match_id).first()
-    if not match:
-        raise HTTPException(status_code=404, detail="Begegnung nicht gefunden")
-
-    match.team_a_p1_name = payload.team_a_p1_name
-    match.team_a_p2_name = payload.team_a_p2_name
-    match.team_b_p1_name = payload.team_b_p1_name
-    match.team_b_p2_name = payload.team_b_p2_name
-    match.lineup_confirmed = True
-
-    # Update individual games player names
-    # 1: A1 vs B2, 2: A2 vs B1, 3: A1 vs B1, 4: A2 vs B2
-    for g in match.individual_games:
-        if g.game_order == 1:
-            g.player_a_name = payload.team_a_p1_name
-            g.player_b_name = payload.team_b_p2_name
-        elif g.game_order == 2:
-            g.player_a_name = payload.team_a_p2_name
-            g.player_b_name = payload.team_b_p1_name
-        elif g.game_order == 3:
-            g.player_a_name = payload.team_a_p1_name
-            g.player_b_name = payload.team_b_p1_name
-        elif g.game_order == 4:
-            g.player_a_name = payload.team_a_p2_name
-            g.player_b_name = payload.team_b_p2_name
-
-    db.commit()
-    db.refresh(match)
-
-    await ws_manager.broadcast({
-        "type": "LINEUP_CONFIRMED",
-        "match_id": match.id,
-        "round_id": match.round_id,
-        "table_number": match.table_number
-    })
     return match
 
 

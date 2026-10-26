@@ -48,16 +48,6 @@ def test_full_tournament_lifecycle():
     match1 = r1["team_matches"][0]
     match2 = r1["team_matches"][1]
 
-    # 4. Confirm lineup for match 1
-    lineup_res = client.post(f"/api/matches/{match1['id']}/lineup", json={
-        "team_a_p1_name": match1["team_a"]["player1_name"],
-        "team_a_p2_name": match1["team_a"]["player2_name"],
-        "team_b_p1_name": match1["team_b"]["player1_name"],
-        "team_b_p2_name": match1["team_b"]["player2_name"]
-    })
-    assert lineup_res.status_code == 200
-    assert lineup_res.json()["lineup_confirmed"] == True
-
     # 5. Enter results for match 1 (all 4 games won by Team A: 4:0)
     m1_updated = client.get(f"/api/matches/{match1['id']}").json()
     for g in m1_updated["individual_games"]:
@@ -128,12 +118,6 @@ def test_monitor_shows_match_score_of_running_match():
             "name": f"Team {i}", "player1_name": f"Spieler {i}A", "player2_name": f"Spieler {i}B"
         })
     match = client.post(f"/api/tournaments/{t_id}/rounds/next-swiss", headers=ADMIN).json()["team_matches"][0]
-    client.post(f"/api/matches/{match['id']}/lineup", json={
-        "team_a_p1_name": match["team_a"]["player1_name"],
-        "team_a_p2_name": match["team_a"]["player2_name"],
-        "team_b_p1_name": match["team_b"]["player1_name"],
-        "team_b_p2_name": match["team_b"]["player2_name"]
-    })
     games = sorted(client.get(f"/api/matches/{match['id']}").json()["individual_games"], key=lambda g: g["game_order"])
 
     # Team A wins Einzel 1

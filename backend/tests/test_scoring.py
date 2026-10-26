@@ -52,8 +52,6 @@ def test_result_unknown_ids(client, match):
     assert client.post(f"/api/matches/{match['id']}/games/9999/result", json=body).status_code == 404
 
     assert client.get("/api/matches/9999").status_code == 404
-    lineup = {"team_a_p1_name": "a", "team_a_p2_name": "b", "team_b_p1_name": "c", "team_b_p2_name": "d"}
-    assert client.post("/api/matches/9999/lineup", json=lineup).status_code == 404
 
 
 def test_zero_zero_resets_a_game_and_reopens_the_match(client, match, play):
@@ -68,19 +66,12 @@ def test_zero_zero_resets_a_game_and_reopens_the_match(client, match, play):
     assert (m["score_a"], m["score_b"], m["is_completed"], m["winner_team_id"]) == (2, 1, False, None)
 
 
-def test_lineup_sets_player_names_per_game(client, match):
-    res = client.post(f"/api/matches/{match['id']}/lineup", json={
-        "team_a_p1_name": "Anna", "team_a_p2_name": "Ben",
-        "team_b_p1_name": "Cem", "team_b_p2_name": "Dana",
-    })
-    assert res.status_code == 200
-    names = {g["game_order"]: (g["player_a_name"], g["player_b_name"]) for g in res.json()["individual_games"]}
-    assert names == {
-        1: ("Anna", "Dana"),
-        2: ("Ben", "Cem"),
-        3: ("Anna", "Cem"),
-        4: ("Ben", "Dana"),
-    }
+def test_games_use_the_registered_player_order(client, match):
+    m = client.get(f"/api/matches/{match['id']}").json()
+    a1, a2 = m["team_a"]["player1_name"], m["team_a"]["player2_name"]
+    b1, b2 = m["team_b"]["player1_name"], m["team_b"]["player2_name"]
+    names = {g["game_order"]: (g["player_a_name"], g["player_b_name"]) for g in m["individual_games"]}
+    assert names == {1: (a1, b2), 2: (a2, b1), 3: (a1, b1), 4: (a2, b2)}
 
 
 def test_swiss_match_can_end_in_a_draw(client, t_id, match, play):
