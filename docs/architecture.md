@@ -6,7 +6,7 @@ Outcome of an architecture and tech stack review. It records the requirements th
 
 - **Scope:** one club, a few tournaments a year, one active tournament at a time, run by one organiser. Not multi-tenant, and not shared with other clubs.
 - **Hosting on the day:** a laptop with its own travel router, forming a closed network. Players' phones, the beamer and the admin tablet join that network. It must not depend on the hall's Wi-Fi or on mobile data.
-- **Online results:** not needed for now. `docker-compose.yml` stays in case that changes.
+- **Online results:** since 2026-10-26 the app can also run on a server behind Traefik under a public subdomain (`deploy/`). The laptop + own router setup stays the fallback for halls without reliable mobile internet.
 - **Failure tolerance:** the printed match sheets (`PrintableSheets`) are the fallback. If the server or laptop dies, restart and re-enter results from paper. Automatic backups and failover are not needed. SQLite commits every result, so a process crash loses nothing.
 - **Maintenance:** mostly done with Claude Code. The organiser knows Go, not Python or React.
 - **Schema changes:** no migrations. Deleting `tt_turnier.db` between events is acceptable.
@@ -30,6 +30,6 @@ FastAPI with SQLAlchemy and SQLite, a React single-page app (Vite, Tailwind), We
 ## Deliberately unchanged
 
 - **Result entry stays open:** anyone can open any match from the scorer's list and enter results. Match PINs remain, but they aren't enforced. The admin corrects mistakes.
-- No cloud hosting or online results view.
+- No user accounts: the public deployment relies on a strong `TT_ADMIN_PIN` and keeps result entry open, like on the LAN.
 - No automatic database backups. Paper is the fallback.
 - No migration tooling.

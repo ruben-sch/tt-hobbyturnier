@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.auth import require_admin
 from backend.app.database import get_db
-from backend.app.models import Table, Team, Tournament
+from backend.app.models import Table, Team, Tournament, default_admin_pin
 from backend.app.schemas import (
     StandingsRow,
     TournamentCreate,
@@ -81,7 +81,7 @@ def get_active_tournament(db: Session = Depends(get_db)):
             best_of_sets=5,
             table_count=8,
             tables_per_match=1,
-            admin_pin="admin123",
+            admin_pin=default_admin_pin(),
             is_active=True
         )
         db.add(t)

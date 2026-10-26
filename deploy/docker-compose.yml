@@ -1,0 +1,38 @@
+# Server stack, same pattern as the ubiqiti stack: Traefik finds the container
+# through its labels on the shared rs_proxy network. deploy/deploy.sh runs it with
+# the .env from STACK_DIR (TT_HOST, TT_ADMIN_PIN, TT_IMAGE_TAG).
+x-logging: &default-logging
+  driver: local
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  tt-turnier:
+    image: ghcr.io/ruben-sch/tt-hobbyturnier:${TT_IMAGE_TAG:-latest}
+    container_name: tt-turnier
+    restart: unless-stopped
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - TT_ADMIN_PIN=${TT_ADMIN_PIN:?TT_ADMIN_PIN in .env setzen}
+    volumes:
+      - tt-data:/app/data
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=rs_proxy"
+      - "traefik.http.routers.tt-turnier.rule=Host(`${TT_HOST:?TT_HOST in .env setzen}`)"
+      - "traefik.http.routers.tt-turnier.entrypoints=${TT_ENTRYPOINT:-http}"
+      - "traefik.http.services.tt-turnier.loadbalancer.server.port=8000"
+
+volumes:
+  tt-data:
+    name: tt-turnier-data
+
+networks:
+  proxy:
+    name: rs_proxy
+    external: true
