@@ -1,3 +1,6 @@
+import pytest
+
+
 def next_swiss(client, t_id):
     return client.post(f"/api/tournaments/{t_id}/rounds/next-swiss")
 
@@ -88,3 +91,42 @@ def test_complete_round(client, t_id, add_teams, play):
     assert (rounds[0]["is_completed"], rounds[0]["is_active"]) == (True, False)
 
     assert client.post("/api/rounds/9999/complete").status_code == 404
+
+
+@pytest.mark.parametrize("best_of,bye_sets", [(5, 12), (3, 8)])
+def test_bye_counts_as_won_without_dropping_a_set(client, t_id, add_teams, best_of, bye_sets):
+    client.put(f"/api/tournaments/{t_id}", json={"best_of_sets": best_of})
+    add_teams(t_id, 3)
+    r = next_swiss(client, t_id).json()
+
+    bye = next(m for m in r["team_matches"] if m["team_b_id"] is None)
+    regular = next(m for m in r["team_matches"] if m["team_b_id"] is not None)
+    assert (bye["is_bye"], regular["is_bye"]) == (True, False)
+
+    standings = client.get(f"/api/tournaments/{t_id}/standings").json()
+    bye_row = next(s for s in standings if s["team_id"] == bye["team_a_id"])
+    assert (bye_row["sets_won"], bye_row["sets_lost"]) == (bye_sets, 0)
+
+
+def test_deleted_team_is_neither_listed_ranked_nor_paired(client, t_id, add_teams):
+    ids = add_teams(t_id, 3)
+    assert client.delete(f"/api/tournaments/{t_id}/teams/{ids[0]}").status_code == 200
+
+    assert [t["id"] for t in client.get(f"/api/tournaments/{t_id}/teams").json()] == ids[1:]
+    assert sorted(s["team_id"] for s in client.get(f"/api/tournaments/{t_id}/standings").json()) == ids[1:]
+    r = next_swiss(client, t_id).json()
+    assert [(m["team_a_id"], m["team_b_id"]) for m in r["team_matches"]] in ([tuple(ids[1:])], [tuple(ids[:0:-1])])
+
+
+def test_ko_cannot_start_while_a_round_is_open(client, t_id, add_teams, play):
+    add_teams(t_id, 4)
+    r = next_swiss(client, t_id).json()
+
+    res = client.post(f"/api/tournaments/{t_id}/rounds/start-ko", params={"team_count": 4})
+    assert res.status_code == 400
+    assert "noch aktiv" in res.json()["detail"]
+
+    for m in r["team_matches"]:
+        play(m["id"], "AAAA")
+    client.post(f"/api/rounds/{r['id']}/complete")
+    assert client.post(f"/api/tournaments/{t_id}/rounds/start-ko", params={"team_count": 4}).status_code == 200
