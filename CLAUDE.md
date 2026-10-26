@@ -13,6 +13,7 @@ Architecture decisions, requirements (laptop + own router on tournament day, one
 - Tests: `PYTHONPATH=. backend/venv/bin/pytest backend/tests/ -v`. The integration tests drop/recreate the real app DB (`tt_turnier.db` at repo root unless `DATABASE_URL` is set) — that's accepted, local data is disposable.
 - Lint: `backend/venv/bin/ruff check .` (config in `ruff.toml`) and `npm run lint` in `frontend/` (ESLint 9 flat config). No formatter is configured.
 - Frontend tests: `npm test` in `frontend/` (Vitest + jsdom + Testing Library; component tests mock `services/api.js` with `vi.mock`).
+- E2E: `npm run test:e2e` in `frontend/` (Playwright, `e2e/`). Builds the frontend and starts its own uvicorn on :8001 with `e2e_turnier.db`, then plays two full 17-team tournaments through the UI (~3 min). `E2E_SEED` replays a run (it also seeds the backend's `random` via `TT_RANDOM_SEED`). Selectors use roles/text plus a few `data-testid`s (`match-tile`, `active-round`) — keep those when restyling. Output in `frontend/e2e-results/`.
 - Coverage: add `--cov=backend/app --cov-report=term-missing` to the pytest command, `npm run test:coverage` in `frontend/`. CI fails below 95 % (backend) and the thresholds in `frontend/vite.config.js` — raise them when coverage goes up.
 - CI (`.github/workflows/ci.yml`) runs backend lint+tests and frontend lint+tests+build on every PR; `main` requires both jobs to pass — work on a branch and open a PR.
 

@@ -4,7 +4,7 @@ import react from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
 
 export default [
-  { ignores: ['dist', 'coverage'] },
+  { ignores: ['dist', 'coverage', 'e2e-results'] },
   {
     files: ['**/*.{js,jsx}'],
     languageOptions: {
@@ -25,7 +25,7 @@ export default [
     },
   },
   {
-    files: ['*.config.js'],
+    files: ['*.config.js', 'e2e/**/*.js'],
     languageOptions: { globals: globals.node },
   },
 ]

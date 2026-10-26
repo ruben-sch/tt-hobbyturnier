@@ -258,6 +258,8 @@ export default function TableScorer({ tournament, initialMatchId = null, onIniti
           {tables.map((t, idx) => (
             <div
               key={t.table_number || idx}
+              data-testid="match-tile"
+              data-active={t.is_active ? 'true' : 'false'}
               onClick={() => handleSelectTable(t)}
               className={`p-5 rounded-2xl border cursor-pointer transition-all ${
                 t.is_active

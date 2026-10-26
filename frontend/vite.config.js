@@ -20,6 +20,8 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: './src/test/setup.js',
+    // e2e/ holds the Playwright tests, run with `npm run test:e2e`
+    include: ['src/**/*.test.{js,jsx}'],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{js,jsx}'],
