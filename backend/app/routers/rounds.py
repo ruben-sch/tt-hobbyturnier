@@ -79,6 +79,11 @@ async def advance_ko(tournament_id: int, db: Session = Depends(get_db)):
     return round_obj
 
 
+def _has_started(match: TeamMatch) -> bool:
+    """A match has started once it is completed or any game has a result."""
+    return match.is_completed or any(g.sets_won_a or g.sets_won_b for g in match.individual_games)
+
+
 @router.post("/api/rounds/{round_id}/swap-pairings", dependencies=[Depends(require_admin)])
 async def swap_pairings(round_id: int, payload: SwapPairingsRequest, db: Session = Depends(get_db)):
     m1 = db.query(TeamMatch).filter(TeamMatch.id == payload.match_id_1, TeamMatch.round_id == round_id).first()
@@ -87,9 +92,9 @@ async def swap_pairings(round_id: int, payload: SwapPairingsRequest, db: Session
     if not m1 or not m2:
         raise HTTPException(status_code=404, detail="Begegnung(en) nicht gefunden")
 
-    if m1.lineup_confirmed or m2.lineup_confirmed or m1.is_completed or m2.is_completed:
+    if _has_started(m1) or _has_started(m2):
         raise HTTPException(
-            status_code=400, detail="Aufstellung oder Spiel bereits begonnen; Tausch nicht mehr möglich."
+            status_code=400, detail="Begegnung bereits begonnen; Tausch nicht mehr möglich."
         )
 
     # Swap team B

@@ -137,18 +137,15 @@ def test_ko_tables_wrap_around_the_table_count(client, t_id, add_teams, play):
         assert all((m["table_number"], m["table_number_b"]) == (1, 2) for m in r["team_matches"])
 
 
-def test_deciding_doubles_uses_the_confirmed_lineup(client, t_id, add_teams, play):
+def test_deciding_doubles_uses_the_registered_players(client, t_id, add_teams, play):
     add_teams(t_id, 4)
     _, semis = start_ko(client, t_id, 4)
     sf = by_slot(semis)[0]
-    client.post(f"/api/matches/{sf['id']}/lineup", json={
-        "team_a_p1_name": "Ersatz", "team_a_p2_name": "P0A", "team_b_p1_name": "P3B", "team_b_p2_name": "P3A",
-    })
 
     tied = play(sf["id"], "ABAB")
 
     doubles = next(g for g in tied["individual_games"] if g["is_doubles"])
-    assert (doubles["player_a_name"], doubles["player_b_name"]) == ("Ersatz / P0A", "P3B / P3A")
+    assert (doubles["player_a_name"], doubles["player_b_name"]) == ("P0A / P0B", "P3A / P3B")
 
 
 @pytest.mark.parametrize("team_count", [2, 6, 16])
@@ -170,19 +167,3 @@ def test_nothing_follows_the_final(client, t_id, add_teams, play):
     res = client.post(f"/api/tournaments/{t_id}/rounds/advance-ko")
     assert res.status_code == 400
     assert "Ungültige Anzahl an Siegern" in res.json()["detail"]
-
-
-def test_lineup_confirmed_after_the_tie_renames_the_doubles(client, t_id, add_teams, play):
-    add_teams(t_id, 4)
-    _, semis = start_ko(client, t_id, 4)
-    sf = by_slot(semis)[0]
-    play(sf["id"], "ABAB")
-
-    m = client.post(f"/api/matches/{sf['id']}/lineup", json={
-        "team_a_p1_name": "P0B", "team_a_p2_name": "Ersatz", "team_b_p1_name": "P3A", "team_b_p2_name": "P3B",
-    }).json()
-
-    doubles = next(g for g in m["individual_games"] if g["is_doubles"])
-    assert (doubles["player_a_name"], doubles["player_b_name"]) == ("P0B / Ersatz", "P3A / P3B")
-    game1 = next(g for g in m["individual_games"] if g["game_order"] == 1)
-    assert (game1["player_a_name"], game1["player_b_name"]) == ("P0B", "P3B")

@@ -68,11 +68,12 @@ def test_swap_pairings(client, t_id, add_teams):
 
     assert client.post(url, json={"match_id_1": m1["id"], "match_id_2": 9999}).status_code == 404
 
-    client.post(f"/api/matches/{m1['id']}/lineup", json={
-        "team_a_p1_name": "a", "team_a_p2_name": "b", "team_b_p1_name": "c", "team_b_p2_name": "d",
-    })
+    # Once a game has a result the pairing is fixed
+    game = client.get(f"/api/matches/{m1['id']}").json()["individual_games"][0]
+    client.post(f"/api/matches/{m1['id']}/games/{game['id']}/result", json={"sets_a": 3, "sets_b": 1})
     res = client.post(url, json={"match_id_1": m1["id"], "match_id_2": m2["id"]})
     assert res.status_code == 400
+    assert res.json()["detail"] == "Begegnung bereits begonnen; Tausch nicht mehr möglich."
 
 
 def test_complete_round(client, t_id, add_teams, play):

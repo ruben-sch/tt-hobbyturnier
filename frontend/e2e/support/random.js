@@ -44,8 +44,7 @@ const TEAM_SUFFIXES = [
   'Piraten', 'Füchse', 'Brüder & Schwestern', 'Senioren', 'Youngsters', 'Connection', 'United', '"Die Wilden"',
 ];
 
-// Unique team names and player names: the lineup select uses names as values,
-// and the standings rows are matched to teams by name.
+// Unique team names and player names: the standings rows are matched to teams by name.
 export function generateTeams(rng, count) {
   const teamNames = new Set();
   const playerNames = new Set();

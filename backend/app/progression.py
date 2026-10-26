@@ -145,14 +145,12 @@ def _open_round(
             team_a_p2_name=team_a.player2_name,
             team_b_p1_name=team_b.player1_name if team_b else None,
             team_b_p2_name=team_b.player2_name if team_b else None,
-            lineup_confirmed=False,
             score_a=0,
             score_b=0,
             is_completed=False,
         )
         if team_b is None:
             bye = match_rules.bye_result()
-            match.lineup_confirmed = True
             match.score_a, match.score_b = bye.score_a, bye.score_b
             match.is_completed = True
             match.winner_team_id = team_a_id
