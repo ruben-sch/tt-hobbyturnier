@@ -6,14 +6,18 @@ from backend.app.models import Tournament
 
 
 def pdf_text(data: bytes) -> str:
-    """The text drawn in an fpdf2 PDF: its content streams, inflated."""
-    streams = re.findall(rb"stream\r?\n(.*?)\r?\nendstream", data, re.S)
+    """The text drawn in an fpdf2 PDF: its content streams, inflated.
+
+    Streams are cut by their /Length, not by searching for "endstream": compressed
+    data may end in a "\\r" that a pattern would strip as part of the line break.
+    """
     out = []
-    for s in streams:
+    for m in re.finditer(rb"/Length (\d+)\s*>>\s*stream\r?\n", data):
+        raw = data[m.end():m.end() + int(m.group(1))]
         try:
-            out.append(zlib.decompress(s).decode("latin-1"))
+            out.append(zlib.decompress(raw).decode("latin-1"))
         except zlib.error:
-            pass
+            pass  # not a content stream (e.g. a font)
     return "\n".join(out).replace("\\(", "(").replace("\\)", ")")
 
 
