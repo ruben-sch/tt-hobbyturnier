@@ -78,7 +78,7 @@ Der Server ist danach auf Port 8000 verfügbar. Die Spieldaten liegen im Docker-
 
 ### Option C: Auf einem Server unter eigener Subdomain
 
-Releases werden automatisch per release-please gebaut und hinter Traefik deployt, siehe [`deploy/README.md`](deploy/README.md).
+Push auf `main` geht auf Staging, ein Release per release-please auf Produktion, hinter dem gemeinsamen Traefik auf dem Hetzner-Server, siehe [`deploy/README.md`](deploy/README.md).
 
 ---
 

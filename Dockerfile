@@ -1,5 +1,6 @@
 # Stage 1: build the frontend
-FROM node:24-alpine AS frontend-builder
+# Built on the build platform: the output is plain JS, so arm64 needs no emulation
+FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm ci

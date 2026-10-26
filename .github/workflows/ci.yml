@@ -42,13 +42,17 @@ jobs:
       - run: npm run build
 
   docker:
-    name: Docker image + deploy script
+    name: Docker image + deploy files
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: shellcheck deploy/deploy.sh
-      - name: Server compose file is valid
-        run: docker compose --env-file deploy/.env.example -f deploy/docker-compose.yml config --quiet
+      - name: Server compose files are valid
+        env:
+          STACK: tt-turnier-staging
+          IMAGE_TAG: staging
+          APP_HOST: staging.turnier.example.de
+          TT_ADMIN_PIN: ci-pin
+        run: docker compose -f deploy/compose.yaml -f deploy/compose.staging.yaml config --quiet
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
