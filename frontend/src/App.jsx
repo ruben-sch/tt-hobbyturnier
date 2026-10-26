@@ -11,8 +11,22 @@ import { fetchActiveTournament, getAdminPin, subscribeAdminPin, verifyAdminPin, 
 import { useWebSocket } from './hooks/useWebSocket';
 import { LiveEventsContext, TOURNAMENT_EVENTS, createLiveEvents } from './hooks/useLiveEvents';
 
+const TABS = ['monitor', 'scorer', 'standings', 'bracket', 'admin', 'print'];
+
+// QR codes link to ?tab=scorer, optionally with &match=<id> (see useAppBaseUrl).
+function readDeepLink() {
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get('tab');
+  return {
+    tab: TABS.includes(tab) ? tab : 'monitor',
+    matchId: parseInt(params.get('match'), 10) || null,
+  };
+}
+
 export default function App() {
-  const [currentTab, setCurrentTab] = useState('monitor');
+  const [deepLink] = useState(readDeepLink);
+  const [currentTab, setCurrentTab] = useState(deepLink.tab);
+  const [initialMatchId, setInitialMatchId] = useState(deepLink.matchId);
   const [tournament, setTournament] = useState(null);
   const liveEvents = useMemo(() => createLiveEvents(), []);
   const [isAdmin, setIsAdmin] = useState(() => Boolean(getAdminPin()));
@@ -72,7 +86,11 @@ export default function App() {
           <HallenMonitor tournament={tournament} />
         )}
         {currentTab === 'scorer' && (
-          <TableScorer tournament={tournament} />
+          <TableScorer
+            tournament={tournament}
+            initialMatchId={initialMatchId}
+            onInitialMatchOpened={() => setInitialMatchId(null)}
+          />
         )}
         {currentTab === 'standings' && (
           <StandingsTable tournament={tournament} />

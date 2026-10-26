@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchRounds } from '../services/api';
 import { useLiveEvent, MATCH_EVENTS, TEAM_EVENTS } from '../hooks/useLiveEvents';
+import { useAppBaseUrl, scorerUrl } from '../hooks/useAppBaseUrl';
+import { QRCodeSVG } from 'qrcode.react';
 import { Printer } from 'lucide-react';
 
 export default function PrintableSheets({ tournament }) {
   const [rounds, setRounds] = useState([]);
   const [selectedRoundId, setSelectedRoundId] = useState(null);
+  const baseUrl = useAppBaseUrl();
 
   const loadRounds = useCallback(async (keepSelection = false) => {
     try {
@@ -93,13 +96,25 @@ export default function PrintableSheets({ tournament }) {
                 </p>
               </div>
 
-              <div className="text-right">
-                <div className="text-base font-black border-2 border-black px-3 py-1 inline-block rounded">
-                  BEGEGNUNG #{mIdx + 1}
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <div className="text-base font-black border-2 border-black px-3 py-1 inline-block rounded">
+                    BEGEGNUNG #{mIdx + 1}
+                  </div>
+                  <div className="text-[10px] text-neutral-500 font-mono mt-0.5">
+                    Match-PIN: {match.match_pin}
+                  </div>
+                  <div className="text-[10px] text-neutral-500 mt-0.5">
+                    Ergebnis per Handy: QR-Code scannen
+                  </div>
                 </div>
-                <div className="text-[10px] text-neutral-500 font-mono mt-0.5">
-                  Match-PIN: {match.match_pin}
-                </div>
+                {baseUrl && (
+                  <QRCodeSVG
+                    value={scorerUrl(baseUrl, match.id)}
+                    size={72}
+                    title={`QR-Code zur Ergebniseingabe für Begegnung #${mIdx + 1}`}
+                  />
+                )}
               </div>
             </div>
 

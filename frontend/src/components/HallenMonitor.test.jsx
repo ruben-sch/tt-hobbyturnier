@@ -7,6 +7,12 @@ import { standingsRow } from '../test/fixtures';
 
 vi.mock('../services/api', () => ({
   fetchMonitorDashboard: vi.fn(),
+  fetchServerInfo: vi.fn(),
+}));
+
+// Render the encoded link as text so tests can check where the QR code points.
+vi.mock('qrcode.react', () => ({
+  QRCodeSVG: ({ value, title }) => <div title={title}>{value}</div>,
 }));
 
 const tournament = { id: 3 };
@@ -35,6 +41,7 @@ const swissData = {
 describe('HallenMonitor', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    api.fetchServerInfo.mockResolvedValue({ lan_url: 'http://192.168.8.10:8000' });
   });
 
   it('shows a loading state until data arrives', () => {
@@ -59,6 +66,15 @@ describe('HallenMonitor', () => {
     expect(screen.getByText('-2')).toBeInTheDocument();
     expect(screen.getByText('R1:')).toBeInTheDocument();
     expect(screen.getByText('3:1')).toBeInTheDocument();
+  });
+
+  it('shows a QR code that opens the result entry', async () => {
+    api.fetchMonitorDashboard.mockResolvedValue(swissData);
+    render(<HallenMonitor tournament={tournament} />);
+
+    expect(await screen.findByTitle('QR-Code zur Ergebniseingabe'))
+      .toHaveTextContent('http://192.168.8.10:8000/?tab=scorer');
+    expect(screen.getByText('192.168.8.10:8000')).toBeInTheDocument();
   });
 
   it('switches to the single views', async () => {

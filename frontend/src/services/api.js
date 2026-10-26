@@ -193,3 +193,9 @@ export async function fetchMonitorDashboard(tournamentId) {
   if (!res.ok) throw new Error("Fehler beim Laden der Monitor-Daten");
   return res.json();
 }
+
+export async function fetchServerInfo() {
+  const res = await fetch(`${API_BASE}/server/info`);
+  if (!res.ok) throw new Error("Fehler beim Laden der Server-Adresse");
+  return res.json();
+}

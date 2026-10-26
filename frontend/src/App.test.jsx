@@ -24,7 +24,11 @@ const { stub } = vi.hoisted(() => ({
   }),
 }));
 vi.mock('./components/HallenMonitor', () => stub('HallenMonitor'));
-vi.mock('./components/TableScorer', () => stub('TableScorer'));
+vi.mock('./components/TableScorer', () => ({
+  default: ({ tournament, initialMatchId }) => (
+    <div>{`TableScorer: ${tournament?.name ?? '-'}${initialMatchId ? ` ${initialMatchId}` : ''}`}</div>
+  ),
+}));
 vi.mock('./components/StandingsTable', () => stub('StandingsTable'));
 vi.mock('./components/KOBracket', () => stub('KOBracket'));
 vi.mock('./components/AdminDashboard', () => stub('AdminDashboard'));
@@ -50,6 +54,16 @@ describe('App', () => {
       onWsMessage = cb;
       return { isConnected: true };
     });
+  });
+
+  it('opens the tab and match from a QR code link', async () => {
+    window.history.pushState({}, '', '/?tab=scorer&match=21');
+    try {
+      render(<App />);
+      expect(await screen.findByText('TableScorer: Sommerturnier 21')).toBeInTheDocument();
+    } finally {
+      window.history.pushState({}, '', '/');
+    }
   });
 
   it('loads the tournament and switches tabs', async () => {

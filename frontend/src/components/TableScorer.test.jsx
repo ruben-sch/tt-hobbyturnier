@@ -44,6 +44,20 @@ describe('TableScorer', () => {
     api.submitGameResult.mockResolvedValue({});
   });
 
+  it('opens the match from a QR code deep link once', async () => {
+    const onOpened = vi.fn();
+    const { rerender } = render(
+      <TableScorer tournament={tournament} initialMatchId={42} onInitialMatchOpened={onOpened} />
+    );
+
+    expect(await screen.findByText('Team Alpha')).toBeInTheDocument();
+    expect(api.fetchMatch).toHaveBeenCalledWith(42);
+    expect(onOpened).toHaveBeenCalledTimes(1);
+
+    rerender(<TableScorer tournament={tournament} initialMatchId={42} onInitialMatchOpened={onOpened} />);
+    expect(onOpened).toHaveBeenCalledTimes(1);
+  });
+
   it('shows an error for a wrong PIN', async () => {
     api.authenticatePin.mockResolvedValue({ authenticated: false, message: 'Ungültige PIN' });
     const user = userEvent.setup();

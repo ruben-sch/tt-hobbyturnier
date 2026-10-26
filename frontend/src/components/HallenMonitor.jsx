@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchMonitorDashboard } from '../services/api';
 import { useLiveEvent, MATCH_EVENTS, TEAM_EVENTS } from '../hooks/useLiveEvents';
+import { useAppBaseUrl, scorerUrl } from '../hooks/useAppBaseUrl';
+import { QRCodeSVG } from 'qrcode.react';
 import { 
   Maximize2, 
   RefreshCw, 
@@ -14,6 +16,7 @@ export default function HallenMonitor({ tournament }) {
   const [viewMode, setViewMode] = useState('split'); // 'split', 'auto', 'tables', 'standings'
   const [autoIndex, setAutoIndex] = useState(0); // 0: tables, 1: standings, 2: ko
   const [intervalSec] = useState(15);
+  const baseUrl = useAppBaseUrl();
 
   const loadData = useCallback(async () => {
     try {
@@ -131,6 +134,20 @@ export default function HallenMonitor({ tournament }) {
             <Maximize2 className="w-4 h-4" />
           </button>
         </div>
+
+        {/* QR code for players: opens the result entry on their phone */}
+        {baseUrl && (
+          <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-xl p-2 pr-4">
+            <div className="bg-white p-1.5 rounded-lg">
+              <QRCodeSVG value={scorerUrl(baseUrl)} size={88} title="QR-Code zur Ergebniseingabe" />
+            </div>
+            <div className="text-xs">
+              <div className="font-bold text-sky-400 uppercase tracking-wide">Ergebnis eintragen</div>
+              <div className="text-slate-400">QR-Code mit dem Handy scannen</div>
+              <div className="font-mono text-slate-500 mt-1">{baseUrl.replace(/^https?:\/\//, '')}</div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Main Content Area */}
