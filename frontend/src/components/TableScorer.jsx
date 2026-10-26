@@ -14,7 +14,7 @@ import {
   ListOrdered
 } from 'lucide-react';
 
-export default function TableScorer({ tournament }) {
+export default function TableScorer({ tournament, initialMatchId = null, onInitialMatchOpened }) {
   const [tables, setTables] = useState([]);
   const [, setSelectedTable] = useState(null);
   const [matchData, setMatchData] = useState(null);
@@ -105,6 +105,16 @@ export default function TableScorer({ tournament }) {
       console.error(e);
     }
   };
+
+  // Deep link from a match sheet QR code: open that match once.
+  const initialMatchRef = useRef(initialMatchId);
+  useEffect(() => {
+    const matchId = initialMatchRef.current;
+    if (!matchId) return;
+    initialMatchRef.current = null;
+    loadMatch(matchId);
+    onInitialMatchOpened?.();
+  });
 
   const handleSelectTable = (tbl) => {
     setSelectedTable(tbl);

@@ -81,6 +81,7 @@ describe('endpoints', () => {
     [() => api.fetchTablesStatus(1), '/api/tables/status/1', undefined, 'Fehler beim Laden der Begegnungen'],
     [() => api.authenticatePin(1, '1001'), '/api/tables/auth/1', 'POST', 'PIN-Prüfung fehlgeschlagen'],
     [() => api.fetchMonitorDashboard(1), '/api/monitors/1/dashboard', undefined, 'Fehler beim Laden der Monitor-Daten'],
+    [() => api.fetchServerInfo(), '/api/server/info', undefined, 'Fehler beim Laden der Server-Adresse'],
   ];
 
   it.each(cases)('calls endpoint %#', async (call, url, method) => {

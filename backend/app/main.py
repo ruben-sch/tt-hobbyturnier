@@ -10,6 +10,7 @@ from backend.app.routers import (
     matches,
     monitors,
     rounds,
+    server,
     tables,
     teams,
     tournaments,
@@ -45,6 +46,7 @@ app.include_router(rounds.router)
 app.include_router(matches.router)
 app.include_router(tables.router)
 app.include_router(monitors.router)
+app.include_router(server.router)
 
 
 @app.websocket("/ws")
