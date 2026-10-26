@@ -74,7 +74,11 @@ Für die Entwicklung gibt es `./dev.sh`: Backend mit Auto-Reload und Vite mit Li
 docker compose up --build -d
 ```
 
-Der Server ist danach auf Port 8000 verfügbar. Die Spieldaten werden persistent im Ordner `./data/turnier.db` gesichert.
+Der Server ist danach auf Port 8000 verfügbar. Die Spieldaten liegen im Docker-Volume `tt-data`. Mit `TT_ADMIN_PIN=...` in der Umgebung bekommt ein neues Turnier diese Admin-PIN statt `admin123`.
+
+### Option C: Auf einem Server unter eigener Subdomain
+
+Push auf `main` geht auf Staging, ein Release per release-please auf Produktion, hinter dem gemeinsamen Traefik auf dem Hetzner-Server, siehe [`deploy/README.md`](deploy/README.md).
 
 ---
 

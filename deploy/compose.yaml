@@ -1,0 +1,35 @@
+# Server deployment, same pattern as teamtafel. One file for staging and
+# production; the environment comes from the .env file the deploy workflow
+# writes, the compose project is named like STACK.
+#   docker compose -p tt-turnier         --env-file .env.production -f compose.yaml up -d
+#   docker compose -p tt-turnier-staging --env-file .env.staging -f compose.yaml -f compose.staging.yaml up -d
+services:
+  app:
+    image: ghcr.io/ruben-sch/tt-hobbyturnier:${IMAGE_TAG:?}
+    environment:
+      # Admin PIN of every new tournament instead of the guessable admin123
+      TT_ADMIN_PIN: ${TT_ADMIN_PIN:?}
+    volumes:
+      - data:/app/data
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${STACK:?}.rule=Host(`${APP_HOST:?}`)"
+      - "traefik.http.routers.${STACK}.tls=true"
+      - "traefik.http.routers.${STACK}.tls.certresolver=letsencrypt"
+      - "traefik.http.services.${STACK}.loadbalancer.server.port=8000"
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  data:
+
+networks:
+  proxy:
+    name: proxy
+    external: true

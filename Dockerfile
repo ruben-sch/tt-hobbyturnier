@@ -1,27 +1,31 @@
-# Multi-stage Dockerfile
-# Stage 1: Build Frontend
-FROM node:20-alpine AS frontend-builder
+# Stage 1: build the frontend
+# Built on the build platform: the output is plain JS, so arm64 needs no emulation
+FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm install
+RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-# Stage 2: Python Backend with Static Files
-FROM python:3.11-slim
+# Stage 2: backend serving the built frontend (Python 3.9 like CI and the venv)
+FROM python:3.9-slim
 WORKDIR /app
 
-# Install dependencies
 COPY backend/requirements.txt ./backend/
 RUN pip install --no-cache-dir -r backend/requirements.txt
 
-# Copy backend code
 COPY backend/ ./backend/
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
-# Copy built frontend from Stage 1 into backend static location
-COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
-
-ENV PORT=8000
+# SQLite lives in /app/data, mounted as a volume
+RUN useradd --system --uid 10001 tt && mkdir -p /app/data && chown tt /app/data
+USER tt
+ENV PYTHONPATH=/app \
+    DATABASE_URL=sqlite:////app/data/turnier.db
 EXPOSE 8000
 
-CMD ["python", "-m", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --start-interval=2s \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/server/info', timeout=3)"
+
+# One process on purpose: the WebSocket hub is in memory
+CMD ["python", "-m", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
