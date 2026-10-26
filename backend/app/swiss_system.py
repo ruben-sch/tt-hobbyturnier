@@ -3,15 +3,13 @@ from typing import Dict, FrozenSet, Iterator, List, Optional, Set, Tuple
 
 from sqlalchemy.orm import Session
 
-from backend.app.models import IndividualGame, Round, Team, TeamMatch, Tournament
+from backend.app import match_rules
+from backend.app.models import Round, Team, TeamMatch, Tournament
 
 
 def calculate_standings(tournament_id: int, db: Session) -> List[Dict]:
-    teams = db.query(Team).filter(
-        Team.tournament_id == tournament_id,
-        Team.is_active == True,
-        Team.is_bye == False
-    ).all()
+    teams = Team.active(db, tournament_id).all()
+    bye_sets = match_rules.bye_sets(db.get(Tournament, tournament_id).best_of_sets)
 
     # Initialize statistics for each team
     stats = {}
@@ -55,8 +53,7 @@ def calculate_standings(tournament_id: int, db: Session) -> List[Dict]:
                 stats[a_id]["won_matches"] += 1
                 stats[a_id]["game_points"] += m.score_a
                 stats[a_id]["game_points_lost"] += m.score_b
-                stats[a_id]["sets_won"] += 12
-                stats[a_id]["sets_lost"] += 0
+                stats[a_id]["sets_won"] += bye_sets
             continue
 
         if a_id in stats and b_id in stats:
@@ -297,62 +294,3 @@ def generate_swiss_round_pairings(tournament_id: int, db: Session) -> List[Tuple
         pairings = [(ordered_team_ids[i], ordered_team_ids[i+1]) for i in range(0, len(ordered_team_ids), 2)]
 
     return [(b, None) if a == BYE else (a, None if b == BYE else b) for a, b in pairings]
-
-
-def setup_games_for_match(match: TeamMatch, db: Session):
-    """
-    Creates the 4 standard individual games for a 2-player team match.
-    Game 1: A1 vs B2 (Over-cross)
-    Game 2: A2 vs B1 (Over-cross)
-    Game 3: A1 vs B1 (Direct)
-    Game 4: A2 vs B2 (Direct)
-    """
-    p_a1 = match.team_a_p1_name or (match.team_a.player1_name if match.team_a else "Spieler A1")
-    p_a2 = match.team_a_p2_name or (match.team_a.player2_name if match.team_a else "Spieler A2")
-    p_b1 = match.team_b_p1_name or (match.team_b.player1_name if match.team_b else "Spieler B1")
-    p_b2 = match.team_b_p2_name or (match.team_b.player2_name if match.team_b else "Spieler B2")
-
-    games_data = [
-        (1, False, p_a1, p_b2, match.table_number),
-        (2, False, p_a2, p_b1, match.table_number_b or match.table_number),
-        (3, False, p_a1, p_b1, match.table_number),
-        (4, False, p_a2, p_b2, match.table_number_b or match.table_number),
-    ]
-
-    for order, is_doubles, p_a, p_b, tbl in games_data:
-        game = IndividualGame(
-            team_match_id=match.id,
-            game_order=order,
-            is_doubles=is_doubles,
-            player_a_name=p_a,
-            player_b_name=p_b,
-            table_number=tbl,
-        )
-        db.add(game)
-
-
-def add_deciding_doubles_game(match: TeamMatch, db: Session):
-    """
-    Creates the 5th game (Entscheidungsdoppel) for KO matches tied at 2:2.
-    """
-    existing_doubles = db.query(IndividualGame).filter(
-        IndividualGame.team_match_id == match.id,
-        IndividualGame.game_order == 5
-    ).first()
-    if existing_doubles:
-        return existing_doubles
-
-    p_a = f"{match.team_a.player1_name} / {match.team_a.player2_name}"
-    p_b = f"{match.team_b.player1_name} / {match.team_b.player2_name}"
-
-    game = IndividualGame(
-        team_match_id=match.id,
-        game_order=5,
-        is_doubles=True,
-        player_a_name=p_a,
-        player_b_name=p_b,
-        table_number=match.table_number,
-    )
-    db.add(game)
-    db.flush()
-    return game

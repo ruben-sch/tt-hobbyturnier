@@ -418,7 +418,7 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
                   <div key={m.id} className="bg-slate-900/90 border border-slate-700/80 rounded-xl p-4">
                     <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
                       <span className="font-bold text-sky-400">
-                        {m.team_b_id ? `Paarung ${idx + 1}` : 'FREILOS (BYE)'}
+                        {m.is_bye ? 'FREILOS (BYE)' : `Paarung ${idx + 1}`}
                       </span>
                       <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-300">
                         PIN: {m.match_pin}

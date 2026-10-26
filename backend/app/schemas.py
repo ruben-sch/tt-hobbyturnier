@@ -17,7 +17,6 @@ class TeamResponse(TeamBase):
     id: int
     tournament_id: int
     is_active: bool
-    is_bye: bool
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -76,6 +75,7 @@ class TeamMatchResponse(BaseModel):
     round_id: int
     team_a_id: int
     team_b_id: Optional[int] = None
+    is_bye: bool
     team_a: Optional[TeamResponse] = None
     team_b: Optional[TeamResponse] = None
     table_number: Optional[int] = None

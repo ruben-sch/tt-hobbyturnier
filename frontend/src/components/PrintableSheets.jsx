@@ -80,7 +80,7 @@ export default function PrintableSheets({ tournament }) {
 
       {/* PRINTABLE SHEETS CONTAINER */}
       <div className="space-y-8 print:space-y-0">
-        {currentRound?.team_matches?.filter(m => m.team_b_id !== null).map((match, mIdx) => (
+        {currentRound?.team_matches?.filter(m => !m.is_bye).map((match, mIdx) => (
           <div 
             key={match.id}
             className="bg-white text-black p-6 sm:p-8 rounded-2xl print:rounded-none shadow-xl print:shadow-none border border-slate-300 print:border-black print:page-break-after-always mb-8 print:mb-0"
