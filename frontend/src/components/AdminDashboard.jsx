@@ -364,7 +364,7 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
 
           {/* ACTIVE ROUND PAIRINGS & MANUAL SWAP */}
           {activeRound && (
-            <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-6 shadow-xl">
+            <div data-testid="active-round" className="bg-slate-800/80 border border-slate-700 rounded-2xl p-6 shadow-xl">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-700/60">
                 <div>
                   <h4 className="font-bold text-white text-base">

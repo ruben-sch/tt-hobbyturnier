@@ -22,3 +22,6 @@ data/
 .DS_Store
 .idea/
 .vscode/
+
+# Playwright e2e
+frontend/e2e-results/

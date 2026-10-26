@@ -93,6 +93,16 @@ Getestet werden:
 - KO-Endrunden-Fortschritt & Entscheidungsdoppel bei 2:2
 - End-to-End API Lifecycle (Teams, Runden, Match-PINs, Hallenmonitore)
 
+### E2E-Test (kompletter Turniertag im Browser)
+
+```bash
+cd frontend && npm run test:e2e
+```
+
+Playwright spielt zwei Turniere mit je 17 Teams und 7 Runden Schweizer System komplett über die Oberfläche durch, eines davon mit KO Top 8 bis zum Finale. Teamnamen, Spielernamen, Aufstellungen und Ergebnisse sind zufällig; nach jeder Runde wird die Tabelle gegen die selbst mitgerechneten Werte geprüft. Der Seed steht in der Ausgabe, `E2E_SEED=<seed> npm run test:e2e` spielt einen Lauf exakt nach.
+
+Screenshots (Tabelle und Rundenergebnisse nach jeder Runde, bei Fehlern zusätzlich Screenshot und Trace) landen in `frontend/e2e-results/`, der HTML-Report unter `frontend/e2e-results/report`. In CI hängen sie als Artifact `e2e-results` am Lauf. Der Test nutzt eine eigene Datenbank (`e2e_turnier.db`) auf Port 8001.
+
 ---
 
 ## 📱 Navigation der Software
