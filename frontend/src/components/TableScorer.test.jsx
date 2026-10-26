@@ -7,7 +7,6 @@ import { LiveEventsContext, createLiveEvents } from '../hooks/useLiveEvents';
 
 vi.mock('../services/api', () => ({
   fetchTablesStatus: vi.fn(),
-  authenticatePin: vi.fn(),
   fetchMatch: vi.fn(),
   submitGameResult: vi.fn(),
 }));
@@ -25,6 +24,18 @@ const game = (id, order, extra = {}) => ({
   ...extra,
 });
 
+const runningTable = {
+  table_number: 1, is_active: true, current_team_match_id: 42,
+  team_a_name: 'Team Alpha', team_b_name: 'Team Beta', active_game_desc: 'Einzel 1: A1 vs B2',
+  match_score_a: 0, match_score_b: 0,
+};
+
+// Opens match 42 from the list of running matches.
+async function openMatch(user) {
+  await user.click(await screen.findByText('Team Alpha vs. Team Beta'));
+  await screen.findByText(/Ergebnis eintragen/);
+}
+
 const match = {
   id: 42,
   team_a: { name: 'Team Alpha', player1_name: 'A1', player2_name: 'A2' },
@@ -37,46 +48,18 @@ const match = {
 describe('TableScorer', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    api.fetchTablesStatus.mockResolvedValue([]);
+    api.fetchTablesStatus.mockResolvedValue([runningTable]);
     api.fetchMatch.mockResolvedValue(match);
     api.submitGameResult.mockResolvedValue({});
   });
 
-  it('opens the match from a QR code deep link once', async () => {
-    const onOpened = vi.fn();
-    const { rerender } = render(
-      <TableScorer tournament={tournament} initialMatchId={42} onInitialMatchOpened={onOpened} />
-    );
-
-    expect(await screen.findByText('Team Alpha')).toBeInTheDocument();
-    expect(api.fetchMatch).toHaveBeenCalledWith(42);
-    expect(onOpened).toHaveBeenCalledTimes(1);
-
-    rerender(<TableScorer tournament={tournament} initialMatchId={42} onInitialMatchOpened={onOpened} />);
-    expect(onOpened).toHaveBeenCalledTimes(1);
-  });
-
-  it('shows an error for a wrong PIN', async () => {
-    api.authenticatePin.mockResolvedValue({ authenticated: false, message: 'Ungültige PIN' });
+  it('opens a running match and saves the tapped set count', async () => {
     const user = userEvent.setup();
     render(<TableScorer tournament={tournament} />);
 
-    await user.type(screen.getByPlaceholderText('z.B. Match-PIN'), '0000');
-    await user.click(screen.getByRole('button', { name: 'Start' }));
+    await openMatch(user);
 
-    expect(await screen.findByText('Ungültige PIN')).toBeInTheDocument();
-    expect(api.authenticatePin).toHaveBeenCalledWith(1, '0000');
-  });
-
-  it('opens the match via PIN and saves the tapped set count', async () => {
-    api.authenticatePin.mockResolvedValue({ authenticated: true, match_id: 42, table_number: null });
-    const user = userEvent.setup();
-    render(<TableScorer tournament={tournament} />);
-
-    await user.type(screen.getByPlaceholderText('z.B. Match-PIN'), '1234');
-    await user.click(screen.getByRole('button', { name: 'Start' }));
-
-    expect(await screen.findByText(/Ergebnis eintragen \(A1 vs\. B1\)/)).toBeInTheDocument();
+    expect(screen.getByText('Ergebnis eintragen (A1 vs. B1)')).toBeInTheDocument();
     expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '3:1' }));
@@ -84,12 +67,9 @@ describe('TableScorer', () => {
   });
 
   it('offers exactly the possible results for best of 5 and best of 3', async () => {
-    api.authenticatePin.mockResolvedValue({ authenticated: true, match_id: 42, table_number: null });
     const user = userEvent.setup();
     const { unmount } = render(<TableScorer tournament={tournament} />);
-    await user.type(screen.getByPlaceholderText('z.B. Match-PIN'), '1234');
-    await user.click(screen.getByRole('button', { name: 'Start' }));
-    await screen.findByText(/Ergebnis eintragen/);
+    await openMatch(user);
 
     const labels = () => screen.getAllByRole('button', { name: /^\d:\d$/ }).map(b => b.textContent);
     expect(within(screen.getByText('Sieg A1').parentElement).getAllByRole('button').map(b => b.textContent))
@@ -99,14 +79,11 @@ describe('TableScorer', () => {
     unmount();
 
     render(<TableScorer tournament={{ ...tournament, best_of_sets: 3 }} />);
-    await user.type(screen.getByPlaceholderText('z.B. Match-PIN'), '1234');
-    await user.click(screen.getByRole('button', { name: 'Start' }));
-    await screen.findByText(/Ergebnis eintragen/);
+    await openMatch(user);
     expect(labels()).toEqual(['2:0', '2:1', '0:2', '1:2']);
   });
 
   it('refreshes the open match on updates from other devices', async () => {
-    api.authenticatePin.mockResolvedValue({ authenticated: true, match_id: 42, table_number: null });
     const events = createLiveEvents();
     const user = userEvent.setup();
     render(
@@ -115,9 +92,7 @@ describe('TableScorer', () => {
       </LiveEventsContext.Provider>
     );
 
-    await user.type(screen.getByPlaceholderText('z.B. Match-PIN'), '1234');
-    await user.click(screen.getByRole('button', { name: 'Start' }));
-    await screen.findByText(/Ergebnis eintragen/);
+    await openMatch(user);
 
     // Another device enters a result for game 2 of the same match
     api.fetchMatch.mockResolvedValue({
@@ -144,10 +119,10 @@ describe('TableScorer', () => {
 
   it('lists the running matches and opens one by click', async () => {
     api.fetchTablesStatus.mockResolvedValue([
-      { table_number: 1, pin_code: '1001', is_active: true, current_team_match_id: 42,
+      { table_number: 1, is_active: true, current_team_match_id: 42,
         team_a_name: 'Team Alpha', team_b_name: 'Team Beta', active_game_desc: 'Einzel 1: A1 vs B2',
         match_score_a: 2, match_score_b: 1 },
-      { table_number: 2, pin_code: '1002', is_active: false, current_team_match_id: null },
+      { table_number: 2, is_active: false, current_team_match_id: null },
     ]);
     const user = userEvent.setup();
     render(<TableScorer tournament={tournament} />);
@@ -155,6 +130,7 @@ describe('TableScorer', () => {
     expect(await screen.findByText('2 Begegnungen')).toBeInTheDocument();
     expect(screen.getByText('Einzel 1: A1 vs B2')).toBeInTheDocument();
     expect(screen.getByText('2 : 1')).toBeInTheDocument();
+    expect(screen.getByText('Tisch 1')).toBeInTheDocument();
 
     await user.click(screen.getByText('Aktuell kein Spiel zugewiesen'));
     expect(api.fetchMatch).not.toHaveBeenCalled();
@@ -167,40 +143,11 @@ describe('TableScorer', () => {
     expect(screen.getByText('2 Begegnungen')).toBeInTheDocument();
   });
 
-  it('opens the match of a table PIN', async () => {
-    api.fetchTablesStatus.mockResolvedValue([
-      { table_number: 3, pin_code: '1003', is_active: true, current_team_match_id: 42 },
-    ]);
-    api.authenticatePin.mockResolvedValue({ authenticated: true, role: 'table', table_number: 3, match_id: null });
-    const user = userEvent.setup();
-    render(<TableScorer tournament={tournament} />);
-    await screen.findByText('1 Begegnungen');
-
-    await user.type(screen.getByPlaceholderText('z.B. Match-PIN'), '1003');
-    await user.click(screen.getByRole('button', { name: 'Start' }));
-
-    expect(await screen.findByText(/Ergebnis eintragen/)).toBeInTheDocument();
-    expect(api.fetchMatch).toHaveBeenCalledWith(42);
-  });
-
-  it('reports a failing PIN check', async () => {
-    api.authenticatePin.mockRejectedValue(new Error('offline'));
-    const user = userEvent.setup();
-    render(<TableScorer tournament={tournament} />);
-
-    await user.type(screen.getByPlaceholderText('z.B. Match-PIN'), '1234');
-    await user.click(screen.getByRole('button', { name: 'Start' }));
-    expect(await screen.findByText('Fehler bei der PIN-Prüfung')).toBeInTheDocument();
-  });
-
   it('opens a match straight into result entry with the registered order and goes back', async () => {
-    api.authenticatePin.mockResolvedValue({ authenticated: true, match_id: 42 });
     const user = userEvent.setup();
     render(<TableScorer tournament={tournament} />);
 
-    await user.type(screen.getByPlaceholderText('z.B. Match-PIN'), '1234');
-    await user.click(screen.getByRole('button', { name: 'Start' }));
-    expect(await screen.findByText(/Ergebnis eintragen/)).toBeInTheDocument();
+    await openMatch(user);
     expect(screen.queryByText('Aufstellung festlegen')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Begegnungsauswahl/ }));
@@ -219,12 +166,9 @@ describe('TableScorer', () => {
     };
 
     async function openScorer(user, data = played) {
-      api.authenticatePin.mockResolvedValue({ authenticated: true, match_id: 42 });
-      api.fetchMatch.mockResolvedValue(data);
+        api.fetchMatch.mockResolvedValue(data);
       render(<TableScorer tournament={tournament} />);
-      await user.type(screen.getByPlaceholderText('z.B. Match-PIN'), '1234');
-      await user.click(screen.getByRole('button', { name: 'Start' }));
-      await screen.findByText(/Ergebnis eintragen/);
+      await openMatch(user);
     }
 
     it('starts at the first open game and marks the result of finished games', async () => {

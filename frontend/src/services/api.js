@@ -156,31 +156,16 @@ export async function fetchMatch(matchId) {
 
 
 export async function submitGameResult(matchId, gameId, setsA, setsB) {
-  const res = await fetch(`${API_BASE}/matches/${matchId}/games/${gameId}/result`, {
+  return adminFetch(`${API_BASE}/matches/${matchId}/games/${gameId}/result`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sets_a: setsA, sets_b: setsB }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "Fehler beim Speichern des Ergebnisses");
-  }
-  return res.json();
+  }, "Fehler beim Speichern des Ergebnisses");
 }
 
 export async function fetchTablesStatus(tournamentId) {
   const res = await fetch(`${API_BASE}/tables/status/${tournamentId}`);
   if (!res.ok) throw new Error("Fehler beim Laden der Begegnungen");
-  return res.json();
-}
-
-export async function authenticatePin(tournamentId, pin) {
-  const res = await fetch(`${API_BASE}/tables/auth/${tournamentId}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pin }),
-  });
-  if (!res.ok) throw new Error("PIN-Prüfung fehlgeschlagen");
   return res.json();
 }
 

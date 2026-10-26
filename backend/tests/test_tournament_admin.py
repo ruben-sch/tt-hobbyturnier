@@ -12,7 +12,7 @@ def test_create_tournament_replaces_active_one(client, t_id):
 
     assert client.get("/api/tournaments/active").json()["id"] == new["id"]
     tables = client.get(f"/api/tables/status/{new['id']}").json()
-    assert [(t["table_number"], t["pin_code"]) for t in tables] == [(1, "1001"), (2, "1002"), (3, "1003")]
+    assert [t["table_number"] for t in tables] == [1, 2, 3]
 
 
 def test_update_tournament_adds_tables(client, t_id):
@@ -20,6 +20,9 @@ def test_update_tournament_adds_tables(client, t_id):
     assert res.status_code == 200
     assert res.json()["name"] == "Neu"
     assert len(client.get(f"/api/tables/status/{t_id}").json()) == 10
+    client.put(f"/api/tournaments/{t_id}", json={"table_count": 4})
+    assert len(client.get(f"/api/tables/status/{t_id}").json()) == 4
+    assert client.get("/api/tables/status/9999").json() == []
 
     assert client.put("/api/tournaments/9999", json={"name": "X"}).status_code == 404
 
@@ -76,31 +79,6 @@ def test_table_status_shows_running_game(client, t_id, add_teams):
     assert busy["current_team_match_id"] == match["id"]
     assert busy["active_game_desc"] == f"Einzel 1: {game['player_a_name']} vs {game['player_b_name']}"
     assert sum(t["is_active"] for t in tables) == 1
-
-
-def test_pin_authentication(client, t_id, add_teams):
-    add_teams(t_id, 2)
-    match = client.post(f"/api/tournaments/{t_id}/rounds/next-swiss").json()["team_matches"][0]
-    url = f"/api/tables/auth/{t_id}"
-
-    admin = client.post(url, json={"pin": " admin123 "}).json()
-    assert (admin["authenticated"], admin["role"]) == (True, "admin")
-
-    table = client.post(url, json={"pin": f"{1000 + match['table_number']}"}).json()
-    assert (table["role"], table["match_id"]) == ("table", match["id"])
-
-    free_table = client.post(url, json={"pin": "1008"}).json()
-    assert (free_table["role"], free_table["match_id"]) == ("table", None)
-
-    # The random match PIN can collide with a table PIN (1001-1008), which takes precedence
-    if not 1001 <= int(match["match_pin"]) <= 1008:
-        by_match = client.post(url, json={"pin": match["match_pin"]}).json()
-        assert (by_match["role"], by_match["match_id"]) == ("match", match["id"])
-
-    wrong = client.post(url, json={"pin": "0000"}).json()
-    assert (wrong["authenticated"], wrong["role"]) == (False, "none")
-
-    assert client.post("/api/tables/auth/9999", json={"pin": "1"}).status_code == 404
 
 
 def test_monitor_dashboard(client, t_id, add_teams, play):

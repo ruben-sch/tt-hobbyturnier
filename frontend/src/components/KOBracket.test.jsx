@@ -14,7 +14,6 @@ const tournament = { id: 4 };
 const koMatch = (id, a, b, extra = {}) => ({
   id,
   ko_slot: id,
-  match_pin: null,
   team_a: { name: a },
   team_b: { name: b },
   team_a_p1_name: `${a}1`,
@@ -101,7 +100,7 @@ describe('KOBracket', () => {
 
   it('hides the advance button while matches are running or after the final', async () => {
     const running = { ...semis, team_matches: [semis.team_matches[0], koMatch(2, 'X', 'Y', { is_completed: false })] };
-    const final = { id: 3, round_number: 3, round_type: 'ko', ko_stage: 'Finale', team_matches: [koMatch(5, 'Asse', 'Konter', { match_pin: '0142' })] };
+    const final = { id: 3, round_number: 3, round_type: 'ko', ko_stage: 'Finale', team_matches: [koMatch(5, 'Asse', 'Konter')] };
 
     api.fetchRounds.mockResolvedValue([running]);
     const { unmount } = render(<KOBracket tournament={tournament} isAdmin />);
@@ -111,7 +110,7 @@ describe('KOBracket', () => {
 
     api.fetchRounds.mockResolvedValue([semis, final]);
     render(<KOBracket tournament={tournament} isAdmin />);
-    expect(await screen.findByText('PIN: 0142')).toBeInTheDocument();
+    expect(await screen.findByText('Finale')).toBeInTheDocument();
     expect(screen.getByText('1 Finale')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Folgerunde/ })).not.toBeInTheDocument();
   });

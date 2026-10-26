@@ -68,12 +68,12 @@ describe('HallenMonitor', () => {
     expect(screen.getByText('3:1')).toBeInTheDocument();
   });
 
-  it('shows a QR code that opens the result entry', async () => {
+  it('shows a QR code that opens the live scores', async () => {
     api.fetchMonitorDashboard.mockResolvedValue(swissData);
     render(<HallenMonitor tournament={tournament} />);
 
-    expect(await screen.findByTitle('QR-Code zur Ergebniseingabe'))
-      .toHaveTextContent('http://192.168.8.10:8000/?tab=scorer');
+    expect(await screen.findByTitle('QR-Code zur Spielstandsanzeige'))
+      .toHaveTextContent('http://192.168.8.10:8000/?tab=monitor');
     expect(screen.getByText('192.168.8.10:8000')).toBeInTheDocument();
   });
 

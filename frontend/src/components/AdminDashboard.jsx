@@ -10,7 +10,6 @@ import {
   startKoRound, 
   completeRound,
   swapPairings,
-  fetchTablesStatus,
   getAdminPin,
   setAdminPin,
   resetTournament
@@ -32,10 +31,9 @@ import {
 } from 'lucide-react';
 
 export default function AdminDashboard({ tournament, onTournamentChange }) {
-  const [activeTab, setActiveTab] = useState('rounds'); // 'rounds', 'teams', 'settings', 'tables'
+  const [activeTab, setActiveTab] = useState('rounds'); // 'rounds', 'teams', 'settings'
   const [teams, setTeams] = useState([]);
   const [rounds, setRounds] = useState([]);
-  const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // New Team form
@@ -57,14 +55,12 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
 
   const loadAll = useCallback(async () => {
     try {
-      const [tList, rList, tblList] = await Promise.all([
+      const [tList, rList] = await Promise.all([
         fetchTeams(tournament.id),
         fetchRounds(tournament.id),
-        fetchTablesStatus(tournament.id)
       ]);
       setTeams(tList);
       setRounds(rList);
-      setTables(tblList);
     } catch (e) {
       console.error(e);
     }
@@ -284,14 +280,6 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
               Teams ({teams.length})
             </button>
             <button
-              onClick={() => setActiveTab('tables')}
-              className={`px-3.5 py-2 rounded-lg font-semibold transition ${
-                activeTab === 'tables' ? 'bg-sky-500 text-white shadow' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              PIN-Übersicht
-            </button>
-            <button
               onClick={() => setActiveTab('settings')}
               className={`px-3.5 py-2 rounded-lg font-semibold transition ${
                 activeTab === 'settings' ? 'bg-sky-500 text-white shadow' : 'text-slate-400 hover:text-white'
@@ -440,9 +428,11 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
                       <span className="font-bold text-sky-400">
                         {m.is_bye ? 'FREILOS (BYE)' : `Paarung ${idx + 1}`}
                       </span>
-                      <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-300">
-                        PIN: {m.match_pin}
-                      </span>
+                      {m.table_number && (
+                        <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-300">
+                          Tisch {m.table_number}{m.table_number_b ? ` + ${m.table_number_b}` : ''}
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between my-2">
@@ -638,43 +628,6 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
             </table>
           </div>
 
-        </div>
-      )}
-
-      {/* MATCH PINS OVERVIEW */}
-      {activeTab === 'tables' && (
-        <div className="space-y-6">
-          <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-6">
-            <h3 className="font-bold text-white text-base mb-1">
-              Übersicht aller Match-PINs & Admin-PIN
-            </h3>
-            <p className="text-xs text-slate-400 mb-6">
-              Teile diese PINs den jeweiligen Spielern zur Ergebniseingabe mit.
-            </p>
-
-            <div className="mb-6 p-4 bg-sky-950/40 border border-sky-500/30 rounded-xl flex items-center justify-between">
-              <div>
-                <span className="text-xs text-sky-400 font-bold block uppercase">Admin-PIN (Turnierleitung)</span>
-                <span className="text-xs text-slate-300">Voller Zugriff auf alle Einstellungen & manuelle Spielübernahme</span>
-              </div>
-              <span className="font-mono text-xl font-black text-white bg-slate-900 px-4 py-1.5 rounded-lg border border-slate-700">
-                {getAdminPin()}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {tables.map((tbl, idx) => (
-                <div key={tbl.table_number || idx} className="bg-slate-900 p-4 rounded-xl border border-slate-700/80 text-center">
-                  <span className="text-xs font-bold text-slate-400 block mb-1">
-                    BEGEGNUNG #{idx + 1}
-                  </span>
-                  <span className="font-mono text-2xl font-black text-emerald-400 tracking-wider">
-                    {tbl.pin_code}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       )}
 

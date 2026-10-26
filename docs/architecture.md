@@ -29,7 +29,13 @@ FastAPI with SQLAlchemy and SQLite, a React single-page app (Vite, Tailwind), We
 
 ## Deliberately unchanged
 
-- **Result entry stays open:** anyone can open any match from the scorer's list and enter results. Match PINs remain, but they aren't enforced. The admin corrects mistakes.
-- No user accounts: the public deployment relies on a strong `TT_ADMIN_PIN` and keeps result entry open, like on the LAN.
+- No user accounts: the public deployment relies on a strong `TT_ADMIN_PIN`.
+
+## Changed since
+
+- **2026-10-26: result entry needs the admin PIN.** It used to be open to anyone; with the public deployment and the MCP server that was too easy to abuse. Match and table PINs and the per-match QR codes on the sheets were removed. Players follow the live scores via the QR code on the Hallen-Monitor; the Turnierleitung enters results (web UI or MCP).
+- **2026-10-26: MCP server** at `/mcp` inside the same process (no extra service). Live scores means match score and current game per table; set or ball scores are not recorded.
+- **2026-10-26: OAuth for the MCP server** so claude.ai can connect: the app is its own authorization server and the login is the admin PIN. All of `/mcp` needs auth now (OAuth discovery only starts on a 401), the read tools included. No external identity provider.
+- **2026-10-26: Python 3.15** (was 3.9), needed by the MCP SDK.
 - No automatic database backups. Paper is the fallback.
 - No migration tooling.

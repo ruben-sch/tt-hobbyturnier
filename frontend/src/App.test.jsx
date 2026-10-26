@@ -24,16 +24,14 @@ const { stub } = vi.hoisted(() => ({
   }),
 }));
 vi.mock('./components/HallenMonitor', () => stub('HallenMonitor'));
-vi.mock('./components/TableScorer', () => ({
-  default: ({ tournament, initialMatchId }) => (
-    <div>{`TableScorer: ${tournament?.name ?? '-'}${initialMatchId ? ` ${initialMatchId}` : ''}`}</div>
-  ),
-}));
+vi.mock('./components/TableScorer', () => stub('TableScorer'));
 vi.mock('./components/StandingsTable', () => stub('StandingsTable'));
 vi.mock('./components/KOBracket', () => stub('KOBracket'));
 vi.mock('./components/AdminDashboard', () => stub('AdminDashboard'));
 vi.mock('./components/PrintableSheets', () => stub('PrintableSheets'));
-vi.mock('./components/AdminPinPrompt', () => stub('AdminPinPrompt'));
+vi.mock('./components/AdminPinPrompt', () => ({
+  default: ({ tournament, title = 'Turnierleitung' }) => <div>{`AdminPinPrompt ${title}: ${tournament?.name ?? '-'}`}</div>,
+}));
 
 const tournament = { id: 1, name: 'Sommerturnier', current_round_number: 0, ko_enabled: true };
 
@@ -56,11 +54,11 @@ describe('App', () => {
     });
   });
 
-  it('opens the tab and match from a QR code link', async () => {
-    window.history.pushState({}, '', '/?tab=scorer&match=21');
+  it('opens the tab from a QR code link', async () => {
+    window.history.pushState({}, '', '/?tab=standings');
     try {
       render(<App />);
-      expect(await screen.findByText('TableScorer: Sommerturnier 21')).toBeInTheDocument();
+      expect(await screen.findByText('StandingsTable: Sommerturnier')).toBeInTheDocument();
     } finally {
       window.history.pushState({}, '', '/');
     }
@@ -73,7 +71,7 @@ describe('App', () => {
     expect(await screen.findByText('HallenMonitor: Sommerturnier')).toBeInTheDocument();
 
     const tabs = [
-      ['Ergebniseingabe', 'TableScorer'],
+      ['Ergebniseingabe', 'AdminPinPrompt Ergebniseingabe'],
       ['Tabelle', 'StandingsTable'],
       ['KO-Baum', 'KOBracket'],
       ['Spielzettel', 'PrintableSheets'],
@@ -90,13 +88,25 @@ describe('App', () => {
     await screen.findByText('HallenMonitor: Sommerturnier');
 
     await user.click(screen.getByRole('button', { name: 'Turnierleitung' }));
-    expect(screen.getByText('AdminPinPrompt: Sommerturnier')).toBeInTheDocument();
+    expect(screen.getByText('AdminPinPrompt Turnierleitung: Sommerturnier')).toBeInTheDocument();
 
     act(() => pinListener('4711'));
     expect(screen.getByText('AdminDashboard: Sommerturnier')).toBeInTheDocument();
 
     act(() => pinListener(null));
-    expect(screen.getByText('AdminPinPrompt: Sommerturnier')).toBeInTheDocument();
+    expect(screen.getByText('AdminPinPrompt Turnierleitung: Sommerturnier')).toBeInTheDocument();
+  });
+
+  it('opens the result entry only with the admin PIN', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText('HallenMonitor: Sommerturnier');
+
+    await user.click(screen.getByRole('button', { name: 'Ergebniseingabe' }));
+    expect(screen.getByText('AdminPinPrompt Ergebniseingabe: Sommerturnier')).toBeInTheDocument();
+
+    act(() => pinListener('4711'));
+    expect(screen.getByText('TableScorer: Sommerturnier')).toBeInTheDocument();
   });
 
   it('drops a remembered PIN that the server no longer accepts', async () => {
