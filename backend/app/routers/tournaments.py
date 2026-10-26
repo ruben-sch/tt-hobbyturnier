@@ -3,9 +3,11 @@ import io
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy.orm import Session
 
+from backend.app import progression
+from backend.app.archive_pdf import build_archive_pdf
 from backend.app.auth import require_admin
 from backend.app.database import get_db
 from backend.app.models import Table, Team, Tournament, default_admin_pin
@@ -120,6 +122,18 @@ async def update_tournament(tournament_id: int, payload: TournamentUpdate, db: S
     return t
 
 
+@router.post("/{tournament_id}/reset", dependencies=[Depends(require_admin)])
+async def reset_tournament(tournament_id: int, db: Session = Depends(get_db)):
+    """Deletes all teams, rounds and results; settings and admin PIN stay."""
+    t = db.get(Tournament, tournament_id)
+    if not t:
+        raise HTTPException(status_code=404, detail="Turnier nicht gefunden")
+    progression.reset_tournament(t, db)
+    db.commit()
+    await ws_manager.broadcast({"type": "TOURNAMENT_UPDATED", "tournament_id": t.id})
+    return {"message": "Turnier zurückgesetzt."}
+
+
 @router.get("/{tournament_id}/admin-check", dependencies=[Depends(require_admin)])
 def check_admin_pin(tournament_id: int, db: Session = Depends(get_db)):
     """Lets the admin tab verify a PIN before unlocking; require_admin does the check."""
@@ -196,4 +210,16 @@ def export_standings_csv(tournament_id: int, db: Session = Depends(get_db)):
         io.BytesIO(output.getvalue().encode("utf-8-sig")),
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename=turnier_ergebnisse_{tournament_id}.csv"}
+    )
+
+
+@router.get("/{tournament_id}/export/pdf")
+def export_archive_pdf(tournament_id: int, db: Session = Depends(get_db)):
+    t = db.get(Tournament, tournament_id)
+    if not t:
+        raise HTTPException(status_code=404, detail="Turnier nicht gefunden")
+    return Response(
+        build_archive_pdf(t, db),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=turnier_archiv_{tournament_id}.pdf"},
     )
