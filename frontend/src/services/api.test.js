@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as api from './api';
-import { createTeam, getAdminPin, setAdminPin, subscribeAdminPin, verifyAdminPin } from './api';
+import { createTeam, submitGameResult, getAdminPin, setAdminPin, subscribeAdminPin, verifyAdminPin } from './api';
 
 const jsonResponse = (status, body) => ({
   ok: status >= 200 && status < 300,
@@ -19,10 +19,12 @@ describe('admin PIN handling', () => {
     fetch.mockResolvedValue(jsonResponse(200, { id: 1 }));
 
     await createTeam(1, { name: 'T' });
+    await submitGameResult(7, 3, 3, 1);
 
-    const [, options] = fetch.mock.calls[0];
-    expect(options.headers['X-Admin-Pin']).toBe('4711');
-    expect(options.headers['Content-Type']).toBe('application/json');
+    for (const [, options] of fetch.mock.calls) {
+      expect(options.headers['X-Admin-Pin']).toBe('4711');
+      expect(options.headers['Content-Type']).toBe('application/json');
+    }
   });
 
   it('forgets a rejected PIN and notifies listeners', async () => {
@@ -79,7 +81,6 @@ describe('endpoints', () => {
     [() => api.fetchMatch(7), '/api/matches/7', undefined, 'Fehler beim Laden des Spiels'],
     [() => api.submitGameResult(7, 3, 3, 1), '/api/matches/7/games/3/result', 'POST', 'Fehler beim Speichern des Ergebnisses'],
     [() => api.fetchTablesStatus(1), '/api/tables/status/1', undefined, 'Fehler beim Laden der Begegnungen'],
-    [() => api.authenticatePin(1, '1001'), '/api/tables/auth/1', 'POST', 'PIN-Prüfung fehlgeschlagen'],
     [() => api.fetchMonitorDashboard(1), '/api/monitors/1/dashboard', undefined, 'Fehler beim Laden der Monitor-Daten'],
     [() => api.fetchServerInfo(), '/api/server/info', undefined, 'Fehler beim Laden der Server-Adresse'],
   ];

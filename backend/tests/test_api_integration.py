@@ -51,7 +51,8 @@ def test_full_tournament_lifecycle():
     # 5. Enter results for match 1 (all 4 games won by Team A: 4:0)
     m1_updated = client.get(f"/api/matches/{match1['id']}").json()
     for g in m1_updated["individual_games"]:
-        g_res = client.post(f"/api/matches/{match1['id']}/games/{g['id']}/result", json={"sets_a": 3, "sets_b": 0})
+        g_res = client.post(f"/api/matches/{match1['id']}/games/{g['id']}/result", headers=ADMIN,
+                            json={"sets_a": 3, "sets_b": 0})
         assert g_res.status_code == 200
         assert g_res.json()["is_completed"] == True
 
@@ -65,7 +66,7 @@ def test_full_tournament_lifecycle():
     m2_updated = client.get(f"/api/matches/{match2['id']}").json()
     for idx, g in enumerate(m2_updated["individual_games"]):
         sets = {"sets_a": 3, "sets_b": 1} if idx < 3 else {"sets_a": 1, "sets_b": 3}
-        client.post(f"/api/matches/{match2['id']}/games/{g['id']}/result", json=sets)
+        client.post(f"/api/matches/{match2['id']}/games/{g['id']}/result", headers=ADMIN, json=sets)
 
     m2_final = client.get(f"/api/matches/{match2['id']}").json()
     assert m2_final["is_completed"] == True
@@ -99,15 +100,8 @@ def test_full_tournament_lifecycle():
     assert "ticker" in mon_data
     assert len(mon_data["ticker"]) == 2  # The 2 completed matches from round 1!
 
-    # 11. Test Table PIN Auth
-    table1 = mon_data["tables"][0]
-    pin_auth_res = client.post(f"/api/tables/auth/{t_id}", json={
-        "pin": table1["pin_code"]
-    })
-    assert pin_auth_res.status_code == 200
-    auth_data = pin_auth_res.json()
-    assert auth_data["authenticated"] == True
-    assert auth_data["role"] == "table"
+    # 11. No table or match PINs anymore: result entry needs the admin PIN
+    assert "pin_code" not in mon_data["tables"][0]
 
 
 def test_monitor_shows_match_score_of_running_match():
@@ -121,7 +115,8 @@ def test_monitor_shows_match_score_of_running_match():
     games = sorted(client.get(f"/api/matches/{match['id']}").json()["individual_games"], key=lambda g: g["game_order"])
 
     # Team A wins Einzel 1
-    client.post(f"/api/matches/{match['id']}/games/{games[0]['id']}/result", json={"sets_a": 3, "sets_b": 0})
+    client.post(f"/api/matches/{match['id']}/games/{games[0]['id']}/result", headers=ADMIN,
+                json={"sets_a": 3, "sets_b": 0})
 
     tables = client.get(f"/api/monitors/{t_id}/dashboard").json()["tables"]
     table = next(t for t in tables if t["current_team_match_id"] == match["id"])

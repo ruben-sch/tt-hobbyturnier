@@ -15,7 +15,6 @@ vi.mock('../services/api', () => ({
   startKoRound: vi.fn(),
   completeRound: vi.fn(),
   swapPairings: vi.fn(),
-  fetchTablesStatus: vi.fn(),
   getAdminPin: vi.fn(),
   setAdminPin: vi.fn(),
   resetTournament: vi.fn(),
@@ -31,7 +30,7 @@ const teams = (count) => Array.from({ length: count }, (_, i) => ({
 }));
 
 const match = (id, a, b, extra = {}) => ({
-  id, match_pin: `90${id}`, team_a: { name: a }, team_b: b ? { name: b } : null, team_b_id: b ? id + 100 : null, is_bye: !b,
+  id, table_number: id, team_a: { name: a }, team_b: b ? { name: b } : null, team_b_id: b ? id + 100 : null, is_bye: !b,
   team_a_p1_name: `${a}1`, team_a_p2_name: `${a}2`, team_b_p1_name: null, team_b_p2_name: null,
   score_a: 0, score_b: 0, is_completed: false,
   individual_games: [{ is_completed: true }, { is_completed: false }],
@@ -55,7 +54,6 @@ const finishedRound = {
 function setup({ teamList = teams(4), rounds = [], pin = '4711', props = {} } = {}) {
   api.fetchTeams.mockResolvedValue(teamList);
   api.fetchRounds.mockResolvedValue(rounds);
-  api.fetchTablesStatus.mockResolvedValue([{ table_number: 1, pin_code: '1001' }, { table_number: 2, pin_code: '1002' }]);
   api.getAdminPin.mockReturnValue(pin);
   const onTournamentChange = vi.fn();
   const user = userEvent.setup();
@@ -106,7 +104,7 @@ describe('AdminDashboard', () => {
 
       expect(await screen.findByText('Runde 2 (Schweizer System) läuft')).toBeInTheDocument();
       expect(screen.getByText('FREILOS (BYE)')).toBeInTheDocument();
-      expect(screen.getByText('PIN: 901')).toBeInTheDocument();
+      expect(screen.getByText('Tisch 1')).toBeInTheDocument();
       expect(screen.getByText('Spiel läuft...')).toBeInTheDocument();
       expect(screen.getByText('Noch nicht begonnen')).toBeInTheDocument();
       expect(screen.getByText('✓ Match beendet')).toBeInTheDocument();
@@ -281,15 +279,6 @@ describe('AdminDashboard', () => {
   });
 
   describe('PINs and settings', () => {
-    it('shows the admin PIN and the table PINs', async () => {
-      const { user } = setup();
-      await user.click(await screen.findByRole('button', { name: 'PIN-Übersicht' }));
-
-      expect(screen.getByText('4711')).toBeInTheDocument();
-      expect(screen.getByText('1002')).toBeInTheDocument();
-      expect(screen.getByText('BEGEGNUNG #2')).toBeInTheDocument();
-    });
-
     it('warns while the default admin PIN is in use', async () => {
       setup({ pin: 'admin123' });
       expect(await screen.findByText(/Standardwert/)).toBeInTheDocument();
@@ -366,7 +355,6 @@ describe('AdminDashboard', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     api.fetchTeams.mockRejectedValue(new Error('offline'));
     api.fetchRounds.mockResolvedValue([]);
-    api.fetchTablesStatus.mockResolvedValue([]);
     api.getAdminPin.mockReturnValue(null);
     render(<AdminDashboard tournament={tournament} />);
 

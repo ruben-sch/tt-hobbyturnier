@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Query, Session, relationship
@@ -17,7 +17,7 @@ class Tournament(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None))  # naive UTC
     is_active = Column(Boolean, default=True)
 
     # Tournament configuration
@@ -32,7 +32,6 @@ class Tournament(Base):
 
     teams = relationship("Team", back_populates="tournament", cascade="all, delete-orphan")
     rounds = relationship("Round", back_populates="tournament", cascade="all, delete-orphan")
-    tables = relationship("Table", back_populates="tournament", cascade="all, delete-orphan")
 
 
 class Team(Base):
@@ -53,20 +52,6 @@ class Team(Base):
     def active(db: Session, tournament_id: int) -> Query:
         """The teams taking part: listed, ranked and paired."""
         return db.query(Team).filter(Team.tournament_id == tournament_id, Team.is_active == True)
-
-
-class Table(Base):
-    __tablename__ = "tables"
-
-    id = Column(Integer, primary_key=True, index=True)
-    tournament_id = Column(Integer, ForeignKey("tournaments.id"), nullable=False)
-    table_number = Column(Integer, nullable=False)
-    pin_code = Column(String(10), nullable=False)
-    
-    current_team_match_id = Column(Integer, nullable=True)
-    current_game_id = Column(Integer, nullable=True)
-
-    tournament = relationship("Tournament", back_populates="tables")
 
 
 class Round(Base):
@@ -94,7 +79,6 @@ class TeamMatch(Base):
     
     table_number = Column(Integer, nullable=True)
     table_number_b = Column(Integer, nullable=True)  # if 2 tables assigned
-    match_pin = Column(String(10), default="1234")
 
     # Players at position 1 and 2 of Team A and Team B (fixed order from registration)
     team_a_p1_name = Column(String(100), nullable=True)

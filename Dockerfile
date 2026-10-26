@@ -7,8 +7,8 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-# Stage 2: backend serving the built frontend (Python 3.9 like CI and the venv)
-FROM python:3.9-slim
+# Stage 2: backend serving the built frontend (same Python as CI)
+FROM python:3.15-slim
 WORKDIR /app
 
 COPY backend/requirements.txt ./backend/

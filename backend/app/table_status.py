@@ -2,13 +2,15 @@ from typing import List
 
 from sqlalchemy.orm import Session
 
-from backend.app.models import Round, Table, TeamMatch
+from backend.app.models import Round, TeamMatch, Tournament
 from backend.app.schemas import TableStatusResponse
 
 
 def tables_status(tournament_id: int, db: Session) -> List[TableStatusResponse]:
     """What each table is playing right now: the open match of the active round and its next game."""
-    tables = db.query(Table).filter(Table.tournament_id == tournament_id).order_by(Table.table_number.asc()).all()
+    tournament = db.get(Tournament, tournament_id)
+    if tournament is None:
+        return []
 
     # Find active rounds
     active_matches = db.query(TeamMatch).join(Round).filter(
@@ -27,12 +29,11 @@ def tables_status(tournament_id: int, db: Session) -> List[TableStatusResponse]:
             match_by_table[m.table_number_b] = m
 
     response = []
-    for t in tables:
-        match = match_by_table.get(t.table_number)
+    for table_number in range(1, tournament.table_count + 1):
+        match = match_by_table.get(table_number)
         if not match:
             response.append(TableStatusResponse(
-                table_number=t.table_number,
-                pin_code=t.pin_code,
+                table_number=table_number,
                 current_team_match_id=None,
                 is_active=False
             ))
@@ -42,7 +43,7 @@ def tables_status(tournament_id: int, db: Session) -> List[TableStatusResponse]:
         active_game = None
         for g in match.individual_games:
             # If 2 tables assigned, match table_number
-            if g.table_number == t.table_number and not g.is_completed:
+            if g.table_number == table_number and not g.is_completed:
                 active_game = g
                 break
             elif not g.is_completed and active_game is None:
@@ -54,8 +55,7 @@ def tables_status(tournament_id: int, db: Session) -> List[TableStatusResponse]:
             game_desc = f"{label}: {active_game.player_a_name or 'A'} vs {active_game.player_b_name or 'B'}"
 
         response.append(TableStatusResponse(
-            table_number=t.table_number,
-            pin_code=t.pin_code,
+            table_number=table_number,
             current_team_match_id=match.id,
             team_a_name=match.team_a.name if match.team_a else "Team A",
             team_b_name=match.team_b.name if match.team_b else "Team B",

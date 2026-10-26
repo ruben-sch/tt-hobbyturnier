@@ -5,9 +5,13 @@ from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from backend.app.database import get_db
-from backend.app.models import Round, Tournament
+from backend.app.models import Round, TeamMatch, Tournament
 
 ADMIN_PIN_HEADER = "X-Admin-Pin"
+
+
+def active_tournament(db: Session) -> Optional[Tournament]:
+    return db.query(Tournament).filter(Tournament.is_active == True).order_by(Tournament.id.desc()).first()
 
 
 def _tournament_for_request(request: Request, db: Session) -> Optional[Tournament]:
@@ -18,8 +22,21 @@ def _tournament_for_request(request: Request, db: Session) -> Optional[Tournamen
     if "round_id" in params:
         round_obj = db.get(Round, int(params["round_id"]))
         return round_obj.tournament if round_obj else None
+    if "match_id" in params:
+        match = db.get(TeamMatch, int(params["match_id"]))
+        return match.round.tournament if match else None
     # Creating a tournament replaces the active one, so its PIN guards the call.
-    return db.query(Tournament).filter(Tournament.is_active == True).order_by(Tournament.id.desc()).first()
+    return active_tournament(db)
+
+
+def check_admin_pin(tournament: Optional[Tournament], pin: Optional[str]) -> None:
+    """Raises 401/403 unless pin is the tournament's admin PIN. No tournament: nothing to protect."""
+    if tournament is None:
+        return
+    if not pin:
+        raise HTTPException(status_code=401, detail="Admin-PIN erforderlich.")
+    if not secrets.compare_digest(pin.strip().encode(), tournament.admin_pin.encode()):
+        raise HTTPException(status_code=403, detail="Falsche Admin-PIN.")
 
 
 def require_admin(
@@ -28,11 +45,5 @@ def require_admin(
     db: Session = Depends(get_db),
 ) -> None:
     """Rejects the request unless the X-Admin-Pin header matches the tournament's admin PIN."""
-    tournament = _tournament_for_request(request, db)
-    if tournament is None:
-        # Nothing to protect yet; the endpoint itself answers with 404 where needed.
-        return
-    if not x_admin_pin:
-        raise HTTPException(status_code=401, detail="Admin-PIN erforderlich.")
-    if not secrets.compare_digest(x_admin_pin.strip().encode(), tournament.admin_pin.encode()):
-        raise HTTPException(status_code=403, detail="Falsche Admin-PIN.")
+    # Without a tournament the endpoint itself answers with 404 where needed.
+    check_admin_pin(_tournament_for_request(request, db), x_admin_pin)

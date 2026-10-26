@@ -42,7 +42,10 @@ def test_tournament_response_does_not_leak_admin_pin(client, t_id):
 
 def test_admin_endpoints_reject_missing_and_wrong_pin(client, t_id):
     add_teams(client, t_id, 4)
-    round_id = client.post(f"/api/tournaments/{t_id}/rounds/next-swiss", headers=ADMIN).json()["id"]
+    round_ = client.post(f"/api/tournaments/{t_id}/rounds/next-swiss", headers=ADMIN).json()
+    round_id = round_["id"]
+    match = round_["team_matches"][0]
+    game_id = match["individual_games"][0]["id"]
     team_id = client.get(f"/api/tournaments/{t_id}/teams").json()[0]["id"]
 
     admin_calls = [
@@ -57,6 +60,7 @@ def test_admin_endpoints_reject_missing_and_wrong_pin(client, t_id):
         ("post", f"/api/rounds/{round_id}/swap-pairings", {"json": {"match_id_1": 1, "match_id_2": 2}}),
         ("post", f"/api/rounds/{round_id}/complete", {}),
         ("get", f"/api/tournaments/{t_id}/admin-check", {}),
+        ("post", f"/api/matches/{match['id']}/games/{game_id}/result", {"json": {"sets_a": 3, "sets_b": 0}}),
     ]
     for method, url, kwargs in admin_calls:
         missing = getattr(client, method)(url, **kwargs)
@@ -67,16 +71,21 @@ def test_admin_endpoints_reject_missing_and_wrong_pin(client, t_id):
     # Nothing changed
     assert len(client.get(f"/api/tournaments/{t_id}/teams").json()) == 4
     assert client.get("/api/tournaments/active").json()["id"] == t_id
+    stored = client.get(f"/api/matches/{match['id']}").json()
+    assert stored["score_a"] == 0
 
 
-def test_result_entry_stays_open(client, t_id):
+def test_result_entry_with_admin_pin(client, t_id):
     add_teams(client, t_id, 2)
-    r = client.post(f"/api/tournaments/{t_id}/rounds/next-swiss", headers=ADMIN).json()
-    match = r["team_matches"][0]
+    match = client.post(f"/api/tournaments/{t_id}/rounds/next-swiss", headers=ADMIN).json()["team_matches"][0]
     game = match["individual_games"][0]
+    assert "match_pin" not in match
 
-    res = client.post(f"/api/matches/{match['id']}/games/{game['id']}/result", json={"sets_a": 3, "sets_b": 0})
-    assert res.status_code == 200
+    url = f"/api/matches/{match['id']}/games/{game['id']}/result"
+    assert client.post(url, headers=ADMIN, json={"sets_a": 3, "sets_b": 0}).status_code == 200
+    # Unknown matches have no tournament to protect and answer 404
+    unknown = client.post(f"/api/matches/999/games/{game['id']}/result", json={"sets_a": 3, "sets_b": 0})
+    assert unknown.status_code == 404
 
 
 def test_admin_check_and_pin_change(client, t_id):

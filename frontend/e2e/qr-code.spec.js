@@ -2,9 +2,9 @@ import { test, expect } from '@playwright/test';
 import { createRng, generateTeams, resolveSeed } from './support/random.js';
 import { ADMIN_PIN, TournamentDriver, createTournament } from './support/tournament.js';
 
-// Players scan a QR code on the Hallen-Monitor or on their match sheet and
-// enter results on their phone. The QR codes must point at the server's LAN
-// address (not localhost) and the sheet's code straight at its match.
+// Players scan the QR code on the Hallen-Monitor and follow the live scores on
+// their phone. The code must point at the server's LAN address (not localhost).
+// Results are entered by the Turnierleitung only, with the admin PIN.
 
 const SEED = resolveSeed();
 
@@ -28,49 +28,51 @@ const onTestServer = (url) => {
   return `${pathname}${search}`;
 };
 
-test('QR-Codes führen vom Monitor und Spielzettel zur Ergebniseingabe am Handy', async ({ page, browser, request }, testInfo) => {
+test('QR-Code am Monitor zeigt die Live-Spielstände am Handy, Ergebnisse nur mit Admin-PIN', async ({ page, browser, request }, testInfo) => {
   await setupRound(request);
   const desktop = new TournamentDriver(page, createRng(SEED), testInfo);
   await desktop.open();
 
-  await test.step('Hallen-Monitor zeigt QR-Code zur Ergebniseingabe', async () => {
+  let monitorUrl;
+  await test.step('Hallen-Monitor zeigt QR-Code zur Spielstandsanzeige', async () => {
     await expect(page.getByText('2 aktive Paarungen')).toBeVisible();
-    const url = await page.getByTestId('scorer-qr').getAttribute('data-url');
-    expect(url).toMatch(/^http:\/\/[^/]+\/\?tab=scorer$/);
-    expect(new URL(url).hostname, 'QR-Code zeigt auf localhost').not.toMatch(/^(localhost|127\.)/);
+    monitorUrl = await page.getByTestId('monitor-qr').getAttribute('data-url');
+    expect(monitorUrl).toMatch(/^http:\/\/[^/]+\/\?tab=monitor$/);
+    expect(new URL(monitorUrl).hostname, 'QR-Code zeigt auf localhost').not.toMatch(/^(localhost|127\.)/);
     await desktop.screenshot('qr-hallen-monitor');
   });
 
-  let sheetUrl;
-  let sheetText;
-  await test.step('Jeder Spielzettel hat einen eigenen QR-Code zu seiner Begegnung', async () => {
+  await test.step('Spielzettel haben weder Match-PIN noch QR-Code', async () => {
     await desktop.goto('Spielzettel');
-    const codes = page.getByTestId('sheet-qr');
-    await expect(codes).toHaveCount(2);
-    const urls = await codes.evaluateAll((svgs) => svgs.map((s) => s.getAttribute('data-url')));
-    for (const url of urls) expect(url).toMatch(/^http:\/\/[^/]+\/\?tab=scorer&match=\d+$/);
-    expect(new Set(urls).size).toBe(2);
-    [sheetUrl] = urls;
-    sheetText = await codes.first().locator('xpath=ancestor::div[contains(@class, "bg-white")][1]').textContent();
+    await expect(page.getByText('BEGEGNUNG #2')).toBeVisible();
+    await expect(page.getByText(/PIN/)).toHaveCount(0);
   });
 
-  await test.step('Handy öffnet die Begegnung vom Spielzettel und trägt das Ergebnis ein', async () => {
-    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-    const phonePage = await context.newPage();
-    const phone = new TournamentDriver(phonePage, createRng(SEED + 1), testInfo);
-    await phonePage.goto(onTestServer(sheetUrl));
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const phonePage = await context.newPage();
+  const phone = new TournamentDriver(phonePage, createRng(SEED + 1), testInfo);
 
-    const { teamA, teamB } = await phone.playMatch(false);
-    expect(sheetText).toContain(teamA);
-    expect(sheetText).toContain(teamB);
-    await phone.screenshot('qr-handy-ergebnis');
+  await test.step('Handy öffnet die Spielstände, Ergebniseingabe ist gesperrt', async () => {
+    await phonePage.goto(onTestServer(monitorUrl));
+    await expect(phonePage.getByText('2 aktive Paarungen')).toBeVisible();
+
+    await phone.goto('Ergebniseingabe');
+    await expect(phonePage.getByText('Admin-PIN eingeben')).toBeVisible();
+    await expect(phonePage.getByTestId('match-tile')).toHaveCount(0);
+    await phone.goto('Hallen-Monitor');
+  });
+
+  await test.step('Turnierleitung trägt ein Ergebnis ein, das Handy zeigt es live', async () => {
+    await desktop.unlockAdmin();
+    await desktop.goto('Ergebniseingabe');
+    await page.locator('[data-testid="match-tile"][data-active="true"]').first().click();
+    await desktop.playMatch(false);
+
+    await expect(phonePage.getByText('1 aktive Paarungen')).toBeVisible();
+    await phone.screenshot('qr-handy-spielstand');
     phone.expectNoProblems();
-    await context.close();
-  });
-
-  await test.step('Monitor zeigt das eingetragene Ergebnis', async () => {
-    await desktop.goto('Hallen-Monitor');
-    await expect(page.getByText('1 aktive Paarungen')).toBeVisible();
     desktop.expectNoProblems();
   });
+
+  await context.close();
 });

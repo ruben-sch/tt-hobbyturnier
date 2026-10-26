@@ -82,7 +82,6 @@ class TeamMatchResponse(BaseModel):
     team_b: Optional[TeamResponse] = None
     table_number: Optional[int] = None
     table_number_b: Optional[int] = None
-    match_pin: str
     team_a_p1_name: Optional[str] = None
     team_a_p2_name: Optional[str] = None
     team_b_p1_name: Optional[str] = None
@@ -136,7 +135,6 @@ class StandingsRow(BaseModel):
 
 class TableStatusResponse(BaseModel):
     table_number: int
-    pin_code: str
     current_team_match_id: Optional[int] = None
     team_a_name: Optional[str] = None
     team_b_name: Optional[str] = None

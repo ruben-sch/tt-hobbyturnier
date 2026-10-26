@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { verifyAdminPin, setAdminPin } from '../services/api';
 import { Lock } from 'lucide-react';
 
-export default function AdminPinPrompt({ tournament }) {
+export default function AdminPinPrompt({
+  tournament,
+  title = 'Turnierleitung',
+  description = 'Dieser Bereich ist durch die Admin-PIN geschützt.',
+}) {
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
   const [checking, setChecking] = useState(false);
@@ -30,10 +34,10 @@ export default function AdminPinPrompt({ tournament }) {
     <div className="max-w-4xl mx-auto px-4 py-8">
       <div className="text-center mb-8">
         <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">
-          Turnierleitung
+          {title}
         </h2>
         <p className="text-slate-400">
-          Dieser Bereich ist durch die Admin-PIN geschützt.
+          {description}
         </p>
       </div>
 

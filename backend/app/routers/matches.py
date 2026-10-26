@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.app import match_rules
+from backend.app.auth import require_admin
 from backend.app.database import get_db
 from backend.app.match_sheet import add_deciding_doubles
 from backend.app.models import IndividualGame, TeamMatch
@@ -38,7 +39,11 @@ def check_and_update_match_status(match: TeamMatch, db: Session):
     match.winner_team_id = {"A": match.team_a_id, "B": match.team_b_id}.get(result.winner_side)
 
 
-@router.post("/{match_id}/games/{game_id}/result", response_model=IndividualGameResponse)
+@router.post(
+    "/{match_id}/games/{game_id}/result",
+    response_model=IndividualGameResponse,
+    dependencies=[Depends(require_admin)],
+)
 async def set_game_result(
     match_id: int,
     game_id: int,

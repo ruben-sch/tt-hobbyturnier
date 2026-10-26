@@ -9,10 +9,19 @@ if [ -d "$HOME/.nvm/versions/node" ]; then
 fi
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
-# Ensure venv exists
+# Ensure the venv exists and runs Python 3.15+ (an older venv is rebuilt)
+if [ -d "backend/venv" ] && ! backend/venv/bin/python3 -c 'import sys; sys.exit(sys.version_info < (3, 15))' 2>/dev/null; then
+    echo "Python-Version im venv ist zu alt, baue es neu..."
+    rm -rf backend/venv
+fi
 if [ ! -d "backend/venv" ]; then
+    PYTHON=$(command -v python3.15 || command -v python3)
+    if ! "$PYTHON" -c 'import sys; sys.exit(sys.version_info < (3, 15))'; then
+        echo "Python 3.15 oder neuer wird benötigt (z.B. brew install python@3.15)." >&2
+        exit 1
+    fi
     echo "Erstelle Python virtuelles Environment..."
-    python3 -m venv backend/venv
+    "$PYTHON" -m venv backend/venv
     backend/venv/bin/pip install -r backend/requirements.txt
 fi
 
