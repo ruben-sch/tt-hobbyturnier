@@ -5,9 +5,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from mcp.server.auth.middleware.auth_context import AuthContextMiddleware
+from mcp.server.auth.middleware.bearer_auth import BearerAuthBackend
+from mcp.server.auth.provider import ProviderTokenVerifier
 from mcp.server.transport_security import TransportSecuritySettings
+from starlette.middleware.authentication import AuthenticationMiddleware
+from starlette.routing import Route
 
 from backend.app.database import Base, engine
+from backend.app.mcp_auth import PinHeaderAsBearer, login_router, provider
 from backend.app.mcp_server import mcp
 from backend.app.routers import (
     matches,
@@ -29,7 +35,7 @@ if os.getenv("TT_RANDOM_SEED"):
 
 # Stateless JSON: every MCP call is a plain POST to /mcp, nothing to keep per client.
 # Host checks are off because the app is reached by LAN IP and by its public domain;
-# write tools check the admin PIN themselves.
+# every /mcp request is authenticated (OAuth token or admin PIN, see mcp_auth).
 mcp_app = mcp.streamable_http_app(
     stateless_http=True,
     json_response=True,
@@ -67,7 +73,21 @@ app.include_router(matches.router)
 app.include_router(tables.router)
 app.include_router(monitors.router)
 app.include_router(server.router)
-app.router.routes.extend(mcp_app.routes)  # /mcp
+app.include_router(login_router)
+
+
+def _with_mcp_auth(route):
+    """The MCP app's routes (/mcp, OAuth endpoints, metadata) without its Starlette app around them:
+    /mcp gets the bearer authentication that app would have added as middleware."""
+    if route.path != "/mcp":
+        return route
+    backend = BearerAuthBackend(ProviderTokenVerifier(provider))
+    return Route("/mcp", endpoint=PinHeaderAsBearer(
+        AuthenticationMiddleware(AuthContextMiddleware(route.endpoint), backend=backend)
+    ))
+
+
+app.router.routes.extend(_with_mcp_auth(r) for r in mcp_app.routes)
 
 
 @app.websocket("/ws")

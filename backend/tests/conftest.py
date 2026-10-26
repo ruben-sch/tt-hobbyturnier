@@ -19,6 +19,13 @@ def clean_db():
     Base.metadata.drop_all(bind=engine)
 
 
+@pytest.fixture(scope="session")
+def mcp_http():
+    """Client that runs the app lifespan (MCP session manager), which may only start once per process."""
+    with TestClient(app) as http:
+        yield http
+
+
 @pytest.fixture
 def client(clean_db):
     return TestClient(app, headers=ADMIN)

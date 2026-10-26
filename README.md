@@ -111,21 +111,25 @@ Screenshots (Tabelle und Rundenergebnisse nach jeder Runde, bei Fehlern zusätzl
 
 ## 🤖 MCP-Server (Ergebnisse per KI-Assistent)
 
-Die App bringt unter `/mcp` einen MCP-Server mit (Streamable HTTP), z. B. für Claude Code oder Claude Desktop:
+Die App bringt unter `/mcp` einen MCP-Server mit (Streamable HTTP). Jeder Zugriff braucht die Turnierleitung: entweder per OAuth-Anmeldung (claude.ai) oder mit der Admin-PIN als Header (Claude Code, Claude Desktop).
 
-| Tool | Zweck | Admin-PIN |
-|---|---|---|
-| `get_tournament` | Turnier, Einstellungen, Rundenübersicht | nein |
-| `get_standings` | Aktuelle Tabelle | nein |
-| `get_round` | Begegnungen einer Runde mit Einzeln, Satzständen und IDs | nein |
-| `get_live_status` | Was läuft gerade an welchem Tisch, Zwischenstand der Begegnung | nein |
-| `enter_game_result` | Satzstand eines Einzels eintragen oder korrigieren (0:0 setzt zurück) | ja |
+| Tool | Zweck |
+|---|---|
+| `get_tournament` | Turnier, Einstellungen, Rundenübersicht |
+| `get_standings` | Aktuelle Tabelle |
+| `get_round` | Begegnungen einer Runde mit Einzeln, Satzständen und IDs |
+| `get_live_status` | Was läuft gerade an welchem Tisch, Zwischenstand der Begegnung |
+| `enter_game_result` | Satzstand eines Einzels eintragen oder korrigieren (0:0 setzt zurück) |
 
-Die Admin-PIN wird als Header `X-Admin-Pin: <PIN>` oder `Authorization: Bearer <PIN>` mitgeschickt. Live-Stände heißt: Zwischenstand der Begegnung und laufendes Einzel – Satz- oder Ballstände werden nicht erfasst.
+Live-Stände heißt: Zwischenstand der Begegnung und laufendes Einzel – Satz- oder Ballstände werden nicht erfasst.
 
+**claude.ai (Web/App):** Einstellungen → Connectors → *Custom Connector hinzufügen* → URL `https://<APP_HOST>/mcp`. Beim Verbinden öffnet sich eine Seite, auf der die Admin-PIN eingegeben wird. Ein PIN-Wechsel meldet alle verbundenen Clients ab. (Staging liegt hinter BasicAuth und ist für claude.ai nicht erreichbar.)
+
+**Claude Code:**
 ```bash
-claude mcp add --transport http tt-turnier https://tt-hobbyturnier.schwarzpost.de/mcp --header "X-Admin-Pin: <PIN>"
+claude mcp add --transport http tt-turnier https://<APP_HOST>/mcp --header "X-Admin-Pin: <PIN>"
 ```
+Auf dem Turnier-Laptop entsprechend `http://<LAN-IP>:8000/mcp`. Für OAuth außerhalb von `localhost` muss `TT_PUBLIC_URL` (z. B. `https://turnier.example.de`) gesetzt sein; das Deployment setzt sie aus `APP_HOST`.
 
 ---
 

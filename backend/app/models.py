@@ -1,7 +1,7 @@
 import os
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Query, Session, relationship
 
 from backend.app.database import Base
@@ -130,3 +130,23 @@ class IndividualGame(Base):
 
     team_match = relationship("TeamMatch", back_populates="individual_games")
 
+
+
+class OAuthClient(Base):
+    """An MCP client (e.g. claude.ai) registered via OAuth dynamic client registration."""
+    __tablename__ = "oauth_clients"
+
+    client_id = Column(String(64), primary_key=True)
+    data = Column(Text, nullable=False)  # OAuthClientInformationFull as JSON
+
+
+class OAuthToken(Base):
+    """Issued MCP access/refresh token. Only the SHA-256 of the token is stored."""
+    __tablename__ = "oauth_tokens"
+
+    token_hash = Column(String(64), primary_key=True)
+    kind = Column(String(10), nullable=False)  # "access" or "refresh"
+    client_id = Column(String(64), nullable=False)
+    grant_id = Column(String(64), nullable=False, index=True)  # shared by a token pair, for revocation
+    pin_fingerprint = Column(String(64), nullable=False)  # admin PIN at issue time; a new PIN revokes
+    expires_at = Column(Integer, nullable=False)

@@ -1,18 +1,19 @@
 """MCP server (Streamable HTTP under /mcp) for AI assistants: read results and standings, enter results.
 
-Read tools are open like the REST API. Tools that change data take the admin PIN of the
-active tournament, sent as `X-Admin-Pin` or `Authorization: Bearer <PIN>` header.
+Every request needs the Turnierleitung's authorization (see mcp_auth): an OAuth token
+(claude.ai) or the admin PIN as `Authorization: Bearer <PIN>` / `X-Admin-Pin` header.
 """
 
 from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException
-from mcp.server.mcpserver import Context, MCPServer
+from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from sqlalchemy.orm import Session
 
-from backend.app.auth import ADMIN_PIN_HEADER, active_tournament, check_admin_pin
+from backend.app.auth import active_tournament
 from backend.app.database import SessionLocal
+from backend.app.mcp_auth import auth_settings, provider
 from backend.app.models import Round, TeamMatch, Tournament
 from backend.app.routers import matches
 from backend.app.schemas import GameResultUpdate
@@ -24,8 +25,10 @@ mcp = MCPServer(
     instructions=(
         "Tischtennis-Hobbyturnier mit 2er-Teams. Eine Begegnung (match) besteht aus 4 Einzeln, "
         "in der KO-Phase bei 2:2 plus Doppel. Pro Spiel wird nur der Satzstand (z.B. 3:1) eingetragen, "
-        "Satz- oder Ballstände gibt es nicht. Ergebnisse eintragen braucht die Admin-PIN als Header."
+        "Satz- oder Ballstände gibt es nicht."
     ),
+    auth=auth_settings,
+    auth_server_provider=provider,
 )
 
 
@@ -34,19 +37,6 @@ def _tournament(db: Session) -> Tournament:
     if tournament is None:
         raise ToolError("Kein aktives Turnier.")
     return tournament
-
-
-def _require_admin(ctx: Context, tournament: Tournament) -> None:
-    request = ctx.request_context.request
-    headers = request.headers if request is not None else {}
-    pin = headers.get(ADMIN_PIN_HEADER)
-    auth = headers.get("authorization", "")
-    if not pin and auth.lower().startswith("bearer "):
-        pin = auth[len("bearer "):]
-    try:
-        check_admin_pin(tournament, pin)
-    except HTTPException as e:
-        raise ToolError(e.detail) from e
 
 
 def _game(g) -> Dict[str, Any]:
@@ -142,16 +132,12 @@ def get_live_status() -> Dict[str, Any]:
 
 
 @mcp.tool()
-async def enter_game_result(match_id: int, game_id: int, sets_a: int, sets_b: int, ctx: Context) -> Dict[str, Any]:
+async def enter_game_result(match_id: int, game_id: int, sets_a: int, sets_b: int) -> Dict[str, Any]:
     """Enters the final set count of one game (e.g. 3:1 means team A's player won 3 sets to 1).
 
-    0:0 resets the game. Corrections are allowed. Needs the admin PIN header.
-    Returns the updated match.
+    0:0 resets the game. Corrections are allowed. Returns the updated match.
     """
     with SessionLocal() as db:
-        match = db.get(TeamMatch, match_id)
-        tournament = match.round.tournament if match else _tournament(db)
-        _require_admin(ctx, tournament)
         try:
             # Same path as the web UI, including the WebSocket broadcast
             await matches.set_game_result(match_id, game_id, GameResultUpdate(sets_a=sets_a, sets_b=sets_b), db)
