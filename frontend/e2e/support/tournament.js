@@ -167,19 +167,11 @@ export class TournamentDriver {
 
   async playMatch(ko) {
     const page = this.page;
-    await expect(page.getByRole('heading', { name: 'Aufstellung festlegen' })).toBeVisible();
+    // The match opens straight into result entry, players in registered order.
+    await expect(page.getByText('Gesamtstand')).toBeVisible();
     const headings = page.getByRole('heading', { level: 3 });
     const teamA = (await headings.nth(0).textContent()).trim();
     const teamB = (await headings.nth(1).textContent()).trim();
-
-    // Random lineup: who plays at position 1 is a coin toss per team.
-    const selects = page.locator('select');
-    for (const i of [0, 1]) {
-      const options = await selects.nth(i).locator('option').allTextContents();
-      await selects.nth(i).selectOption({ label: this.rng.pick(options) });
-    }
-    await page.getByRole('button', { name: /Aufstellung bestätigen/ }).click();
-    await expect(page.getByText('Gesamtstand')).toBeVisible();
 
     const games = [];
     let winsA = 0;
@@ -257,7 +249,7 @@ export class TournamentDriver {
     await this.goto('Turnierleitung');
     await this.page.getByRole('button', { name: 'Runden & Spiele' }).click();
     const panel = this.page.getByTestId('active-round');
-    await expect(panel).not.toContainText('Aufstellung offen');
+    await expect(panel).not.toContainText('Noch nicht begonnen');
     await this.screenshot(`${prefix}-ergebnisse`, panel);
   }
 

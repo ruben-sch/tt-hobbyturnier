@@ -9,7 +9,6 @@ vi.mock('../services/api', () => ({
   fetchTablesStatus: vi.fn(),
   authenticatePin: vi.fn(),
   fetchMatch: vi.fn(),
-  setLineup: vi.fn(),
   submitGameResult: vi.fn(),
 }));
 
@@ -28,7 +27,6 @@ const game = (id, order, extra = {}) => ({
 
 const match = {
   id: 42,
-  lineup_confirmed: true,
   team_a: { name: 'Team Alpha', player1_name: 'A1', player2_name: 'A2' },
   team_b: { name: 'Team Beta', player1_name: 'B1', player2_name: 'B2' },
   score_a: 0,
@@ -195,49 +193,18 @@ describe('TableScorer', () => {
     expect(await screen.findByText('Fehler bei der PIN-Prüfung')).toBeInTheDocument();
   });
 
-  describe('lineup', () => {
-    const openMatch = { ...match, lineup_confirmed: false, team_a_p1_name: null, team_a_p2_name: null,
-      team_b_p1_name: null, team_b_p2_name: null };
+  it('opens a match straight into result entry with the registered order and goes back', async () => {
+    api.authenticatePin.mockResolvedValue({ authenticated: true, match_id: 42 });
+    const user = userEvent.setup();
+    render(<TableScorer tournament={tournament} />);
 
-    async function openLineup(user) {
-      api.authenticatePin.mockResolvedValue({ authenticated: true, match_id: 42 });
-      api.fetchMatch.mockResolvedValue(openMatch);
-      render(<TableScorer tournament={tournament} />);
-      await user.type(screen.getByPlaceholderText('z.B. Match-PIN'), '1234');
-      await user.click(screen.getByRole('button', { name: 'Start' }));
-      await screen.findByText('Aufstellung festlegen');
-    }
+    await user.type(screen.getByPlaceholderText('z.B. Match-PIN'), '1234');
+    await user.click(screen.getByRole('button', { name: 'Start' }));
+    expect(await screen.findByText(/Ergebnis eintragen/)).toBeInTheDocument();
+    expect(screen.queryByText('Aufstellung festlegen')).not.toBeInTheDocument();
 
-    it('swaps positions and confirms the lineup', async () => {
-      api.setLineup.mockResolvedValue(match);
-      const user = userEvent.setup();
-      await openLineup(user);
-
-      const [selectA, selectB] = screen.getAllByRole('combobox');
-      await user.selectOptions(selectA, 'A2');
-      expect(screen.getByDisplayValue('A1')).toBeDisabled();
-      await user.selectOptions(selectB, 'B2');
-      await user.selectOptions(selectB, 'B1');
-
-      await user.click(screen.getByRole('button', { name: /Aufstellung bestätigen/ }));
-      expect(api.setLineup).toHaveBeenCalledWith(42, {
-        team_a_p1_name: 'A2', team_a_p2_name: 'A1', team_b_p1_name: 'B1', team_b_p2_name: 'B2',
-      });
-      expect(await screen.findByText(/Ergebnis eintragen/)).toBeInTheDocument();
-    });
-
-    it('alerts when the lineup cannot be saved and allows going back', async () => {
-      api.setLineup.mockRejectedValue(new Error('Server weg'));
-      const alert = vi.spyOn(window, 'alert').mockImplementation(() => {});
-      const user = userEvent.setup();
-      await openLineup(user);
-
-      await user.click(screen.getByRole('button', { name: /Aufstellung bestätigen/ }));
-      expect(alert).toHaveBeenCalledWith('Fehler beim Bestätigen der Aufstellung: Server weg');
-
-      await user.click(screen.getByRole('button', { name: /Zurück zur Begegnungsauswahl/ }));
-      expect(screen.getByText('Ergebniseingabe')).toBeInTheDocument();
-    });
+    await user.click(screen.getByRole('button', { name: /Begegnungsauswahl/ }));
+    expect(screen.getByText('Ergebniseingabe')).toBeInTheDocument();
   });
 
   describe('result entry', () => {

@@ -4,8 +4,8 @@ import { Ledger, TournamentDriver, createTournament } from './support/tournament
 
 // Full tournament day with 17 teams, driven through the UI like the organiser
 // and the players would: teams, 7 Swiss rounds (one bye per round), and in the
-// second scenario a Top 8 KO phase up to the final. Team names, player names,
-// lineups and every game result are random; the seed is printed and attached,
+// second scenario a Top 8 KO phase up to the final. Team names, player names
+// and every game result are random; the seed is printed and attached,
 // E2E_SEED=<seed> replays a run exactly.
 
 const TEAM_COUNT = 17;

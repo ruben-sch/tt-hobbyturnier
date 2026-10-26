@@ -34,7 +34,7 @@ def _lineup(match: TeamMatch) -> Dict[str, Dict[int, str]]:
 
 
 def create_games(match: TeamMatch, db: Session) -> None:
-    """Creates the 4 singles of a match from its lineup (team players until one is confirmed)."""
+    """Creates the 4 singles of a match from its lineup."""
     lineup = _lineup(match)
     for order, (pos_a, pos_b, second_table) in SINGLES.items():
         db.add(IndividualGame(
@@ -45,21 +45,6 @@ def create_games(match: TeamMatch, db: Session) -> None:
             player_b_name=lineup["B"][pos_b],
             table_number=(match.table_number_b or match.table_number) if second_table else match.table_number,
         ))
-
-
-def apply_lineup(match: TeamMatch, a1: str, a2: str, b1: str, b2: str) -> None:
-    """Confirms the lineup and renames the players of all existing games."""
-    match.team_a_p1_name, match.team_a_p2_name = a1, a2
-    match.team_b_p1_name, match.team_b_p2_name = b1, b2
-    match.lineup_confirmed = True
-
-    lineup = _lineup(match)
-    for g in match.individual_games:
-        if g.is_doubles:
-            g.player_a_name, g.player_b_name = _doubles_names(lineup)
-        elif g.game_order in SINGLES:
-            pos_a, pos_b, _ = SINGLES[g.game_order]
-            g.player_a_name, g.player_b_name = lineup["A"][pos_a], lineup["B"][pos_b]
 
 
 def _doubles_names(lineup):

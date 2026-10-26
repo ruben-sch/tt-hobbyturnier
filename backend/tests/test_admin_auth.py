@@ -46,7 +46,6 @@ def test_admin_endpoints_reject_missing_and_wrong_pin(client, t_id):
     round_id = round_["id"]
     match = round_["team_matches"][0]
     game_id = match["individual_games"][0]["id"]
-    lineup = {"team_a_p1_name": "a", "team_a_p2_name": "b", "team_b_p1_name": "c", "team_b_p2_name": "d"}
     team_id = client.get(f"/api/tournaments/{t_id}/teams").json()[0]["id"]
 
     admin_calls = [
@@ -61,7 +60,6 @@ def test_admin_endpoints_reject_missing_and_wrong_pin(client, t_id):
         ("post", f"/api/rounds/{round_id}/swap-pairings", {"json": {"match_id_1": 1, "match_id_2": 2}}),
         ("post", f"/api/rounds/{round_id}/complete", {}),
         ("get", f"/api/tournaments/{t_id}/admin-check", {}),
-        ("post", f"/api/matches/{match['id']}/lineup", {"json": lineup}),
         ("post", f"/api/matches/{match['id']}/games/{game_id}/result", {"json": {"sets_a": 3, "sets_b": 0}}),
     ]
     for method, url, kwargs in admin_calls:
@@ -74,7 +72,7 @@ def test_admin_endpoints_reject_missing_and_wrong_pin(client, t_id):
     assert len(client.get(f"/api/tournaments/{t_id}/teams").json()) == 4
     assert client.get("/api/tournaments/active").json()["id"] == t_id
     stored = client.get(f"/api/matches/{match['id']}").json()
-    assert stored["score_a"] == 0 and not stored["lineup_confirmed"]
+    assert stored["score_a"] == 0
 
 
 def test_result_entry_with_admin_pin(client, t_id):

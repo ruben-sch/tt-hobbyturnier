@@ -4,12 +4,11 @@ from sqlalchemy.orm import Session
 from backend.app import match_rules
 from backend.app.auth import require_admin
 from backend.app.database import get_db
-from backend.app.match_sheet import add_deciding_doubles, apply_lineup
+from backend.app.match_sheet import add_deciding_doubles
 from backend.app.models import IndividualGame, TeamMatch
 from backend.app.schemas import (
     GameResultUpdate,
     IndividualGameResponse,
-    LineupUpdate,
     TeamMatchResponse,
 )
 from backend.app.websocket_hub import ws_manager
@@ -22,27 +21,6 @@ def get_match(match_id: int, db: Session = Depends(get_db)):
     match = db.query(TeamMatch).filter(TeamMatch.id == match_id).first()
     if not match:
         raise HTTPException(status_code=404, detail="Begegnung nicht gefunden")
-    return match
-
-
-@router.post("/{match_id}/lineup", response_model=TeamMatchResponse, dependencies=[Depends(require_admin)])
-async def set_lineup(match_id: int, payload: LineupUpdate, db: Session = Depends(get_db)):
-    match = db.query(TeamMatch).filter(TeamMatch.id == match_id).first()
-    if not match:
-        raise HTTPException(status_code=404, detail="Begegnung nicht gefunden")
-
-    apply_lineup(match, payload.team_a_p1_name, payload.team_a_p2_name,
-                 payload.team_b_p1_name, payload.team_b_p2_name)
-
-    db.commit()
-    db.refresh(match)
-
-    await ws_manager.broadcast({
-        "type": "LINEUP_CONFIRMED",
-        "match_id": match.id,
-        "round_id": match.round_id,
-        "table_number": match.table_number
-    })
     return match
 
 

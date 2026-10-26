@@ -80,12 +80,11 @@ class TeamMatch(Base):
     table_number = Column(Integer, nullable=True)
     table_number_b = Column(Integer, nullable=True)  # if 2 tables assigned
 
-    # Lineup for this match (Position 1 and 2 of Team A and Team B)
+    # Players at position 1 and 2 of Team A and Team B (fixed order from registration)
     team_a_p1_name = Column(String(100), nullable=True)
     team_a_p2_name = Column(String(100), nullable=True)
     team_b_p1_name = Column(String(100), nullable=True)
     team_b_p2_name = Column(String(100), nullable=True)
-    lineup_confirmed = Column(Boolean, default=False)
 
     # Score of individual games won (e.g. 4-0, 3-1, 2-2 in swiss, or 3-2 in KO)
     score_a = Column(Integer, default=0)

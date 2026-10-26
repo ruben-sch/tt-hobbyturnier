@@ -32,7 +32,7 @@ const teams = (count) => Array.from({ length: count }, (_, i) => ({
 const match = (id, a, b, extra = {}) => ({
   id, match_pin: `90${id}`, team_a: { name: a }, team_b: b ? { name: b } : null, team_b_id: b ? id + 100 : null, is_bye: !b,
   team_a_p1_name: `${a}1`, team_a_p2_name: `${a}2`, team_b_p1_name: null, team_b_p2_name: null,
-  score_a: 0, score_b: 0, is_completed: false, lineup_confirmed: false,
+  score_a: 0, score_b: 0, is_completed: false,
   individual_games: [{ is_completed: true }, { is_completed: false }],
   ...extra,
 });
@@ -40,8 +40,8 @@ const match = (id, a, b, extra = {}) => ({
 const activeRound = {
   id: 10, round_number: 2, round_type: 'swiss', is_active: true, is_completed: false,
   team_matches: [
-    match(1, 'Asse', 'Blocker', { lineup_confirmed: true }),
-    match(2, 'Topspin', 'Konter'),
+    match(1, 'Asse', 'Blocker'),
+    match(2, 'Topspin', 'Konter', { individual_games: [{ is_completed: false }, { is_completed: false }] }),
     match(3, 'Freilos-Team', null, { is_completed: true, score_a: 4 }),
   ],
 };
@@ -107,9 +107,10 @@ describe('AdminDashboard', () => {
       expect(screen.getByText('FREILOS (BYE)')).toBeInTheDocument();
       expect(screen.getByText('PIN: 901')).toBeInTheDocument();
       expect(screen.getByText('Spiel läuft...')).toBeInTheDocument();
-      expect(screen.getByText('Aufstellung offen')).toBeInTheDocument();
+      expect(screen.getByText('Noch nicht begonnen')).toBeInTheDocument();
       expect(screen.getByText('✓ Match beendet')).toBeInTheDocument();
-      expect(screen.getAllByText('1 / 2 Einzel gespielt')).toHaveLength(3);
+      expect(screen.getAllByText('1 / 2 Einzel gespielt')).toHaveLength(2);
+      expect(screen.getByText('0 / 2 Einzel gespielt')).toBeInTheDocument();
 
       // History lists every round with its status
       expect(screen.getByText('Abgeschlossen')).toBeInTheDocument();
@@ -158,14 +159,14 @@ describe('AdminDashboard', () => {
     });
 
     it('reports a failing swap', async () => {
-      api.swapPairings.mockRejectedValue(new Error('Aufstellung bereits bestätigt'));
+      api.swapPairings.mockRejectedValue(new Error('Begegnung bereits begonnen'));
       const { user } = setup({ rounds: [activeRound] });
       const [first, second] = await screen.findAllByRole('combobox');
 
       await user.selectOptions(first, '1');
       await user.selectOptions(second, '2');
       await user.click(screen.getByRole('button', { name: 'Tauschen' }));
-      expect(alert).toHaveBeenCalledWith('Fehler beim Tauschen: Aufstellung bereits bestätigt');
+      expect(alert).toHaveBeenCalledWith('Fehler beim Tauschen: Begegnung bereits begonnen');
     });
 
     it('starts the KO phase after the Swiss rounds', async () => {

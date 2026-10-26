@@ -3,13 +3,11 @@ import {
   fetchTablesStatus, 
   authenticatePin, 
   fetchMatch, 
-  setLineup, 
   submitGameResult
 } from '../services/api';
 import { useLiveEvent, MATCH_EVENTS } from '../hooks/useLiveEvents';
 import { 
   KeyRound, 
-  CheckCircle, 
   Trophy, 
   ListOrdered
 } from 'lucide-react';
@@ -22,14 +20,6 @@ export default function TableScorer({ tournament, initialMatchId = null, onIniti
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
 
-  
-  // Lineup state
-  const [lineupForm, setLineupForm] = useState({
-    team_a_p1: '',
-    team_a_p2: '',
-    team_b_p1: '',
-    team_b_p2: '',
-  });
 
   const loadTables = useCallback(async () => {
     try {
@@ -41,7 +31,7 @@ export default function TableScorer({ tournament, initialMatchId = null, onIniti
   }, [tournament]);
 
   // Refreshes the open match after changes from other devices. Only matchData
-  // is replaced: lineup form, selected game and typed-in sets stay as they are.
+  // is replaced: selected game and typed-in sets stay as they are.
   const openMatchIdRef = useRef(null);
   useEffect(() => {
     openMatchIdRef.current = matchData?.id ?? null;
@@ -78,13 +68,6 @@ export default function TableScorer({ tournament, initialMatchId = null, onIniti
       const data = await fetchMatch(matchId);
       setMatchData(data);
       if (data) {
-        setLineupForm({
-          team_a_p1: data.team_a_p1_name || data.team_a?.player1_name || '',
-          team_a_p2: data.team_a_p2_name || data.team_a?.player2_name || '',
-          team_b_p1: data.team_b_p1_name || data.team_b?.player1_name || '',
-          team_b_p2: data.team_b_p2_name || data.team_b?.player2_name || '',
-        });
-
         if (targetGameId) {
           const target = data.individual_games.find(g => g.id === targetGameId);
           if (target) {
@@ -149,21 +132,6 @@ export default function TableScorer({ tournament, initialMatchId = null, onIniti
       }
     } catch {
       setPinError('Fehler bei der PIN-Prüfung');
-    }
-  };
-
-  const handleConfirmLineup = async () => {
-    if (!matchData) return;
-    try {
-      const updated = await setLineup(matchData.id, {
-        team_a_p1_name: lineupForm.team_a_p1,
-        team_a_p2_name: lineupForm.team_a_p2,
-        team_b_p1_name: lineupForm.team_b_p1,
-        team_b_p2_name: lineupForm.team_b_p2,
-      });
-      setMatchData(updated);
-    } catch (e) {
-      alert("Fehler beim Bestätigen der Aufstellung: " + e.message);
     }
   };
 
@@ -302,112 +270,6 @@ export default function TableScorer({ tournament, initialMatchId = null, onIniti
       </div>
     );
   }
-
-  // If Lineup is NOT confirmed yet: Show Aufstellung Screen
-  if (!matchData.lineup_confirmed) {
-    return (
-      <div className="max-w-2xl mx-auto px-4 py-8">
-        <button
-          onClick={() => { setMatchData(null); setSelectedTable(null); }}
-          className="text-xs text-slate-400 hover:text-white mb-4 inline-flex items-center gap-1"
-        >
-          ← Zurück zur Begegnungsauswahl
-        </button>
-
-        <div className="bg-slate-800 border border-slate-700 rounded-3xl p-6 sm:p-8 shadow-2xl">
-          <div className="text-center mb-6">
-            <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-sky-500/20 text-sky-400 border border-sky-500/30 mb-2">
-              Begegnung • Vor dem Spiel
-            </span>
-            <h2 className="text-2xl font-bold text-white">
-              Aufstellung festlegen
-            </h2>
-            <p className="text-sm text-slate-400 mt-1">
-              Wer spielt an Position 1 und Position 2? (Reihenfolge: Kreuzspiele 1-2, 2-1, danach 1-1, 2-2)
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
-            {/* Team A */}
-            <div className="bg-slate-900/80 p-5 rounded-2xl border border-sky-500/30">
-              <h3 className="font-bold text-sky-400 text-lg mb-3">
-                {matchData.team_a?.name}
-              </h3>
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs text-slate-400 font-medium">Spieler 1 (Pos. 1)</label>
-                  <select
-                    value={lineupForm.team_a_p1}
-                    onChange={(e) => {
-                      const p1 = e.target.value;
-                      const p2 = p1 === matchData.team_a?.player1_name ? matchData.team_a?.player2_name : matchData.team_a?.player1_name;
-                      setLineupForm({ ...lineupForm, team_a_p1: p1, team_a_p2: p2 });
-                    }}
-                    className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none"
-                  >
-                    <option value={matchData.team_a?.player1_name}>{matchData.team_a?.player1_name}</option>
-                    <option value={matchData.team_a?.player2_name}>{matchData.team_a?.player2_name}</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400 font-medium">Spieler 2 (Pos. 2)</label>
-                  <input
-                    type="text"
-                    disabled
-                    value={lineupForm.team_a_p2}
-                    className="w-full mt-1 bg-slate-800/50 border border-slate-700/60 rounded-xl px-3 py-2 text-slate-300 text-sm cursor-not-allowed"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Team B */}
-            <div className="bg-slate-900/80 p-5 rounded-2xl border border-emerald-500/30">
-              <h3 className="font-bold text-emerald-400 text-lg mb-3">
-                {matchData.team_b?.name || "Gegner"}
-              </h3>
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs text-slate-400 font-medium">Spieler 1 (Pos. 1)</label>
-                  <select
-                    value={lineupForm.team_b_p1}
-                    onChange={(e) => {
-                      const p1 = e.target.value;
-                      const p2 = p1 === matchData.team_b?.player1_name ? matchData.team_b?.player2_name : matchData.team_b?.player1_name;
-                      setLineupForm({ ...lineupForm, team_b_p1: p1, team_b_p2: p2 });
-                    }}
-                    className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  >
-                    <option value={matchData.team_b?.player1_name}>{matchData.team_b?.player1_name}</option>
-                    <option value={matchData.team_b?.player2_name}>{matchData.team_b?.player2_name}</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400 font-medium">Spieler 2 (Pos. 2)</label>
-                  <input
-                    type="text"
-                    disabled
-                    value={lineupForm.team_b_p2}
-                    className="w-full mt-1 bg-slate-800/50 border border-slate-700/60 rounded-xl px-3 py-2 text-slate-300 text-sm cursor-not-allowed"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={handleConfirmLineup}
-            className="w-full bg-gradient-to-r from-sky-500 to-emerald-500 hover:from-sky-400 hover:to-emerald-400 text-white font-bold py-4 rounded-2xl shadow-xl shadow-sky-500/25 transition text-lg flex items-center justify-center gap-2"
-          >
-            <CheckCircle className="w-6 h-6" />
-            <span>Aufstellung bestätigen & Begegnung freigeben</span>
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Lineup is confirmed: Full Scorer Interface
 
   return (
     <div className="max-w-4xl mx-auto px-3 sm:px-6 py-4">
