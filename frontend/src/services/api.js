@@ -148,17 +148,7 @@ export async function fetchMatch(matchId) {
   return res.json();
 }
 
-export async function setLineup(matchId, lineupData) {
-  const res = await fetch(`${API_BASE}/matches/${matchId}/lineup`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(lineupData),
-  });
-  if (!res.ok) throw new Error("Fehler beim Bestätigen der Aufstellung");
-  return res.json();
-}
 
-// Final set count of a single, e.g. 3:1. 0:0 resets the game.
 export async function submitGameResult(matchId, gameId, setsA, setsB) {
   const res = await fetch(`${API_BASE}/matches/${matchId}/games/${gameId}/result`, {
     method: 'POST',

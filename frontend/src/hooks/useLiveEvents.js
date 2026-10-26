@@ -12,7 +12,7 @@ export const TOURNAMENT_EVENTS = [
 ];
 
 // Frequent events inside a round. Views subscribe to the ones they display.
-export const MATCH_EVENTS = ['SCORE_UPDATE', 'LINEUP_CONFIRMED', 'ROUND_UPDATED'];
+export const MATCH_EVENTS = ['SCORE_UPDATE', 'ROUND_UPDATED'];
 export const TEAM_EVENTS = ['TEAMS_UPDATED'];
 
 export function createLiveEvents() {

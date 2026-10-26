@@ -87,7 +87,6 @@ class TeamMatchResponse(BaseModel):
     team_a_p2_name: Optional[str] = None
     team_b_p1_name: Optional[str] = None
     team_b_p2_name: Optional[str] = None
-    lineup_confirmed: bool
     score_a: int
     score_b: int
     is_completed: bool
@@ -109,13 +108,6 @@ class RoundResponse(BaseModel):
     team_matches: List[TeamMatchResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
-
-
-class LineupUpdate(BaseModel):
-    team_a_p1_name: str
-    team_a_p2_name: str
-    team_b_p1_name: str
-    team_b_p2_name: str
 
 
 class GameResultUpdate(BaseModel):
