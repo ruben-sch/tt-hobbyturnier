@@ -1,11 +1,14 @@
 import os
 import random
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from mcp.server.transport_security import TransportSecuritySettings
 
 from backend.app.database import Base, engine
+from backend.app.mcp_server import mcp
 from backend.app.routers import (
     matches,
     monitors,
@@ -24,10 +27,27 @@ Base.metadata.create_all(bind=engine)
 if os.getenv("TT_RANDOM_SEED"):
     random.seed(int(os.environ["TT_RANDOM_SEED"]))
 
+# Stateless JSON: every MCP call is a plain POST to /mcp, nothing to keep per client.
+# Host checks are off because the app is reached by LAN IP and by its public domain;
+# write tools check the admin PIN themselves.
+mcp_app = mcp.streamable_http_app(
+    stateless_http=True,
+    json_response=True,
+    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    async with mcp.session_manager.run():
+        yield
+
+
 app = FastAPI(
     title="TT-Turnier Live-Manager API",
     description="Backend API für Tischtennis-Turniere nach Schweizer System mit 2er-Teams",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 # CORS configuration
@@ -47,6 +67,7 @@ app.include_router(matches.router)
 app.include_router(tables.router)
 app.include_router(monitors.router)
 app.include_router(server.router)
+app.router.routes.extend(mcp_app.routes)  # /mcp
 
 
 @app.websocket("/ws")
