@@ -112,6 +112,8 @@ export default function PrintableSheets({ tournament }) {
                   <QRCodeSVG
                     value={scorerUrl(baseUrl, match.id)}
                     size={72}
+                    data-testid="sheet-qr"
+                    data-url={scorerUrl(baseUrl, match.id)}
                     title={`QR-Code zur Ergebniseingabe für Begegnung #${mIdx + 1}`}
                   />
                 )}

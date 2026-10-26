@@ -139,7 +139,13 @@ export default function HallenMonitor({ tournament }) {
         {baseUrl && (
           <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-xl p-2 pr-4">
             <div className="bg-white p-1.5 rounded-lg">
-              <QRCodeSVG value={scorerUrl(baseUrl)} size={88} title="QR-Code zur Ergebniseingabe" />
+              <QRCodeSVG
+                value={scorerUrl(baseUrl)}
+                size={88}
+                title="QR-Code zur Ergebniseingabe"
+                data-testid="scorer-qr"
+                data-url={scorerUrl(baseUrl)}
+              />
             </div>
             <div className="text-xs">
               <div className="font-bold text-sky-400 uppercase tracking-wide">Ergebnis eintragen</div>
