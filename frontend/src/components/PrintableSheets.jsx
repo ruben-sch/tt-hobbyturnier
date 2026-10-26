@@ -5,6 +5,132 @@ import { useAppBaseUrl, scorerUrl } from '../hooks/useAppBaseUrl';
 import { QRCodeSVG } from 'qrcode.react';
 import { Printer } from 'lucide-react';
 
+// Four sheets per A4 page (2x2). The page box is the printable area of A4
+// minus the 10mm @page margin from index.css (1mm spare in height so
+// rounding never spills onto an empty extra page).
+const SHEETS_PER_PAGE = 4;
+
+// Singles order of a team match: [game, player of A, player of B].
+const SINGLES = [
+  [1, 1, 2],
+  [2, 2, 1],
+  [3, 1, 1],
+  [4, 2, 2],
+];
+
+function chunk(items, size) {
+  const chunks = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
+function playerName(match, side, number) {
+  return match[`team_${side}_p${number}_name`] || match[`team_${side}`]?.[`player${number}_name`];
+}
+
+// Recorded set count of a game, blank if it has not been played yet.
+function setsCell(match, gameOrder) {
+  const game = match.individual_games?.find(g => g.game_order === gameOrder);
+  if (!game || (game.sets_won_a === 0 && game.sets_won_b === 0)) return ' : ';
+  return `${game.sets_won_a} : ${game.sets_won_b}`;
+}
+
+function MatchSheet({ tournament, round, match, number, baseUrl }) {
+  const roundLabel = round.round_type === 'ko' ? round.ko_stage : 'Schweizer System';
+
+  return (
+    <div className="flex flex-col p-[5mm] border border-dashed border-neutral-400 overflow-hidden">
+      {/* Sheet Header */}
+      <div className="border-b-2 border-black pb-1.5 mb-2 flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-sm font-black border-2 border-black px-2 py-0.5 inline-block rounded">
+            BEGEGNUNG #{number}
+          </div>
+          <p className="text-[9px] text-neutral-600 mt-1 leading-tight">
+            {tournament.name} • Runde {round.round_number} ({roundLabel})
+          </p>
+          <p className="text-[9px] text-neutral-500 font-mono leading-tight">
+            Match-PIN: {match.match_pin}
+          </p>
+        </div>
+        {baseUrl && (
+          <QRCodeSVG
+            value={scorerUrl(baseUrl, match.id)}
+            size={56}
+            className="shrink-0"
+            data-testid="sheet-qr"
+            data-url={scorerUrl(baseUrl, match.id)}
+            title={`QR-Code zur Ergebniseingabe für Begegnung #${number}`}
+          />
+        )}
+      </div>
+
+      {/* Teams & Aufstellung Info */}
+      <div className="grid grid-cols-2 gap-2 border border-black p-1.5 mb-2 rounded">
+        {['a', 'b'].map(side => (
+          <div key={side} className="min-w-0">
+            <span className="text-[8px] uppercase font-bold text-neutral-500 block">
+              Mannschaft {side.toUpperCase()}
+            </span>
+            <span className="text-xs font-bold block truncate">{match[`team_${side}`]?.name}</span>
+            <span className="text-[10px] text-neutral-700 block truncate">
+              1: {playerName(match, side, 1) || '____________'}
+            </span>
+            <span className="text-[10px] text-neutral-700 block truncate">
+              2: {playerName(match, side, 2) || '____________'}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Games Table */}
+      <table className="w-full text-[11px] border-collapse border border-black table-fixed">
+        <thead>
+          <tr className="bg-neutral-100 text-center font-bold">
+            <th className="border border-black p-1 w-6">Nr.</th>
+            <th className="border border-black p-1 text-left">Spieler A</th>
+            <th className="border border-black p-1 text-left">Spieler B</th>
+            <th className="border border-black p-1 w-14">Sätze</th>
+          </tr>
+        </thead>
+        <tbody>
+          {SINGLES.map(([order, a, b]) => (
+            <tr key={order}>
+              <td className="border border-black px-1 py-3 text-center font-bold">{order}</td>
+              <td className="border border-black px-1 py-3 truncate">A{a}: {playerName(match, 'a', a) || `Spieler A${a}`}</td>
+              <td className="border border-black px-1 py-3 truncate">B{b}: {playerName(match, 'b', b) || `Spieler B${b}`}</td>
+              <td className="border border-black px-1 py-3 text-center font-bold">{setsCell(match, order)}</td>
+            </tr>
+          ))}
+          {round.round_type === 'ko' && (
+            <tr className="bg-neutral-50">
+              <td className="border border-black px-1 py-3 text-center font-bold">5</td>
+              <td className="border border-black px-1 py-3 italic" colSpan={2}>
+                Doppel (nur bei 2:2)
+              </td>
+              <td className="border border-black px-1 py-3 text-center font-bold">{setsCell(match, 5)}</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+
+      {/* Signatures */}
+      <div className="grid grid-cols-2 gap-4 mt-auto pt-4 text-[9px] text-center">
+        <div>
+          <div className="border-b border-black mb-0.5"></div>
+          <span className="text-neutral-600">Unterschrift Mannschaft A</span>
+        </div>
+        <div>
+          <div className="border-b border-black mb-0.5"></div>
+          <span className="text-neutral-600">Unterschrift Mannschaft B</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PrintableSheets({ tournament }) {
   const [rounds, setRounds] = useState([]);
   const [selectedRoundId, setSelectedRoundId] = useState(null);
@@ -35,14 +161,15 @@ export default function PrintableSheets({ tournament }) {
   useLiveEvent([...MATCH_EVENTS, ...TEAM_EVENTS], () => loadRounds(true));
 
   const currentRound = rounds.find(r => r.id === selectedRoundId);
+  const matches = currentRound?.team_matches?.filter(m => m.team_b_id !== null) || [];
 
   const handlePrint = () => {
     window.print();
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
-      
+    <div className="max-w-5xl mx-auto px-4 py-8 print:p-0 print:max-w-none">
+
       {/* Controls (Hidden during print) */}
       <div className="print:hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
         <div>
@@ -51,7 +178,7 @@ export default function PrintableSheets({ tournament }) {
             <span>Spielberichtsbögen drucken</span>
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Druckansicht für Spielzettel als Papier-Backup.
+            Druckansicht für Spielzettel als Papier-Backup, 4 Zettel pro A4-Seite.
           </p>
         </div>
 
@@ -78,156 +205,27 @@ export default function PrintableSheets({ tournament }) {
         </div>
       </div>
 
-      {/* PRINTABLE SHEETS CONTAINER */}
-      <div className="space-y-8 print:space-y-0">
-        {currentRound?.team_matches?.filter(m => m.team_b_id !== null).map((match, mIdx) => (
-          <div 
-            key={match.id}
-            className="bg-white text-black p-6 sm:p-8 rounded-2xl print:rounded-none shadow-xl print:shadow-none border border-slate-300 print:border-black print:page-break-after-always mb-8 print:mb-0"
-          >
-            {/* Sheet Header */}
-            <div className="border-b-2 border-black pb-3 mb-4 flex items-center justify-between">
-              <div>
-                <h1 className="text-xl font-black uppercase tracking-tight">
-                  Tischtennis Spielberichtsbogen
-                </h1>
-                <p className="text-xs text-neutral-600">
-                  {tournament.name} • Runde {currentRound.round_number} ({currentRound.round_type === 'ko' ? currentRound.ko_stage : 'Schweizer System'})
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <div className="text-base font-black border-2 border-black px-3 py-1 inline-block rounded">
-                    BEGEGNUNG #{mIdx + 1}
-                  </div>
-                  <div className="text-[10px] text-neutral-500 font-mono mt-0.5">
-                    Match-PIN: {match.match_pin}
-                  </div>
-                  <div className="text-[10px] text-neutral-500 mt-0.5">
-                    Ergebnis per Handy: QR-Code scannen
-                  </div>
-                </div>
-                {baseUrl && (
-                  <QRCodeSVG
-                    value={scorerUrl(baseUrl, match.id)}
-                    size={72}
-                    data-testid="sheet-qr"
-                    data-url={scorerUrl(baseUrl, match.id)}
-                    title={`QR-Code zur Ergebniseingabe für Begegnung #${mIdx + 1}`}
-                  />
-                )}
-              </div>
+      {/* PRINTABLE PAGES: the screen preview matches the printed layout */}
+      <div className="overflow-x-auto print:overflow-visible">
+        <div className="space-y-8 print:space-y-0 w-[190mm] mx-auto">
+          {chunk(matches, SHEETS_PER_PAGE).map((pageMatches, pIdx) => (
+            <div
+              key={pIdx}
+              className="bg-white text-black w-[190mm] h-[276mm] grid grid-cols-2 grid-rows-2 shadow-xl print:shadow-none break-after-page last:break-after-auto"
+            >
+              {pageMatches.map((match, i) => (
+                <MatchSheet
+                  key={match.id}
+                  tournament={tournament}
+                  round={currentRound}
+                  match={match}
+                  number={pIdx * SHEETS_PER_PAGE + i + 1}
+                  baseUrl={baseUrl}
+                />
+              ))}
             </div>
-
-            {/* Teams & Aufstellung Info */}
-            <div className="grid grid-cols-2 gap-4 border border-black p-3 mb-4 rounded">
-              <div>
-                <span className="text-[10px] uppercase font-bold text-neutral-500 block">Mannschaft A</span>
-                <span className="text-base font-bold block">{match.team_a?.name}</span>
-                <span className="text-xs text-neutral-700 block mt-1">
-                  1: {match.team_a_p1_name || match.team_a?.player1_name || '________________'}
-                </span>
-                <span className="text-xs text-neutral-700 block">
-                  2: {match.team_a_p2_name || match.team_a?.player2_name || '________________'}
-                </span>
-              </div>
-
-              <div>
-                <span className="text-[10px] uppercase font-bold text-neutral-500 block">Mannschaft B</span>
-                <span className="text-base font-bold block">{match.team_b?.name}</span>
-                <span className="text-xs text-neutral-700 block mt-1">
-                  1: {match.team_b_p1_name || match.team_b?.player1_name || '________________'}
-                </span>
-                <span className="text-xs text-neutral-700 block">
-                  2: {match.team_b_p2_name || match.team_b?.player2_name || '________________'}
-                </span>
-              </div>
-            </div>
-
-            {/* Games Table */}
-            <table className="w-full text-xs border-collapse border border-black mb-6">
-              <thead>
-                <tr className="bg-neutral-100 border-b border-black text-center font-bold">
-                  <th className="border border-black p-2 w-8">Nr.</th>
-                  <th className="border border-black p-2 text-left">Spieler A</th>
-                  <th className="border border-black p-2 text-left">Spieler B</th>
-                  <th className="border border-black p-2 w-20">Sätze</th>
-                  <th className="border border-black p-2 w-20">Punkte</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-black">
-                  <td className="border border-black p-2 text-center font-bold">1</td>
-                  <td className="border border-black p-2">A1: {match.team_a_p1_name || 'Spieler A1'}</td>
-                  <td className="border border-black p-2">B2: {match.team_b_p2_name || 'Spieler B2'}</td>
-                  <td className="border border-black p-2 text-center font-bold"> : </td>
-                  <td className="border border-black p-2 text-center font-bold"> : </td>
-                </tr>
-                <tr className="border-b border-black">
-                  <td className="border border-black p-2 text-center font-bold">2</td>
-                  <td className="border border-black p-2">A2: {match.team_a_p2_name || 'Spieler A2'}</td>
-                  <td className="border border-black p-2">B1: {match.team_b_p1_name || 'Spieler B1'}</td>
-                  <td className="border border-black p-2 text-center font-bold"> : </td>
-                  <td className="border border-black p-2 text-center font-bold"> : </td>
-                </tr>
-                <tr className="border-b border-black">
-                  <td className="border border-black p-2 text-center font-bold">3</td>
-                  <td className="border border-black p-2">A1: {match.team_a_p1_name || 'Spieler A1'}</td>
-                  <td className="border border-black p-2">B1: {match.team_b_p1_name || 'Spieler B1'}</td>
-                  <td className="border border-black p-2 text-center font-bold"> : </td>
-                  <td className="border border-black p-2 text-center font-bold"> : </td>
-                </tr>
-                <tr className="border-b border-black">
-                  <td className="border border-black p-2 text-center font-bold">4</td>
-                  <td className="border border-black p-2">A2: {match.team_a_p2_name || 'Spieler A2'}</td>
-                  <td className="border border-black p-2">B2: {match.team_b_p2_name || 'Spieler B2'}</td>
-                  <td className="border border-black p-2 text-center font-bold"> : </td>
-                  <td className="border border-black p-2 text-center font-bold"> : </td>
-                </tr>
-                {currentRound.round_type === 'ko' && (
-                  <tr className="border-b border-black bg-neutral-50">
-                    <td className="border border-black p-2 text-center font-bold">5</td>
-                    <td className="border border-black p-2 italic" colSpan={2}>
-                      Entscheidungsdoppel (nur bei 2:2 Gleichstand)
-                    </td>
-                              <td className="border border-black p-2 text-center font-bold"> : </td>
-                    <td className="border border-black p-2 text-center font-bold"> : </td>
-                  </tr>
-                )}
-                {/* Total Line */}
-                <tr className="bg-neutral-100 font-black">
-                  <td className="border border-black p-2 text-right" colSpan={3}>
-                    GESAMTERGEBNIS:
-                  </td>
-                  <td className="border border-black p-2 text-center font-bold text-sm">
-                    {match.is_completed ? `${match.individual_games.reduce((acc, g) => acc + g.sets_won_a, 0)}:${match.individual_games.reduce((acc, g) => acc + g.sets_won_b, 0)}` : ' : '}
-                  </td>
-                  <td className="border border-black p-2 text-center font-black text-sm">
-                    {match.is_completed ? `${match.score_a} : ${match.score_b}` : ' : '}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            {/* Signatures */}
-            <div className="grid grid-cols-3 gap-6 pt-6 text-xs text-center">
-              <div>
-                <div className="border-b border-black pb-1 mb-1"></div>
-                <span className="text-neutral-600">Unterschrift Mannschaft A</span>
-              </div>
-              <div>
-                <div className="border-b border-black pb-1 mb-1"></div>
-                <span className="text-neutral-600">Unterschrift Schiedsrichter</span>
-              </div>
-              <div>
-                <div className="border-b border-black pb-1 mb-1"></div>
-                <span className="text-neutral-600">Unterschrift Mannschaft B</span>
-              </div>
-            </div>
-
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
     </div>
