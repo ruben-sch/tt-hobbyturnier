@@ -59,15 +59,38 @@ describe('PrintableSheets', () => {
     expect(screen.queryByText('Freilos')).not.toBeInTheDocument();
   });
 
-  it('switches rounds and shows finished results', async () => {
+  it('switches rounds and shows recorded set counts per game, without points or total', async () => {
     const user = userEvent.setup();
     render(<PrintableSheets tournament={tournament} />);
     await screen.findByText('Topspin');
 
     await user.selectOptions(screen.getByRole('combobox'), '1');
     expect(screen.getByText('Blocker')).toBeInTheDocument();
-    expect(screen.getByText('9:6')).toBeInTheDocument();
-    expect(screen.getByText('3 : 1')).toBeInTheDocument();
+    expect(screen.getAllByRole('row').slice(1).map(r => r.lastChild.textContent))
+      .toEqual(['3 : 0', '3 : 1', '0 : 3', '3 : 2']);
+    expect(screen.queryByText('Punkte')).not.toBeInTheDocument();
+    expect(screen.queryByText(/GESAMTERGEBNIS/)).not.toBeInTheDocument();
+  });
+
+  it('adds the deciding doubles row only in KO rounds', async () => {
+    const user = userEvent.setup();
+    render(<PrintableSheets tournament={tournament} />);
+
+    expect(await screen.findByText('Doppel (nur bei 2:2)')).toBeInTheDocument();
+    await user.selectOptions(screen.getByRole('combobox'), '1');
+    expect(screen.queryByText('Doppel (nur bei 2:2)')).not.toBeInTheDocument();
+  });
+
+  it('puts four sheets on each page', async () => {
+    const matches = Array.from({ length: 5 }, (_, i) => ({
+      id: 100 + i, team_a_id: 1, team_b_id: 2, team_a: team(`A${i}`), team_b: team(`B${i}`), individual_games: [],
+    }));
+    api.fetchRounds.mockResolvedValue([{ id: 3, round_number: 1, round_type: 'swiss', is_active: true, team_matches: matches }]);
+    const { container } = render(<PrintableSheets tournament={tournament} />);
+
+    expect(await screen.findByText('BEGEGNUNG #5')).toBeInTheDocument();
+    const pages = container.querySelectorAll('.break-after-page');
+    expect([...pages].map(p => p.children.length)).toEqual([4, 1]);
   });
 
   it('links each sheet to its match via QR code', async () => {
