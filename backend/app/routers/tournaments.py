@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.auth import require_admin
 from backend.app.database import get_db
-from backend.app.models import Table, Team, Tournament, default_admin_pin
+from backend.app.models import Team, Tournament, default_admin_pin
 from backend.app.schemas import (
     StandingsRow,
     TournamentCreate,
@@ -52,17 +52,6 @@ def create_tournament(payload: TournamentCreate, db: Session = Depends(get_db)):
         is_active=True
     )
     db.add(tournament)
-    db.flush()
-
-    # Generate tables with default PINs (e.g. Table 1: PIN 1001, Table 2: PIN 1002)
-    for i in range(1, tournament.table_count + 1):
-        tbl = Table(
-            tournament_id=tournament.id,
-            table_number=i,
-            pin_code=f"{1000 + i}"
-        )
-        db.add(tbl)
-
     db.commit()
     db.refresh(tournament)
     return tournament
@@ -85,9 +74,6 @@ def get_active_tournament(db: Session = Depends(get_db)):
             is_active=True
         )
         db.add(t)
-        db.flush()
-        for i in range(1, t.table_count + 1):
-            db.add(Table(tournament_id=t.id, table_number=i, pin_code=f"{1000 + i}"))
         db.commit()
         db.refresh(t)
     return t
@@ -105,13 +91,6 @@ async def update_tournament(tournament_id: int, payload: TournamentUpdate, db: S
 
     for field, val in updates.items():
         setattr(t, field, val)
-
-    # Sync table count if changed
-    if payload.table_count and payload.table_count != len(t.tables):
-        current_tables = {tbl.table_number: tbl for tbl in t.tables}
-        for num in range(1, payload.table_count + 1):
-            if num not in current_tables:
-                db.add(Table(tournament_id=t.id, table_number=num, pin_code=f"{1000 + num}"))
 
     db.commit()
     db.refresh(t)

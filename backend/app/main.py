@@ -20,7 +20,7 @@ from backend.app.websocket_hub import ws_manager
 # Create tables
 Base.metadata.create_all(bind=engine)
 
-# Fixed seed for the round 1 draw and match PINs, so an e2e run can be replayed
+# Fixed seed for the round 1 draw, so an e2e run can be replayed
 if os.getenv("TT_RANDOM_SEED"):
     random.seed(int(os.environ["TT_RANDOM_SEED"]))
 

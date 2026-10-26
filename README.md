@@ -52,7 +52,7 @@ Eine webbasierte Software zur flexiblen Organisation und Durchführung von Tisch
 
 ### Option A: Lokal starten (macOS / Linux)
 
-Voraussetzungen: Python 3.9+ und Node.js 18+.
+Voraussetzungen: Python 3.15+ und Node.js 18+.
 
 ```bash
 # Repository klonen oder in den Projektordner wechseln

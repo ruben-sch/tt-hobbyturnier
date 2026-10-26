@@ -5,7 +5,6 @@ Only one round is open at a time. A round opens with its matches, tables and
 games set up, and closes once every match is completed. Errors are
 ValueErrors with a German message; callers commit.
 """
-import random
 from typing import List, Optional, Tuple
 
 from sqlalchemy.orm import Session
@@ -108,12 +107,6 @@ def _assign_tables(tournament: Tournament, pairings: List[Pairing]) -> List[Tupl
     return tables
 
 
-def _match_pin(slot: Optional[int]) -> str:
-    if slot is not None:
-        return f"{slot:02d}{random.randint(10, 99)}"
-    return str(random.randint(1000, 9999))
-
-
 def _open_round(
     tournament: Tournament, round_type: str, ko_stage: Optional[str], pairings: List[Pairing], db: Session
 ) -> Round:
@@ -130,7 +123,9 @@ def _open_round(
     db.flush()
     tournament.current_round_number = round_number
 
-    for (team_a_id, team_b_id, slot), (table_a, table_b) in zip(pairings, _assign_tables(tournament, pairings)):
+    for (team_a_id, team_b_id, slot), (table_a, table_b) in zip(
+        pairings, _assign_tables(tournament, pairings), strict=True
+    ):
         team_a = db.get(Team, team_a_id)
         team_b = db.get(Team, team_b_id) if team_b_id is not None else None
         match = TeamMatch(
@@ -139,7 +134,6 @@ def _open_round(
             team_b_id=team_b_id,
             table_number=table_a,
             table_number_b=table_b,
-            match_pin=_match_pin(slot),
             ko_slot=slot,
             team_a_p1_name=team_a.player1_name,
             team_a_p2_name=team_a.player2_name,

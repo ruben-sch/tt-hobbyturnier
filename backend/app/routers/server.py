@@ -23,7 +23,7 @@ def get_lan_ip() -> Optional[str]:
 
 @router.get("/info")
 def get_server_info(request: Request):
-    """LAN address of this server, for the QR codes on monitor and match sheets."""
+    """LAN address of this server, for the QR code on the Hallen-Monitor."""
     ip = get_lan_ip()
     port = request.url.port or 8000
     return {"lan_url": f"http://{ip}:{port}" if ip else None}
