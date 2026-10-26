@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Query, Session, relationship
 
 from backend.app.database import Base
 
@@ -43,12 +43,16 @@ class Team(Base):
     name = Column(String(100), nullable=False)
     player1_name = Column(String(100), nullable=False)
     player2_name = Column(String(100), nullable=False)
-    is_active = Column(Boolean, default=True)
-    is_bye = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)  # False once deleted; kept for past matches
 
     tournament = relationship("Tournament", back_populates="teams")
     matches_as_a = relationship("TeamMatch", foreign_keys="TeamMatch.team_a_id", back_populates="team_a")
     matches_as_b = relationship("TeamMatch", foreign_keys="TeamMatch.team_b_id", back_populates="team_b")
+
+    @staticmethod
+    def active(db: Session, tournament_id: int) -> Query:
+        """The teams taking part: listed, ranked and paired."""
+        return db.query(Team).filter(Team.tournament_id == tournament_id, Team.is_active == True)
 
 
 class Table(Base):
@@ -86,7 +90,7 @@ class TeamMatch(Base):
     id = Column(Integer, primary_key=True, index=True)
     round_id = Column(Integer, ForeignKey("rounds.id"), nullable=False)
     team_a_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
-    team_b_id = Column(Integer, ForeignKey("teams.id"), nullable=True)  # nullable for BYE
+    team_b_id = Column(Integer, ForeignKey("teams.id"), nullable=True)  # None: bye (Swiss)
     
     table_number = Column(Integer, nullable=True)
     table_number_b = Column(Integer, nullable=True)  # if 2 tables assigned
@@ -118,13 +122,17 @@ class TeamMatch(Base):
         order_by="IndividualGame.game_order",
     )
 
+    @property
+    def is_bye(self) -> bool:
+        return self.team_b_id is None
+
 
 class IndividualGame(Base):
     __tablename__ = "individual_games"
 
     id = Column(Integer, primary_key=True, index=True)
     team_match_id = Column(Integer, ForeignKey("team_matches.id"), nullable=False)
-    game_order = Column(Integer, nullable=False)  # 1: A1 vs B2, 2: A2 vs B1, 3: A1 vs B1, 4: A2 vs B2, 5: Doppel (KO)
+    game_order = Column(Integer, nullable=False)  # see match_sheet.SINGLES; 5: deciding doubles (KO)
     is_doubles = Column(Boolean, default=False)
     table_number = Column(Integer, nullable=True)
 

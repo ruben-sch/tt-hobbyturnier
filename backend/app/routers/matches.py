@@ -1,14 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from backend.app import match_rules
 from backend.app.database import get_db
+from backend.app.match_sheet import add_deciding_doubles
 from backend.app.models import IndividualGame, TeamMatch
 from backend.app.schemas import (
     GameResultUpdate,
     IndividualGameResponse,
     TeamMatchResponse,
 )
-from backend.app.swiss_system import add_deciding_doubles_game
 from backend.app.websocket_hub import ws_manager
 
 router = APIRouter(prefix="/api/matches", tags=["Matches"])
@@ -23,58 +24,18 @@ def get_match(match_id: int, db: Session = Depends(get_db)):
 
 
 def check_and_update_match_status(match: TeamMatch, db: Session):
-    """
-    Recomputes score, completion and winner of a team match from its games, so
-    corrections (including resetting a game) are reflected both ways.
-    In KO: first to 3 wins ends the match; 2:2 after the singles adds the deciding doubles.
-    In Swiss: all 4 singles are played, result can be 4:0, 3:1, 2:2.
-    """
-    round_obj = match.round
-    games = sorted(match.individual_games, key=lambda g: g.game_order)
+    """Applies match_rules.match_result to the match, adding or dropping the deciding doubles."""
+    result = match_rules.match_result(match.round.round_type, match.individual_games)
+    if result.needs_doubles:
+        add_deciding_doubles(match, db)
+    if result.drop_doubles:
+        doubles = next(g for g in match.individual_games if g.is_doubles)
+        match.individual_games.remove(doubles)
+        db.delete(doubles)
 
-    wins_a = sum(1 for g in games if g.is_completed and g.winner_team_side == "A")
-    wins_b = sum(1 for g in games if g.is_completed and g.winner_team_side == "B")
-    match.score_a = wins_a
-    match.score_b = wins_b
-    match.is_completed = False
-    match.winner_team_id = None
-
-    if round_obj.round_type == "ko":
-        singles = [g for g in games if not g.is_doubles]
-        singles_a = sum(1 for g in singles if g.is_completed and g.winner_team_side == "A")
-        singles_b = sum(1 for g in singles if g.is_completed and g.winner_team_side == "B")
-        doubles = next((g for g in games if g.is_doubles), None)
-
-        if singles_a == 2 and singles_b == 2:
-            if doubles is None:
-                add_deciding_doubles_game(match, db)
-        elif doubles is not None:
-            # A corrected single broke the 2:2, so the deciding doubles no longer counts
-            if doubles.is_completed:
-                if doubles.winner_team_side == "A":
-                    wins_a -= 1
-                else:
-                    wins_b -= 1
-                match.score_a = wins_a
-                match.score_b = wins_b
-            match.individual_games.remove(doubles)
-            db.delete(doubles)
-
-        if wins_a >= 3:
-            match.is_completed = True
-            match.winner_team_id = match.team_a_id
-        elif wins_b >= 3:
-            match.is_completed = True
-            match.winner_team_id = match.team_b_id
-    else:
-        all_completed = len(games) >= 4 and all(g.is_completed for g in games[:4])
-        if all_completed:
-            match.is_completed = True
-            if wins_a > wins_b:
-                match.winner_team_id = match.team_a_id
-            elif wins_b > wins_a:
-                match.winner_team_id = match.team_b_id
-            # else: draw, winner stays None
+    match.score_a, match.score_b = result.score_a, result.score_b
+    match.is_completed = result.is_completed
+    match.winner_team_id = {"A": match.team_a_id, "B": match.team_b_id}.get(result.winner_side)
 
 
 @router.post("/{match_id}/games/{game_id}/result", response_model=IndividualGameResponse)
@@ -98,24 +59,13 @@ async def set_game_result(
     if not game:
         raise HTTPException(status_code=404, detail="Einzelspiel nicht gefunden")
 
-    sets_needed = 3 if match.round.tournament.best_of_sets == 5 else 2
-    a, b = payload.sets_a, payload.sets_b
-
-    if a == 0 and b == 0:
-        game.sets_won_a = 0
-        game.sets_won_b = 0
-        game.is_completed = False
-        game.winner_team_side = None
-    elif min(a, b) >= 0 and max(a, b) == sets_needed and min(a, b) < sets_needed:
-        game.sets_won_a = a
-        game.sets_won_b = b
-        game.is_completed = True
-        game.winner_team_side = "A" if a > b else "B"
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Ungültiges Ergebnis {a}:{b}. Gespielt wird auf {sets_needed} Gewinnsätze."
-        )
+    try:
+        result = match_rules.game_result(payload.sets_a, payload.sets_b, match.round.tournament.best_of_sets)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    game.sets_won_a, game.sets_won_b = result.sets_a, result.sets_b
+    game.is_completed = result.is_completed
+    game.winner_team_side = result.winner_side
 
     check_and_update_match_status(match, db)
 

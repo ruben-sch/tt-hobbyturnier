@@ -14,11 +14,7 @@ router = APIRouter(prefix="/api/tournaments/{tournament_id}/teams", tags=["Teams
 
 @router.get("", response_model=List[TeamResponse])
 def get_teams(tournament_id: int, db: Session = Depends(get_db)):
-    return db.query(Team).filter(
-        Team.tournament_id == tournament_id,
-        Team.is_active == True,
-        Team.is_bye == False
-    ).order_by(Team.id.asc()).all()
+    return Team.active(db, tournament_id).order_by(Team.id.asc()).all()
 
 
 @router.post("", response_model=TeamResponse, dependencies=[Depends(require_admin)])

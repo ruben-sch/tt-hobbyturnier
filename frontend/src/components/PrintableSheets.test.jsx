@@ -36,7 +36,7 @@ const rounds = [
         id: 21, team_a_id: 1, team_b_id: 3, team_a: team('Asse'), team_b: team('Topspin'),
         team_a_p1_name: 'Anna', is_completed: false, score_a: 0, score_b: 0, individual_games: [],
       },
-      { id: 22, team_a_id: 4, team_b_id: null, team_a: team('Freilos'), individual_games: [] },
+      { id: 22, team_a_id: 4, team_b_id: null, is_bye: true, team_a: team('Freilos'), individual_games: [] },
     ],
   },
 ];

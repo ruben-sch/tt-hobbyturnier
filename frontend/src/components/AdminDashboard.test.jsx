@@ -30,7 +30,7 @@ const teams = (count) => Array.from({ length: count }, (_, i) => ({
 }));
 
 const match = (id, a, b, extra = {}) => ({
-  id, match_pin: `90${id}`, team_a: { name: a }, team_b: b ? { name: b } : null, team_b_id: b ? id + 100 : null,
+  id, match_pin: `90${id}`, team_a: { name: a }, team_b: b ? { name: b } : null, team_b_id: b ? id + 100 : null, is_bye: !b,
   team_a_p1_name: `${a}1`, team_a_p2_name: `${a}2`, team_b_p1_name: null, team_b_p2_name: null,
   score_a: 0, score_b: 0, is_completed: false,
   individual_games: [{ is_completed: true }, { is_completed: false }],

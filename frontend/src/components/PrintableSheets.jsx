@@ -161,7 +161,7 @@ export default function PrintableSheets({ tournament }) {
   useLiveEvent([...MATCH_EVENTS, ...TEAM_EVENTS], () => loadRounds(true));
 
   const currentRound = rounds.find(r => r.id === selectedRoundId);
-  const matches = currentRound?.team_matches?.filter(m => m.team_b_id !== null) || [];
+  const matches = currentRound?.team_matches?.filter(m => !m.is_bye) || [];
 
   const handlePrint = () => {
     window.print();

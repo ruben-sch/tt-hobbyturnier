@@ -3,10 +3,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend.app.database import Base
-from backend.app.ko_system import generate_ko_phase
+from backend.app.match_sheet import add_deciding_doubles
 from backend.app.models import Round, Team, TeamMatch, Tournament
+from backend.app.progression import start_ko
 from backend.app.swiss_system import (
-    add_deciding_doubles_game,
     calculate_standings,
     generate_swiss_round_pairings,
 )
@@ -122,7 +122,7 @@ def test_ko_phase_and_deciding_doubles(db_session):
     db_session.commit()
 
     # Generate KO Phase (Top 4)
-    ko_round = generate_ko_phase(t.id, 4, db_session)
+    ko_round = start_ko(t, 4, db_session)
     assert ko_round.round_type == "ko"
     assert len(ko_round.team_matches) == 2
 
@@ -135,6 +135,6 @@ def test_ko_phase_and_deciding_doubles(db_session):
     assert match1.individual_games[3].game_order == 4
 
     # Test Deciding Doubles on 2:2
-    doubles_game = add_deciding_doubles_game(match1, db_session)
+    doubles_game = add_deciding_doubles(match1, db_session)
     assert doubles_game.game_order == 5
     assert doubles_game.is_doubles == True
