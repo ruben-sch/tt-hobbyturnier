@@ -1,24 +1,21 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   fetchTablesStatus, 
-  authenticatePin, 
   fetchMatch, 
   submitGameResult
 } from '../services/api';
 import { useLiveEvent, MATCH_EVENTS } from '../hooks/useLiveEvents';
 import { 
-  KeyRound, 
   Trophy, 
   ListOrdered
 } from 'lucide-react';
 
-export default function TableScorer({ tournament, initialMatchId = null, onInitialMatchOpened }) {
+// Result entry for the Turnierleitung; App only shows it once the admin PIN is set.
+export default function TableScorer({ tournament }) {
   const [tables, setTables] = useState([]);
   const [, setSelectedTable] = useState(null);
   const [matchData, setMatchData] = useState(null);
   const [activeGameId, setActiveGameId] = useState(null);
-  const [pinInput, setPinInput] = useState('');
-  const [pinError, setPinError] = useState('');
 
 
   const loadTables = useCallback(async () => {
@@ -89,16 +86,6 @@ export default function TableScorer({ tournament, initialMatchId = null, onIniti
     }
   };
 
-  // Deep link from a match sheet QR code: open that match once.
-  const initialMatchRef = useRef(initialMatchId);
-  useEffect(() => {
-    const matchId = initialMatchRef.current;
-    if (!matchId) return;
-    initialMatchRef.current = null;
-    loadMatch(matchId);
-    onInitialMatchOpened?.();
-  });
-
   const handleSelectTable = (tbl) => {
     setSelectedTable(tbl);
     if (tbl.current_team_match_id) {
@@ -110,29 +97,6 @@ export default function TableScorer({ tournament, initialMatchId = null, onIniti
 
   const handleSelectGame = (game) => {
     setActiveGameId(game.id);
-  };
-
-  const handlePinSubmit = async (e) => {
-    e.preventDefault();
-    setPinError('');
-    try {
-      const res = await authenticatePin(tournament.id, pinInput);
-      if (res.authenticated) {
-        if (res.match_id) {
-          await loadMatch(res.match_id);
-          const tbl = tables.find(t => t.table_number === res.table_number) || { table_number: res.table_number };
-          setSelectedTable(tbl);
-        } else if (res.table_number) {
-          const tbl = tables.find(t => t.table_number === res.table_number);
-          if (tbl) handleSelectTable(tbl);
-        }
-        setPinInput('');
-      } else {
-        setPinError(res.message);
-      }
-    } catch {
-      setPinError('Fehler bei der PIN-Prüfung');
-    }
   };
 
   const activeGame = matchData?.individual_games?.find(g => g.id === activeGameId);
@@ -179,39 +143,8 @@ export default function TableScorer({ tournament, initialMatchId = null, onIniti
             Ergebniseingabe
           </h2>
           <p className="text-slate-400">
-            Wähle deine Begegnung aus oder gib die 4-stellige Match-PIN ein.
+            Wähle die Begegnung aus, deren Ergebnis du eintragen willst.
           </p>
-        </div>
-
-        {/* PIN Entry Card */}
-        <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-6 max-w-md mx-auto mb-10 shadow-xl">
-          <form onSubmit={handlePinSubmit} className="space-y-4">
-            <label className="block text-sm font-medium text-slate-300">
-              PIN-Code eingeben
-            </label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="text"
-                  maxLength={10}
-                  value={pinInput}
-                  onChange={(e) => setPinInput(e.target.value)}
-                  placeholder="z.B. Match-PIN"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-11 pr-4 py-3 text-white placeholder-slate-500 font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-sky-500"
-                />
-              </div>
-              <button
-                type="submit"
-                className="bg-sky-500 hover:bg-sky-400 text-white font-semibold px-6 py-3 rounded-xl transition shadow-lg shadow-sky-500/20"
-              >
-                Start
-              </button>
-            </div>
-            {pinError && (
-              <p className="text-rose-400 text-sm">{pinError}</p>
-            )}
-          </form>
         </div>
 
         {/* Match Selector Grid */}
@@ -240,7 +173,7 @@ export default function TableScorer({ tournament, initialMatchId = null, onIniti
                   Paarung {idx + 1}
                 </span>
                 <span className="text-xs font-mono bg-slate-900/80 text-slate-400 px-2.5 py-1 rounded-md border border-slate-700">
-                  PIN: {t.pin_code}
+                  Tisch {t.table_number}
                 </span>
               </div>
 
@@ -293,9 +226,11 @@ export default function TableScorer({ tournament, initialMatchId = null, onIniti
           <span className="font-semibold text-sky-400">
             Begegnung
           </span>
-          <span className="font-mono bg-slate-900 px-2 py-0.5 rounded text-slate-400 border border-slate-700/60">
-            PIN: {matchData.match_pin}
-          </span>
+          {matchData.table_number && (
+            <span className="font-mono bg-slate-900 px-2 py-0.5 rounded text-slate-400 border border-slate-700/60">
+              Tisch {matchData.table_number}{matchData.table_number_b ? ` + ${matchData.table_number_b}` : ''}
+            </span>
+          )}
         </div>
 
         <div className="flex items-center justify-between">

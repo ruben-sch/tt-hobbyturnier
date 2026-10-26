@@ -23,9 +23,7 @@ export function useAppBaseUrl() {
   return baseUrl;
 }
 
-// Link that opens the result entry, optionally straight into one match.
-export function scorerUrl(baseUrl, matchId = null) {
-  const params = new URLSearchParams({ tab: 'scorer' });
-  if (matchId) params.set('match', matchId);
-  return `${baseUrl}/?${params}`;
+// Link that opens the Hallen-Monitor (live scores) on a phone.
+export function monitorUrl(baseUrl) {
+  return `${baseUrl}/?tab=monitor`;
 }

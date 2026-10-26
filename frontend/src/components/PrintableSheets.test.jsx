@@ -6,12 +6,6 @@ import * as api from '../services/api';
 
 vi.mock('../services/api', () => ({
   fetchRounds: vi.fn(),
-  fetchServerInfo: vi.fn(),
-}));
-
-// Render the encoded link as text so tests can check where the QR code points.
-vi.mock('qrcode.react', () => ({
-  QRCodeSVG: ({ value, title }) => <div title={title}>{value}</div>,
 }));
 
 const tournament = { id: 5, name: 'Sommerturnier' };
@@ -44,7 +38,6 @@ const rounds = [
 describe('PrintableSheets', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    api.fetchServerInfo.mockResolvedValue({ lan_url: 'http://192.168.8.10:8000' });
     api.fetchRounds.mockResolvedValue(rounds);
   });
 
@@ -93,11 +86,12 @@ describe('PrintableSheets', () => {
     expect([...pages].map(p => p.children.length)).toEqual([4, 1]);
   });
 
-  it('links each sheet to its match via QR code', async () => {
-    render(<PrintableSheets tournament={tournament} />);
+  it('has neither match PIN nor QR code', async () => {
+    const { container } = render(<PrintableSheets tournament={tournament} />);
 
-    expect(await screen.findByTitle('QR-Code zur Ergebniseingabe für Begegnung #1'))
-      .toHaveTextContent('http://192.168.8.10:8000/?tab=scorer&match=21');
+    await screen.findByText('BEGEGNUNG #1');
+    expect(screen.queryByText(/PIN/)).not.toBeInTheDocument();
+    expect(container.querySelector('svg[data-testid="sheet-qr"]')).toBeNull();
   });
 
   it('prints the page', async () => {

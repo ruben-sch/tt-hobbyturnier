@@ -27,7 +27,7 @@ Eine webbasierte Software zur flexiblen Organisation und Durchführung von Tisch
 - **Entscheidungsdoppel:** Bei 2:2-Gleichstand nach allen 4 Einzeln wird automatisch das 5. Spiel (Doppel A vs. Doppel B) für die Entscheidung (3:2) freigeschaltet.
 
 ### 3. Smarte Ergebniserfassung
-- **Authentifizierung ohne Account:** Jede Begegnung kann einfach per 4-stelliger PIN (oder QR-Code) aufgerufen und erfasst werden.
+- **Nur für die Turnierleitung:** Ergebnisse werden mit der Admin-PIN eingetragen (Weboberfläche oder MCP-Server). Spieler verfolgen die Live-Spielstände über den QR-Code am Hallen-Monitor.
 - **Eingabe per Tipp:**
   - Pro Einzel wird nur der Endstand in Sätzen erfasst – ein Tipp auf z. B. `3:1` oder `2:3` speichert das Ergebnis. Angeboten werden nur Ergebnisse, die im eingestellten Satzmodus (Best of 3 / Best of 5) möglich sind.
   - Falsch getippt? Einfach das richtige Ergebnis antippen oder das Einzel zurücksetzen.
@@ -95,7 +95,7 @@ Getestet werden:
 - Buchholz-Zahlenberechnung & Tie-Breaker
 - Freilos-Logik (BYE) bei ungerader Mannschaftszahl
 - KO-Endrunden-Fortschritt & Entscheidungsdoppel bei 2:2
-- End-to-End API Lifecycle (Teams, Runden, Match-PINs, Hallenmonitore)
+- End-to-End API Lifecycle (Teams, Runden, Admin-PIN, Hallenmonitore, MCP-Server)
 
 ### E2E-Test (kompletter Turniertag im Browser)
 
@@ -103,19 +103,39 @@ Getestet werden:
 cd frontend && npm run test:e2e
 ```
 
-Playwright spielt zwei Turniere mit je 17 Teams und 7 Runden Schweizer System komplett über die Oberfläche durch, eines davon mit KO Top 8 bis zum Finale. Ein weiteres Szenario prüft die QR-Codes: Hallen-Monitor und Spielzettel zeigen auf die LAN-Adresse, und der Code vom Spielzettel öffnet am Handy direkt die Begegnung zur Ergebniseingabe. Teamnamen, Spielernamen, Aufstellungen und Ergebnisse sind zufällig; nach jeder Runde wird die Tabelle gegen die selbst mitgerechneten Werte geprüft. Der Seed steht in der Ausgabe, `E2E_SEED=<seed> npm run test:e2e` spielt einen Lauf exakt nach.
+Playwright spielt zwei Turniere mit je 17 Teams und 7 Runden Schweizer System komplett über die Oberfläche durch, eines davon mit KO Top 8 bis zum Finale. Ein weiteres Szenario prüft den QR-Code am Hallen-Monitor: Er zeigt auf die LAN-Adresse, öffnet am Handy die Live-Spielstände, und die Ergebniseingabe ist dort ohne Admin-PIN gesperrt. Teamnamen, Spielernamen, Aufstellungen und Ergebnisse sind zufällig; nach jeder Runde wird die Tabelle gegen die selbst mitgerechneten Werte geprüft. Der Seed steht in der Ausgabe, `E2E_SEED=<seed> npm run test:e2e` spielt einen Lauf exakt nach.
 
 Screenshots (Tabelle und Rundenergebnisse nach jeder Runde, bei Fehlern zusätzlich Screenshot und Trace) landen in `frontend/e2e-results/`, der HTML-Report unter `frontend/e2e-results/report`. In CI hängen sie als Artifact `e2e-results` am Lauf. Der Test nutzt eine eigene Datenbank (`e2e_turnier.db`) auf Port 8001.
+
+---
+
+## 🤖 MCP-Server (Ergebnisse per KI-Assistent)
+
+Die App bringt unter `/mcp` einen MCP-Server mit (Streamable HTTP), z. B. für Claude Code oder Claude Desktop:
+
+| Tool | Zweck | Admin-PIN |
+|---|---|---|
+| `get_tournament` | Turnier, Einstellungen, Rundenübersicht | nein |
+| `get_standings` | Aktuelle Tabelle | nein |
+| `get_round` | Begegnungen einer Runde mit Einzeln, Satzständen und IDs | nein |
+| `get_live_status` | Was läuft gerade an welchem Tisch, Zwischenstand der Begegnung | nein |
+| `enter_game_result` | Satzstand eines Einzels eintragen oder korrigieren (0:0 setzt zurück) | ja |
+
+Die Admin-PIN wird als Header `X-Admin-Pin: <PIN>` oder `Authorization: Bearer <PIN>` mitgeschickt. Live-Stände heißt: Zwischenstand der Begegnung und laufendes Einzel – Satz- oder Ballstände werden nicht erfasst.
+
+```bash
+claude mcp add --transport http tt-turnier https://tt-hobbyturnier.schwarzpost.de/mcp --header "X-Admin-Pin: <PIN>"
+```
 
 ---
 
 ## 📱 Navigation der Software
 
 - 📊 **Hallen-Monitor (`/`):** Für Beamer / Fernseher in der Halle (mit Vollbildmodus und Live-Ticker).
-- 🏓 **Ergebniserfassung:** Für Tablets/Smartphones zur schnellen Ergebniserfassung.
+- 🏓 **Ergebniserfassung:** Für die Turnierleitung (Admin-PIN) auf Tablet oder Smartphone.
 - 📈 **Tabelle:** Vollständige Schweizer Rangliste mit Buchholz-Feinwertung und CSV-Download.
 - 🏆 **KO-Baum:** Visualisierung der Halbfinals und Finals mit Siegerweiterleitung.
-- ⚙️ **Turnierleitung:** Anlegen von Teams, CSV-Import, Runden-Auslosung, PIN-Übersicht und Einstellungen.
+- ⚙️ **Turnierleitung:** Anlegen von Teams, CSV-Import, Runden-Auslosung und Einstellungen.
 - 🖨️ **Spielzettel:** Druckansicht für Spielberichtsbögen.
 
-**Standard Admin-PIN:** `admin123`. Die Turnierleitung (und damit Runden auslosen, Teams und Einstellungen ändern) ist nur mit der Admin-PIN zugänglich – vor dem Turnier unter „Einstellungen“ unbedingt ändern, sonst kann jeder im Turnier-WLAN sie öffnen. Die Ergebniseingabe bleibt bewusst für alle offen.
+**Standard Admin-PIN:** `admin123`. Die Turnierleitung (und damit Runden auslosen, Teams und Einstellungen ändern) ist nur mit der Admin-PIN zugänglich – vor dem Turnier unter „Einstellungen“ unbedingt ändern, sonst kann jeder im Turnier-WLAN sie öffnen. Auch Ergebnisse eintragen geht nur mit der Admin-PIN.

@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchRounds } from '../services/api';
 import { useLiveEvent, MATCH_EVENTS, TEAM_EVENTS } from '../hooks/useLiveEvents';
-import { useAppBaseUrl, scorerUrl } from '../hooks/useAppBaseUrl';
-import { QRCodeSVG } from 'qrcode.react';
 import { Printer } from 'lucide-react';
 
 // Four sheets per A4 page (2x2). The page box is the printable area of A4
@@ -37,7 +35,7 @@ function setsCell(match, gameOrder) {
   return `${game.sets_won_a} : ${game.sets_won_b}`;
 }
 
-function MatchSheet({ tournament, round, match, number, baseUrl }) {
+function MatchSheet({ tournament, round, match, number }) {
   const roundLabel = round.round_type === 'ko' ? round.ko_stage : 'Schweizer System';
 
   return (
@@ -51,20 +49,7 @@ function MatchSheet({ tournament, round, match, number, baseUrl }) {
           <p className="text-[9px] text-neutral-600 mt-1 leading-tight">
             {tournament.name} • Runde {round.round_number} ({roundLabel})
           </p>
-          <p className="text-[9px] text-neutral-500 font-mono leading-tight">
-            Match-PIN: {match.match_pin}
-          </p>
         </div>
-        {baseUrl && (
-          <QRCodeSVG
-            value={scorerUrl(baseUrl, match.id)}
-            size={56}
-            className="shrink-0"
-            data-testid="sheet-qr"
-            data-url={scorerUrl(baseUrl, match.id)}
-            title={`QR-Code zur Ergebniseingabe für Begegnung #${number}`}
-          />
-        )}
       </div>
 
       {/* Teams & Aufstellung Info */}
@@ -134,7 +119,6 @@ function MatchSheet({ tournament, round, match, number, baseUrl }) {
 export default function PrintableSheets({ tournament }) {
   const [rounds, setRounds] = useState([]);
   const [selectedRoundId, setSelectedRoundId] = useState(null);
-  const baseUrl = useAppBaseUrl();
 
   const loadRounds = useCallback(async (keepSelection = false) => {
     try {
@@ -220,7 +204,6 @@ export default function PrintableSheets({ tournament }) {
                   round={currentRound}
                   match={match}
                   number={pIdx * SHEETS_PER_PAGE + i + 1}
-                  baseUrl={baseUrl}
                 />
               ))}
             </div>
