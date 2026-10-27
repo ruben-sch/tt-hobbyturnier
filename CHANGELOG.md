@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.3.0](https://github.com/ruben-sch/tt-hobbyturnier/compare/tt-hobbyturnier-v1.2.0...tt-hobbyturnier-v1.3.0) (2026-10-27)
+
+
+### Features
+
+* **admin:** delete the latest round with all its results ([f668391](https://github.com/ruben-sch/tt-hobbyturnier/commit/f668391eaa55a2ee3876361061f65add4812cec8)), closes [#25](https://github.com/ruben-sch/tt-hobbyturnier/issues/25)
+* **admin:** letzte Runde samt Ergebnissen löschen ([8e8ee04](https://github.com/ruben-sch/tt-hobbyturnier/commit/8e8ee04a8774c454df03ba23020b1c668b10d6d6))
+* **monitor:** fertige Begegnungen markieren, größere Tabellenschrift ([bfe537c](https://github.com/ruben-sch/tt-hobbyturnier/commit/bfe537cc40425eb1de2d73e74186876712d8ddc9))
+* **monitor:** keep finished matches of the round and mark them as done ([bd387fd](https://github.com/ruben-sch/tt-hobbyturnier/commit/bd387fd60e8bab313d36c93503e8b18f02c9838c)), closes [#23](https://github.com/ruben-sch/tt-hobbyturnier/issues/23)
+* **monitor:** larger font in the standings tables ([8b15558](https://github.com/ruben-sch/tt-hobbyturnier/commit/8b1555852af660a6f5de035764404793f2ec4417)), closes [#24](https://github.com/ruben-sch/tt-hobbyturnier/issues/24)
+
 ## [1.2.0](https://github.com/ruben-sch/tt-hobbyturnier/compare/tt-hobbyturnier-v1.1.0...tt-hobbyturnier-v1.2.0) (2026-10-26)
 
 
