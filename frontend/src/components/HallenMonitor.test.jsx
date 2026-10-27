@@ -17,14 +17,24 @@ vi.mock('qrcode.react', () => ({
 
 const tournament = { id: 3 };
 
-const activeTable = {
-  table_number: 1,
-  is_active: true,
+const runningMatch = {
+  match_id: 11,
   team_a_name: 'Asse',
   team_b_name: 'Blocker',
   active_game_desc: 'Einzel 2: Anna vs Ben',
-  match_score_a: 1,
-  match_score_b: 0,
+  score_a: 1,
+  score_b: 0,
+  is_completed: false,
+};
+
+const finishedMatch = {
+  match_id: 12,
+  team_a_name: 'Chopper',
+  team_b_name: 'Drive',
+  active_game_desc: '',
+  score_a: 2,
+  score_b: 2,
+  is_completed: true,
 };
 
 const swissData = {
@@ -32,7 +42,7 @@ const swissData = {
   current_round: 2,
   round_type: 'swiss',
   ko_stage: null,
-  tables: [activeTable, { table_number: 2, is_active: false }],
+  matches: [runningMatch, finishedMatch],
   standings: [standingsRow(1, 'Asse'), standingsRow(2, 'Blocker', { set_diff: -2 })],
   ticker: [{ id: 9, round_number: 1, team_a: 'Asse', team_b: 'Blocker', score: '3:1' }],
   ko_tree: [],
@@ -68,6 +78,29 @@ describe('HallenMonitor', () => {
     expect(screen.getByText('3:1')).toBeInTheDocument();
   });
 
+  it('keeps finished matches of the round and marks them as done', async () => {
+    api.fetchMonitorDashboard.mockResolvedValue(swissData);
+    const user = userEvent.setup();
+    render(<HallenMonitor tournament={tournament} />);
+
+    const check = () => {
+      const [running, finished] = screen.getAllByTestId('monitor-match');
+      expect(running).toHaveAttribute('data-completed', 'false');
+      expect(running).toHaveTextContent('Einzel 2: Anna vs Ben');
+      expect(running).not.toHaveTextContent('Fertig');
+      expect(finished).toHaveAttribute('data-completed', 'true');
+      expect(finished).toHaveClass('opacity-60', 'border-emerald-500/70');
+      expect(finished).toHaveTextContent('Chopper');
+      expect(finished).toHaveTextContent('Fertig');
+      expect(finished).toHaveTextContent('2 : 2');
+    };
+
+    expect(await screen.findByText('1 aktive Paarungen')).toBeInTheDocument();
+    check();
+    await user.click(screen.getByRole('button', { name: 'Aktuelle Paarungen' }));
+    check();
+  });
+
   it('shows a QR code that opens the live scores', async () => {
     api.fetchMonitorDashboard.mockResolvedValue(swissData);
     render(<HallenMonitor tournament={tournament} />);
@@ -78,7 +111,7 @@ describe('HallenMonitor', () => {
   });
 
   it('switches to the single views', async () => {
-    api.fetchMonitorDashboard.mockResolvedValue({ ...swissData, tables: [], ticker: [] });
+    api.fetchMonitorDashboard.mockResolvedValue({ ...swissData, matches: [], ticker: [] });
     const user = userEvent.setup();
     render(<HallenMonitor tournament={tournament} />);
 

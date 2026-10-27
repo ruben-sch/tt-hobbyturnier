@@ -1,9 +1,16 @@
-from typing import List
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from backend.app.models import Round, TeamMatch, Tournament
+from backend.app.models import IndividualGame, Round, TeamMatch, Tournament
 from backend.app.schemas import TableStatusResponse
+
+
+def _game_desc(game: Optional[IndividualGame]) -> str:
+    if game is None:
+        return ""
+    label = "Doppel" if game.is_doubles else f"Einzel {game.game_order}"
+    return f"{label}: {game.player_a_name or 'A'} vs {game.player_b_name or 'B'}"
 
 
 def tables_status(tournament_id: int, db: Session) -> List[TableStatusResponse]:
@@ -49,10 +56,7 @@ def tables_status(tournament_id: int, db: Session) -> List[TableStatusResponse]:
             elif not g.is_completed and active_game is None:
                 active_game = g
 
-        game_desc = ""
-        if active_game:
-            label = "Doppel" if active_game.is_doubles else f"Einzel {active_game.game_order}"
-            game_desc = f"{label}: {active_game.player_a_name or 'A'} vs {active_game.player_b_name or 'B'}"
+        game_desc = _game_desc(active_game)
 
         response.append(TableStatusResponse(
             table_number=table_number,
@@ -66,3 +70,23 @@ def tables_status(tournament_id: int, db: Session) -> List[TableStatusResponse]:
         ))
 
     return response
+
+
+def round_matches(tournament_id: int, db: Session) -> List[Dict[str, Any]]:
+    """Every match of the active round (byes left out), finished ones included, in a stable order."""
+    matches = db.query(TeamMatch).join(Round).filter(
+        Round.tournament_id == tournament_id,
+        Round.is_active == True,
+        TeamMatch.team_b_id.isnot(None)
+    ).order_by(TeamMatch.id).all()
+
+    return [{
+        "match_id": m.id,
+        "team_a_name": m.team_a.name if m.team_a else "Team A",
+        "team_b_name": m.team_b.name if m.team_b else "Team B",
+        "score_a": m.score_a or 0,
+        "score_b": m.score_b or 0,
+        "is_completed": bool(m.is_completed),
+        "active_game_desc": "" if m.is_completed else _game_desc(
+            next((g for g in m.individual_games if not g.is_completed), None)),
+    } for m in matches]

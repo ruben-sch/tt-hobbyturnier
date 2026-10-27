@@ -8,7 +8,8 @@ import {
   RefreshCw, 
   Activity, 
   Trophy, 
-  Clock
+  Clock,
+  CheckCircle2
 } from 'lucide-react';
 
 export default function HallenMonitor({ tournament }) {
@@ -65,7 +66,22 @@ export default function HallenMonitor({ tournament }) {
     );
   }
 
-  const activeTables = data.tables?.filter(t => t.is_active) || [];
+  // Finished matches of the round stay on screen, marked as done
+  const matches = data.matches || [];
+  const openCount = matches.filter(m => !m.is_completed).length;
+  const cardState = (m) => m.is_completed
+    ? 'border-emerald-500/70 opacity-60'
+    : 'border-sky-500/50';
+  const gameInfo = (m) => m.is_completed ? (
+    <span className="flex items-center gap-1 text-xs font-bold text-emerald-400 uppercase">
+      <CheckCircle2 className="w-4 h-4" />
+      <span>Fertig</span>
+    </span>
+  ) : (
+    <span className="text-xs text-slate-400 truncate max-w-[150px]">
+      {m.active_game_desc || 'Spiel läuft'}
+    </span>
+  );
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between p-3 sm:p-6 select-none">
@@ -85,7 +101,7 @@ export default function HallenMonitor({ tournament }) {
                 {data.round_type === 'ko' ? `KO-Runde: ${data.ko_stage || 'Endphase'}` : `Schweizer System • Runde ${data.current_round}`}
               </span>
               <span>•</span>
-              <span>{activeTables.length} aktive Paarungen</span>
+              <span>{openCount} aktive Paarungen</span>
             </div>
           </div>
         </div>
@@ -174,18 +190,18 @@ export default function HallenMonitor({ tournament }) {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {activeTables.map((t, idx) => (
+                {matches.map((t, idx) => (
                   <div
-                    key={t.table_number || idx}
-                    className="bg-slate-900/90 border-2 border-sky-500/40 rounded-2xl p-4 shadow-xl shadow-sky-500/5 relative overflow-hidden"
+                    key={t.match_id}
+                    data-testid="monitor-match"
+                    data-completed={t.is_completed}
+                    className={`bg-slate-900/90 border-2 ${cardState(t)} rounded-2xl p-4 shadow-xl shadow-sky-500/5 relative overflow-hidden`}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="bg-sky-500 text-slate-950 font-black text-xs px-2.5 py-0.5 rounded-md">
                         BEGEGNUNG {idx + 1}
                       </span>
-                      <span className="text-xs text-slate-400 truncate max-w-[150px]">
-                        {t.active_game_desc || 'Spiel läuft'}
-                      </span>
+                      {gameInfo(t)}
                     </div>
 
                     {/* Teams with the big live match score in between */}
@@ -194,7 +210,7 @@ export default function HallenMonitor({ tournament }) {
                         {t.team_a_name}
                       </span>
                       <div className="bg-slate-950/80 rounded-xl px-3 py-1.5 border border-slate-800 font-mono text-3xl font-black text-emerald-400 tracking-wider whitespace-nowrap">
-                        {t.match_score_a} : {t.match_score_b}
+                        {t.score_a} : {t.score_b}
                       </div>
                       <span className="flex-1 font-bold text-base text-white truncate text-right">
                         {t.team_b_name}
@@ -203,7 +219,7 @@ export default function HallenMonitor({ tournament }) {
                   </div>
                 ))}
 
-                {activeTables.length === 0 && (
+                {matches.length === 0 && (
                   <div className="col-span-2 bg-slate-900/40 border border-dashed border-slate-800 rounded-2xl p-8 text-center text-slate-500">
                     Aktuell keine laufenden Begegnungen.
                   </div>
@@ -301,18 +317,18 @@ export default function HallenMonitor({ tournament }) {
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {activeTables.map((t, idx) => (
+              {matches.map((t, idx) => (
                 <div
-                  key={t.table_number || idx}
-                  className="bg-slate-900 border-2 border-sky-500/50 rounded-2xl p-5 shadow-2xl relative"
+                  key={t.match_id}
+                  data-testid="monitor-match"
+                  data-completed={t.is_completed}
+                  className={`bg-slate-900 border-2 ${cardState(t)} rounded-2xl p-5 shadow-2xl relative`}
                 >
                   <div className="flex items-center justify-between mb-3">
                     <span className="bg-sky-500 text-slate-950 font-black text-sm px-3 py-1 rounded-md">
                       BEGEGNUNG {idx + 1}
                     </span>
-                    <span className="text-xs text-slate-400 truncate max-w-[120px]">
-                      {t.active_game_desc}
-                    </span>
+                    {gameInfo(t)}
                   </div>
 
                   <div className="space-y-2 my-4">
@@ -329,7 +345,7 @@ export default function HallenMonitor({ tournament }) {
                       Spielstand
                     </span>
                     <div className="font-mono text-4xl font-black text-emerald-400">
-                      {t.match_score_a} : {t.match_score_b}
+                      {t.score_a} : {t.score_b}
                     </div>
                   </div>
                 </div>
