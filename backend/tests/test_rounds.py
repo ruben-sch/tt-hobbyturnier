@@ -131,3 +131,63 @@ def test_ko_cannot_start_while_a_round_is_open(client, t_id, add_teams, play):
         play(m["id"], "AAAA")
     client.post(f"/api/rounds/{r['id']}/complete")
     assert client.post(f"/api/tournaments/{t_id}/rounds/start-ko", params={"team_count": 4}).status_code == 200
+
+
+def test_delete_last_round_removes_its_results_from_the_standings(client, t_id, add_teams, play):
+    add_teams(t_id, 2)
+    r1 = next_swiss(client, t_id).json()
+    play(r1["team_matches"][0]["id"], "AAAA")
+    client.post(f"/api/rounds/{r1['id']}/complete")
+    r2 = next_swiss(client, t_id).json()
+    play(r2["team_matches"][0]["id"], "BBBA")
+
+    res = client.delete(f"/api/rounds/{r1['id']}")
+    assert res.status_code == 400
+    assert res.json()["detail"] == "Nur die letzte Runde (Runde 2) kann gelöscht werden."
+
+    res = client.delete(f"/api/rounds/{r2['id']}")
+    assert res.status_code == 200
+    assert res.json()["message"] == "Runde 2 gelöscht"
+
+    rounds = client.get(f"/api/tournaments/{t_id}/rounds").json()
+    assert [r["id"] for r in rounds] == [r1["id"]]
+    assert client.get(f"/api/matches/{r2['team_matches'][0]['id']}").status_code == 404
+    standings = client.get(f"/api/tournaments/{t_id}/standings").json()
+    assert [(s["matches_played"], s["game_points"]) for s in standings] == [(1, 4), (1, 0)]
+
+    # The redrawn round gets the freed number again
+    assert next_swiss(client, t_id).json()["round_number"] == 2
+
+    assert client.delete("/api/rounds/9999").status_code == 404
+
+
+def test_deleting_the_only_round_starts_over(client, t_id, add_teams):
+    add_teams(t_id, 2)
+    r = next_swiss(client, t_id).json()
+    assert client.delete(f"/api/rounds/{r['id']}").status_code == 200
+    assert client.get(f"/api/tournaments/{t_id}/rounds").json() == []
+    assert client.get("/api/tournaments/active").json()["current_round_number"] == 0
+    assert next_swiss(client, t_id).json()["round_number"] == 1
+
+
+def test_delete_round_needs_admin_pin(client, t_id, add_teams):
+    add_teams(t_id, 2)
+    r = next_swiss(client, t_id).json()
+    assert client.delete(f"/api/rounds/{r['id']}", headers={"X-Admin-Pin": "falsch"}).status_code == 403
+
+
+def test_deleting_the_ko_rounds_ends_the_ko_phase(client, t_id, add_teams, play):
+    add_teams(t_id, 4)
+    semis = client.post(f"/api/tournaments/{t_id}/rounds/start-ko", params={"team_count": 4}).json()
+    for m in semis["team_matches"]:
+        play(m["id"], "AAA")
+    final = client.post(f"/api/tournaments/{t_id}/rounds/advance-ko").json()
+
+    assert client.delete(f"/api/rounds/{final['id']}").status_code == 200
+    assert client.get("/api/tournaments/active").json()["ko_enabled"] is True
+    # The finished semis can be advanced again
+    assert client.post(f"/api/tournaments/{t_id}/rounds/advance-ko").json()["ko_stage"] == "Finale"
+
+    for r in reversed(client.get(f"/api/tournaments/{t_id}/rounds").json()):
+        assert client.delete(f"/api/rounds/{r['id']}").status_code == 200
+    assert client.get("/api/tournaments/active").json()["ko_enabled"] is False

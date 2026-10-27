@@ -77,6 +77,26 @@ def complete_round(round_obj: Round) -> None:
     _close(round_obj)
 
 
+def delete_last_round(round_obj: Round, db: Session) -> None:
+    """Deletes the latest round with all its matches and results; standings follow because they are computed.
+
+    Only the latest round may go, so later pairings never rest on a deleted one. Removing the
+    last KO round ends the KO phase again.
+    """
+    tournament = round_obj.tournament
+    latest = max(tournament.rounds, key=lambda r: r.round_number)
+    if latest.id != round_obj.id:
+        raise ValueError(f"Nur die letzte Runde (Runde {latest.round_number}) kann gelöscht werden.")
+
+    db.delete(round_obj)
+    db.flush()
+    db.refresh(tournament)
+    tournament.current_round_number = max((r.round_number for r in tournament.rounds), default=0)
+    if not any(r.round_type == "ko" for r in tournament.rounds):
+        tournament.ko_enabled = False
+    db.flush()
+
+
 def reset_tournament(tournament: Tournament, db: Session) -> None:
     """Deletes every team, round, match and game; settings and admin PIN stay. Older tournaments go too."""
     for round_obj in list(tournament.rounds):

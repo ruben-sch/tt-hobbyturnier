@@ -9,6 +9,7 @@ import {
   generateNextSwissRound, 
   startKoRound, 
   completeRound,
+  deleteRound,
   swapPairings,
   getAdminPin,
   setAdminPin,
@@ -224,6 +225,24 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
     }
   };
 
+  const handleDeleteRound = async (round) => {
+    if (!confirm(
+      `Runde ${round.round_number} löschen?\n\n` +
+      "Achtung: Alle Paarungen und Ergebnisse dieser Runde werden endgültig gelöscht. " +
+      "Tabelle und Platzierungen werden ohne diese Runde neu berechnet."
+    )) return;
+    try {
+      setLoading(true);
+      await deleteRound(round.id);
+      await loadAll();
+      onTournamentChange && onTournamentChange();
+    } catch (e) {
+      alert("Fehler: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSwap = async (roundId) => {
     if (!swapMatch1 || !swapMatch2 || swapMatch1 === swapMatch2) {
       alert("Bitte zwei unterschiedliche Begegnungen auswählen.");
@@ -244,6 +263,8 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
   };
 
   const activeRound = rounds.find(r => r.is_active);
+  // Only the latest round can be deleted, so later pairings never rest on a deleted one
+  const lastRound = rounds.reduce((last, r) => (!last || r.round_number > last.round_number ? r : last), null);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -341,6 +362,17 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
                 >
                   <CheckCircle className="w-4 h-4" />
                   <span>Runde {activeRound.round_number} abschließen</span>
+                </button>
+              )}
+
+              {lastRound && (
+                <button
+                  onClick={() => handleDeleteRound(lastRound)}
+                  disabled={loading}
+                  className="flex items-center gap-2 bg-slate-800 hover:bg-rose-500/20 border border-rose-500/40 disabled:opacity-50 text-rose-400 px-4 py-2.5 rounded-xl font-bold text-sm transition"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Runde {lastRound.round_number} löschen</span>
                 </button>
               )}
 

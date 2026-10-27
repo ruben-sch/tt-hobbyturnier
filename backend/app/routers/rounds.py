@@ -140,3 +140,20 @@ async def complete_round(round_id: int, db: Session = Depends(get_db)):
 
     await ws_manager.broadcast({"type": "ROUND_COMPLETED", "round_id": round_id, "tournament_id": r.tournament_id})
     return {"message": f"Runde {r.round_number} abgeschlossen"}
+
+
+@router.delete("/api/rounds/{round_id}", dependencies=[Depends(require_admin)])
+async def delete_round(round_id: int, db: Session = Depends(get_db)):
+    r = db.get(Round, round_id)
+    if not r:
+        raise HTTPException(status_code=404, detail="Runde nicht gefunden")
+
+    tournament_id, round_number = r.tournament_id, r.round_number
+    try:
+        progression.delete_last_round(r, db)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    db.commit()
+
+    await ws_manager.broadcast({"type": "ROUND_DELETED", "round_id": round_id, "tournament_id": tournament_id})
+    return {"message": f"Runde {round_number} gelöscht"}

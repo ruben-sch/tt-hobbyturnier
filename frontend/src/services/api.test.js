@@ -76,6 +76,7 @@ describe('endpoints', () => {
     [() => api.startKoRound(1, 8), '/api/tournaments/1/rounds/start-ko?team_count=8', 'POST', 'Fehler beim Starten der KO-Runde'],
     [() => api.advanceKoRound(1), '/api/tournaments/1/rounds/advance-ko', 'POST', 'Fehler beim Weiterführen der KO-Runde'],
     [() => api.completeRound(5), '/api/rounds/5/complete', 'POST', 'Fehler beim Abschließen der Runde'],
+    [() => api.deleteRound(5), '/api/rounds/5', 'DELETE', 'Fehler beim Löschen der Runde'],
     [() => api.swapPairings(5, 1, 2), '/api/rounds/5/swap-pairings', 'POST', 'Fehler beim Tauschen der Paarungen'],
     [() => api.fetchStandings(1), '/api/tournaments/1/standings', undefined, 'Fehler beim Laden der Tabelle'],
     [() => api.fetchMatch(7), '/api/matches/7', undefined, 'Fehler beim Laden des Spiels'],

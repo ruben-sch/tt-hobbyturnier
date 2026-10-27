@@ -14,6 +14,7 @@ vi.mock('../services/api', () => ({
   generateNextSwissRound: vi.fn(),
   startKoRound: vi.fn(),
   completeRound: vi.fn(),
+  deleteRound: vi.fn(),
   swapPairings: vi.fn(),
   getAdminPin: vi.fn(),
   setAdminPin: vi.fn(),
@@ -70,7 +71,7 @@ describe('AdminDashboard', () => {
     confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
     alert = vi.spyOn(window, 'alert').mockImplementation(() => {});
     for (const fn of ['updateTournament', 'createTeam', 'deleteTeam', 'generateNextSwissRound',
-      'startKoRound', 'completeRound', 'swapPairings', 'resetTournament']) {
+      'startKoRound', 'completeRound', 'deleteRound', 'swapPairings', 'resetTournament']) {
       api[fn].mockResolvedValue({});
     }
   });
@@ -136,6 +137,32 @@ describe('AdminDashboard', () => {
 
       await user.click(await screen.findByRole('button', { name: /Runde 2 abschließen/ }));
       expect(alert).toHaveBeenCalledWith('Fehler: Es sind noch 2 Spiele nicht abgeschlossen.');
+    });
+
+    it('deletes only the latest round after a warning', async () => {
+      const { user, onTournamentChange } = setup({ rounds: [finishedRound, activeRound] });
+
+      await user.click(await screen.findByRole('button', { name: 'Runde 2 löschen' }));
+      expect(screen.queryByRole('button', { name: 'Runde 1 löschen' })).not.toBeInTheDocument();
+      expect(confirm).toHaveBeenCalledWith(expect.stringContaining('Alle Paarungen und Ergebnisse dieser Runde'));
+      expect(api.deleteRound).toHaveBeenCalledWith(10);
+      expect(onTournamentChange).toHaveBeenCalled();
+    });
+
+    it('keeps the round when the admin cancels the deletion', async () => {
+      confirm.mockReturnValue(false);
+      const { user } = setup({ rounds: [finishedRound] });
+
+      await user.click(await screen.findByRole('button', { name: 'Runde 1 löschen' }));
+      expect(api.deleteRound).not.toHaveBeenCalled();
+    });
+
+    it('reports a failing deletion', async () => {
+      api.deleteRound.mockRejectedValue(new Error('Nur die letzte Runde (Runde 2) kann gelöscht werden.'));
+      const { user } = setup({ rounds: [finishedRound] });
+
+      await user.click(await screen.findByRole('button', { name: 'Runde 1 löschen' }));
+      expect(alert).toHaveBeenCalledWith('Fehler: Nur die letzte Runde (Runde 2) kann gelöscht werden.');
     });
 
     it('swaps two pairings', async () => {
