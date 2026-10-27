@@ -8,7 +8,8 @@ import {
   RefreshCw, 
   Activity, 
   Trophy, 
-  Clock
+  Clock,
+  CheckCircle2
 } from 'lucide-react';
 
 export default function HallenMonitor({ tournament }) {
@@ -65,7 +66,22 @@ export default function HallenMonitor({ tournament }) {
     );
   }
 
-  const activeTables = data.tables?.filter(t => t.is_active) || [];
+  // Finished matches of the round stay on screen, marked as done
+  const matches = data.matches || [];
+  const openCount = matches.filter(m => !m.is_completed).length;
+  const cardState = (m) => m.is_completed
+    ? 'border-emerald-500/70 opacity-60'
+    : 'border-sky-500/50';
+  const gameInfo = (m) => m.is_completed ? (
+    <span className="flex items-center gap-1 text-xs font-bold text-emerald-400 uppercase">
+      <CheckCircle2 className="w-4 h-4" />
+      <span>Fertig</span>
+    </span>
+  ) : (
+    <span className="text-xs text-slate-400 truncate max-w-[150px]">
+      {m.active_game_desc || 'Spiel läuft'}
+    </span>
+  );
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between p-3 sm:p-6 select-none">
@@ -85,7 +101,7 @@ export default function HallenMonitor({ tournament }) {
                 {data.round_type === 'ko' ? `KO-Runde: ${data.ko_stage || 'Endphase'}` : `Schweizer System • Runde ${data.current_round}`}
               </span>
               <span>•</span>
-              <span>{activeTables.length} aktive Paarungen</span>
+              <span>{openCount} aktive Paarungen</span>
             </div>
           </div>
         </div>
@@ -174,18 +190,18 @@ export default function HallenMonitor({ tournament }) {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {activeTables.map((t, idx) => (
+                {matches.map((t, idx) => (
                   <div
-                    key={t.table_number || idx}
-                    className="bg-slate-900/90 border-2 border-sky-500/40 rounded-2xl p-4 shadow-xl shadow-sky-500/5 relative overflow-hidden"
+                    key={t.match_id}
+                    data-testid="monitor-match"
+                    data-completed={t.is_completed}
+                    className={`bg-slate-900/90 border-2 ${cardState(t)} rounded-2xl p-4 shadow-xl shadow-sky-500/5 relative overflow-hidden`}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="bg-sky-500 text-slate-950 font-black text-xs px-2.5 py-0.5 rounded-md">
                         BEGEGNUNG {idx + 1}
                       </span>
-                      <span className="text-xs text-slate-400 truncate max-w-[150px]">
-                        {t.active_game_desc || 'Spiel läuft'}
-                      </span>
+                      {gameInfo(t)}
                     </div>
 
                     {/* Teams with the big live match score in between */}
@@ -194,7 +210,7 @@ export default function HallenMonitor({ tournament }) {
                         {t.team_a_name}
                       </span>
                       <div className="bg-slate-950/80 rounded-xl px-3 py-1.5 border border-slate-800 font-mono text-3xl font-black text-emerald-400 tracking-wider whitespace-nowrap">
-                        {t.match_score_a} : {t.match_score_b}
+                        {t.score_a} : {t.score_b}
                       </div>
                       <span className="flex-1 font-bold text-base text-white truncate text-right">
                         {t.team_b_name}
@@ -203,7 +219,7 @@ export default function HallenMonitor({ tournament }) {
                   </div>
                 ))}
 
-                {activeTables.length === 0 && (
+                {matches.length === 0 && (
                   <div className="col-span-2 bg-slate-900/40 border border-dashed border-slate-800 rounded-2xl p-8 text-center text-slate-500">
                     Aktuell keine laufenden Begegnungen.
                   </div>
@@ -250,36 +266,36 @@ export default function HallenMonitor({ tournament }) {
               ) : (
                 /* Compact Standings Table */
                 <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-800/80 text-slate-400 font-semibold uppercase text-[10px] tracking-wider">
+                  <table className="w-full text-left text-base">
+                    <thead className="bg-slate-800/80 text-slate-400 font-semibold uppercase text-xs tracking-wider">
                       <tr>
-                        <th className="p-2.5 text-center">#</th>
-                        <th className="p-2.5">Team</th>
-                        <th className="p-2.5 text-center">Sp.</th>
-                        <th className="p-2.5 text-center">Punkte</th>
-                        <th className="p-2.5 text-center">Buchh.</th>
-                        <th className="p-2.5 text-center">Satz</th>
+                        <th className="p-3 text-center">#</th>
+                        <th className="p-3">Team</th>
+                        <th className="p-3 text-center">Sp.</th>
+                        <th className="p-3 text-center">Punkte</th>
+                        <th className="p-3 text-center">Buchh.</th>
+                        <th className="p-3 text-center">Satz</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800">
                       {data.standings?.slice(0, 10).map((row) => (
                         <tr key={row.team_id} className="hover:bg-slate-800/40">
-                          <td className="p-2.5 text-center font-bold text-sky-400">
+                          <td className="p-3 text-center font-bold text-sky-400 text-lg">
                             {row.rank}
                           </td>
-                          <td className="p-2.5 font-semibold text-white truncate max-w-[140px]">
+                          <td className="p-3 font-bold text-white text-lg truncate max-w-[220px]">
                             {row.team_name}
                           </td>
-                          <td className="p-2.5 text-center text-slate-400">
+                          <td className="p-3 text-center text-slate-400">
                             {row.won_matches}-{row.drawn_matches}-{row.lost_matches}
                           </td>
-                          <td className="p-2.5 text-center font-mono font-bold text-emerald-400">
+                          <td className="p-3 text-center font-mono font-bold text-emerald-400 text-xl">
                             {row.game_points}
                           </td>
-                          <td className="p-2.5 text-center font-mono text-slate-300">
+                          <td className="p-3 text-center font-mono text-slate-300 text-lg">
                             {row.buchholz}
                           </td>
-                          <td className="p-2.5 text-center font-mono text-slate-400">
+                          <td className="p-3 text-center font-mono text-slate-400">
                             {row.set_diff > 0 ? `+${row.set_diff}` : row.set_diff}
                           </td>
                         </tr>
@@ -301,18 +317,18 @@ export default function HallenMonitor({ tournament }) {
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {activeTables.map((t, idx) => (
+              {matches.map((t, idx) => (
                 <div
-                  key={t.table_number || idx}
-                  className="bg-slate-900 border-2 border-sky-500/50 rounded-2xl p-5 shadow-2xl relative"
+                  key={t.match_id}
+                  data-testid="monitor-match"
+                  data-completed={t.is_completed}
+                  className={`bg-slate-900 border-2 ${cardState(t)} rounded-2xl p-5 shadow-2xl relative`}
                 >
                   <div className="flex items-center justify-between mb-3">
                     <span className="bg-sky-500 text-slate-950 font-black text-sm px-3 py-1 rounded-md">
                       BEGEGNUNG {idx + 1}
                     </span>
-                    <span className="text-xs text-slate-400 truncate max-w-[120px]">
-                      {t.active_game_desc}
-                    </span>
+                    {gameInfo(t)}
                   </div>
 
                   <div className="space-y-2 my-4">
@@ -329,7 +345,7 @@ export default function HallenMonitor({ tournament }) {
                       Spielstand
                     </span>
                     <div className="font-mono text-4xl font-black text-emerald-400">
-                      {t.match_score_a} : {t.match_score_b}
+                      {t.score_a} : {t.score_b}
                     </div>
                   </div>
                 </div>
@@ -346,40 +362,40 @@ export default function HallenMonitor({ tournament }) {
             </h2>
 
             <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-800 text-slate-400 font-semibold uppercase text-xs">
+              <table className="w-full text-left text-lg">
+                <thead className="bg-slate-800 text-slate-400 font-semibold uppercase text-sm">
                   <tr>
-                    <th className="p-3.5 text-center">Platz</th>
-                    <th className="p-3.5">Mannschaft</th>
-                    <th className="p-3.5">Spieler</th>
-                    <th className="p-3.5 text-center">Matches</th>
-                    <th className="p-3.5 text-center">Spielpunkte</th>
-                    <th className="p-3.5 text-center">Buchholz</th>
-                    <th className="p-3.5 text-center">Sätze</th>
+                    <th className="p-4 text-center">Platz</th>
+                    <th className="p-4">Mannschaft</th>
+                    <th className="p-4">Spieler</th>
+                    <th className="p-4 text-center">Matches</th>
+                    <th className="p-4 text-center">Spielpunkte</th>
+                    <th className="p-4 text-center">Buchholz</th>
+                    <th className="p-4 text-center">Sätze</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
                   {data.standings?.map((row) => (
                     <tr key={row.team_id} className="hover:bg-slate-800/50">
-                      <td className="p-3.5 text-center font-bold text-sky-400 text-base">
+                      <td className="p-4 text-center font-bold text-sky-400 text-2xl">
                         {row.rank}
                       </td>
-                      <td className="p-3.5 font-bold text-white text-base">
+                      <td className="p-4 font-bold text-white text-2xl">
                         {row.team_name}
                       </td>
-                      <td className="p-3.5 text-slate-400 text-xs">
+                      <td className="p-4 text-slate-400 text-base">
                         {row.player1} & {row.player2}
                       </td>
-                      <td className="p-3.5 text-center text-slate-300">
+                      <td className="p-4 text-center text-slate-300">
                         {row.won_matches}S - {row.drawn_matches}U - {row.lost_matches}N
                       </td>
-                      <td className="p-3.5 text-center font-mono font-bold text-emerald-400 text-lg">
+                      <td className="p-4 text-center font-mono font-bold text-emerald-400 text-2xl">
                         {row.game_points} : {row.game_points_lost}
                       </td>
-                      <td className="p-3.5 text-center font-mono font-bold text-amber-400 text-base">
+                      <td className="p-4 text-center font-mono font-bold text-amber-400 text-xl">
                         {row.buchholz}
                       </td>
-                      <td className="p-3.5 text-center font-mono text-slate-300">
+                      <td className="p-4 text-center font-mono text-slate-300">
                         {row.sets_won}:{row.sets_lost} ({row.set_diff > 0 ? `+${row.set_diff}` : row.set_diff})
                       </td>
                     </tr>

@@ -94,6 +94,21 @@ def test_monitor_dashboard(client, t_id, add_teams, play):
     assert data["ko_tree"] == []
 
 
+def test_monitor_keeps_finished_matches_of_the_round(client, t_id, add_teams, play):
+    add_teams(t_id, 5)  # 2 matches + a bye, which the monitor leaves out
+    r = client.post(f"/api/tournaments/{t_id}/rounds/next-swiss").json()
+    first, second = sorted((m for m in r["team_matches"] if m["team_b_id"]), key=lambda m: m["id"])
+    play(first["id"], "AAAB")
+    play(second["id"], "A")
+
+    matches = client.get(f"/api/monitors/{t_id}/dashboard").json()["matches"]
+    assert [m["match_id"] for m in matches] == [first["id"], second["id"]]
+    done, running = matches
+    assert (done["is_completed"], done["score_a"], done["score_b"], done["active_game_desc"]) == (True, 3, 1, "")
+    assert (running["is_completed"], running["score_a"], running["score_b"]) == (False, 1, 0)
+    assert running["active_game_desc"].startswith("Einzel ")
+
+
 def test_default_admin_pin_comes_from_env(clean_db, monkeypatch):
     monkeypatch.setenv("TT_ADMIN_PIN", " geheim42 ")
     client = TestClient(app)
