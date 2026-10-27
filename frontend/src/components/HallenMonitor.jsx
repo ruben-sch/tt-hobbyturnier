@@ -266,36 +266,36 @@ export default function HallenMonitor({ tournament }) {
               ) : (
                 /* Compact Standings Table */
                 <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-800/80 text-slate-400 font-semibold uppercase text-[10px] tracking-wider">
+                  <table className="w-full text-left text-base">
+                    <thead className="bg-slate-800/80 text-slate-400 font-semibold uppercase text-xs tracking-wider">
                       <tr>
-                        <th className="p-2.5 text-center">#</th>
-                        <th className="p-2.5">Team</th>
-                        <th className="p-2.5 text-center">Sp.</th>
-                        <th className="p-2.5 text-center">Punkte</th>
-                        <th className="p-2.5 text-center">Buchh.</th>
-                        <th className="p-2.5 text-center">Satz</th>
+                        <th className="p-3 text-center">#</th>
+                        <th className="p-3">Team</th>
+                        <th className="p-3 text-center">Sp.</th>
+                        <th className="p-3 text-center">Punkte</th>
+                        <th className="p-3 text-center">Buchh.</th>
+                        <th className="p-3 text-center">Satz</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800">
                       {data.standings?.slice(0, 10).map((row) => (
                         <tr key={row.team_id} className="hover:bg-slate-800/40">
-                          <td className="p-2.5 text-center font-bold text-sky-400">
+                          <td className="p-3 text-center font-bold text-sky-400 text-lg">
                             {row.rank}
                           </td>
-                          <td className="p-2.5 font-semibold text-white truncate max-w-[140px]">
+                          <td className="p-3 font-bold text-white text-lg truncate max-w-[220px]">
                             {row.team_name}
                           </td>
-                          <td className="p-2.5 text-center text-slate-400">
+                          <td className="p-3 text-center text-slate-400">
                             {row.won_matches}-{row.drawn_matches}-{row.lost_matches}
                           </td>
-                          <td className="p-2.5 text-center font-mono font-bold text-emerald-400">
+                          <td className="p-3 text-center font-mono font-bold text-emerald-400 text-xl">
                             {row.game_points}
                           </td>
-                          <td className="p-2.5 text-center font-mono text-slate-300">
+                          <td className="p-3 text-center font-mono text-slate-300 text-lg">
                             {row.buchholz}
                           </td>
-                          <td className="p-2.5 text-center font-mono text-slate-400">
+                          <td className="p-3 text-center font-mono text-slate-400">
                             {row.set_diff > 0 ? `+${row.set_diff}` : row.set_diff}
                           </td>
                         </tr>
@@ -362,40 +362,40 @@ export default function HallenMonitor({ tournament }) {
             </h2>
 
             <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-800 text-slate-400 font-semibold uppercase text-xs">
+              <table className="w-full text-left text-lg">
+                <thead className="bg-slate-800 text-slate-400 font-semibold uppercase text-sm">
                   <tr>
-                    <th className="p-3.5 text-center">Platz</th>
-                    <th className="p-3.5">Mannschaft</th>
-                    <th className="p-3.5">Spieler</th>
-                    <th className="p-3.5 text-center">Matches</th>
-                    <th className="p-3.5 text-center">Spielpunkte</th>
-                    <th className="p-3.5 text-center">Buchholz</th>
-                    <th className="p-3.5 text-center">Sätze</th>
+                    <th className="p-4 text-center">Platz</th>
+                    <th className="p-4">Mannschaft</th>
+                    <th className="p-4">Spieler</th>
+                    <th className="p-4 text-center">Matches</th>
+                    <th className="p-4 text-center">Spielpunkte</th>
+                    <th className="p-4 text-center">Buchholz</th>
+                    <th className="p-4 text-center">Sätze</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
                   {data.standings?.map((row) => (
                     <tr key={row.team_id} className="hover:bg-slate-800/50">
-                      <td className="p-3.5 text-center font-bold text-sky-400 text-base">
+                      <td className="p-4 text-center font-bold text-sky-400 text-2xl">
                         {row.rank}
                       </td>
-                      <td className="p-3.5 font-bold text-white text-base">
+                      <td className="p-4 font-bold text-white text-2xl">
                         {row.team_name}
                       </td>
-                      <td className="p-3.5 text-slate-400 text-xs">
+                      <td className="p-4 text-slate-400 text-base">
                         {row.player1} & {row.player2}
                       </td>
-                      <td className="p-3.5 text-center text-slate-300">
+                      <td className="p-4 text-center text-slate-300">
                         {row.won_matches}S - {row.drawn_matches}U - {row.lost_matches}N
                       </td>
-                      <td className="p-3.5 text-center font-mono font-bold text-emerald-400 text-lg">
+                      <td className="p-4 text-center font-mono font-bold text-emerald-400 text-2xl">
                         {row.game_points} : {row.game_points_lost}
                       </td>
-                      <td className="p-3.5 text-center font-mono font-bold text-amber-400 text-base">
+                      <td className="p-4 text-center font-mono font-bold text-amber-400 text-xl">
                         {row.buchholz}
                       </td>
-                      <td className="p-3.5 text-center font-mono text-slate-300">
+                      <td className="p-4 text-center font-mono text-slate-300">
                         {row.sets_won}:{row.sets_lost} ({row.set_diff > 0 ? `+${row.set_diff}` : row.set_diff})
                       </td>
                     </tr>
