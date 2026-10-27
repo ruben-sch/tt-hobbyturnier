@@ -134,6 +134,12 @@ export async function completeRound(roundId) {
   }, "Fehler beim Abschließen der Runde");
 }
 
+export async function deleteRound(roundId) {
+  return adminFetch(`${API_BASE}/rounds/${roundId}`, {
+    method: 'DELETE',
+  }, "Fehler beim Löschen der Runde");
+}
+
 export async function swapPairings(roundId, matchId1, matchId2) {
   return adminFetch(`${API_BASE}/rounds/${roundId}/swap-pairings`, {
     method: 'POST',
