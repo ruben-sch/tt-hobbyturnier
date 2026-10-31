@@ -23,8 +23,8 @@ export default function AdminPinPrompt({
       } else {
         setPinError('Falsche Admin-PIN.');
       }
-    } catch {
-      setPinError('Fehler bei der PIN-Prüfung');
+    } catch (err) {
+      setPinError(err.message || 'Fehler bei der PIN-Prüfung');
     } finally {
       setChecking(false);
     }

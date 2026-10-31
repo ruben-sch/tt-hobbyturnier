@@ -14,11 +14,12 @@ import html
 import os
 import secrets
 import time
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Form, HTTPException
+from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from mcp.server.auth.provider import (
     AccessToken,
@@ -32,7 +33,7 @@ from mcp.server.auth.provider import (
 from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, RevocationOptions
 from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 
-from backend.app.auth import active_tournament, check_admin_pin
+from backend.app.auth import active_tournament, check_admin_pin, client_key, locked_out_message, pin_attempts
 from backend.app.database import SessionLocal
 from backend.app.models import OAuthClient
 from backend.app.models import OAuthToken as StoredToken
@@ -46,6 +47,12 @@ REFRESH_TOKEN_TTL = 30 * 24 * 60 * 60
 LOGIN_TTL = 10 * 60
 CODE_TTL = 5 * 60
 MAX_PIN_ATTEMPTS = 5
+# Issued tokens are token_urlsafe(32), 43 characters. A shorter bearer may be a PIN guess and
+# counts towards the client's lockout; a longer one is a token (a PIN that long can't be guessed).
+TOKEN_LENGTH = 43
+
+# Client address of the current /mcp request, set by PinHeaderAsBearer for load_access_token.
+current_client: ContextVar[Optional[str]] = ContextVar("current_client", default=None)
 
 auth_settings = AuthSettings(
     issuer_url=PUBLIC_URL,
@@ -69,13 +76,14 @@ def _current_pin_fingerprint() -> Optional[str]:
         return _hash(tournament.admin_pin) if tournament else None
 
 
-def _pin_is_valid(pin: str) -> bool:
+def _pin_is_valid(pin: str, client: Optional[str] = None) -> bool:
+    """With a client key, wrong PINs count towards its lockout, and a locked-out client never passes."""
     with SessionLocal() as db:
         tournament = active_tournament(db)
         if tournament is None:
             return False
         try:
-            check_admin_pin(tournament, pin)
+            check_admin_pin(tournament, pin, client)
         except HTTPException:
             return False
         return True
@@ -125,10 +133,10 @@ class TournamentOAuthProvider:
         self.pending[request_id] = PendingLogin(client, params, time.time() + LOGIN_TTL)
         return f"{PUBLIC_URL}/oauth/login?request={request_id}"
 
-    def complete_login(self, request_id: str, pin: str) -> Optional[str]:
+    def complete_login(self, request_id: str, pin: str, client: Optional[str] = None) -> Optional[str]:
         """Checks the PIN of a pending login. Returns the redirect URL with the code, or None."""
         login = self.pending[request_id]
-        if not _pin_is_valid(pin):
+        if not _pin_is_valid(pin, client):
             login.attempts += 1
             if login.attempts >= MAX_PIN_ATTEMPTS:
                 del self.pending[request_id]
@@ -218,7 +226,8 @@ class TournamentOAuthProvider:
         return self._issue(client.client_id, scopes or [SCOPE])
 
     async def load_access_token(self, token: str) -> Optional[AccessToken]:
-        if _pin_is_valid(token):
+        client = current_client.get() if len(token) < TOKEN_LENGTH else None
+        if _pin_is_valid(token, client):
             return AccessToken(token=token, client_id=ADMIN_PIN_CLIENT, scopes=[SCOPE], subject="turnierleitung")
         row = self._load(token, "access")
         if row is None:
@@ -239,13 +248,15 @@ provider = TournamentOAuthProvider()
 
 
 class PinHeaderAsBearer:
-    """Lets clients keep sending `X-Admin-Pin`: it is turned into `Authorization: Bearer <PIN>`."""
+    """Lets clients keep sending `X-Admin-Pin`: it is turned into `Authorization: Bearer <PIN>`.
+    Also notes the client address, so wrong PINs as bearer count towards its lockout."""
 
     def __init__(self, app):
         self.app = app
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
+            current_client.set(client_key(scope["client"][0] if scope.get("client") else None))
             headers = dict(scope["headers"])
             pin = headers.get(b"x-admin-pin")
             if pin and b"authorization" not in headers:
@@ -300,11 +311,16 @@ def login_form(request: str):
 
 
 @login_router.post("/login")
-def login_submit(request: str = Form(...), pin: str = Form(...)):
+def login_submit(http: Request, request: str = Form(...), pin: str = Form(...)):
     login = provider.pending_login(request)
     if login is None:
         return _EXPIRED
-    redirect = provider.complete_login(request, pin)
+    client = client_key(http.client.host if http.client else None)
+    if wait := pin_attempts.retry_after(client):
+        page = _page(request, login, locked_out_message(wait))
+        page.status_code = 429
+        return page
+    redirect = provider.complete_login(request, pin, client)
     if redirect is None:
         if provider.pending_login(request) is None:
             return HTMLResponse("<p>Zu viele Fehlversuche. Bitte die Verbindung neu starten.</p>", status_code=403)

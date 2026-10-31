@@ -1,6 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.app.auth import pin_attempts
 from backend.app.database import Base, engine
 from backend.app.main import app
 
@@ -67,6 +68,7 @@ def test_admin_endpoints_reject_missing_and_wrong_pin(client, t_id):
         assert missing.status_code == 401, (method, url)
         wrong = getattr(client, method)(url, headers={"X-Admin-Pin": "falsch"}, **kwargs)
         assert wrong.status_code == 403, (method, url)
+        pin_attempts.clear()  # more calls than the lockout allows (test_pin_lockout.py)
 
     # Nothing changed
     assert len(client.get(f"/api/tournaments/{t_id}/teams").json()) == 4
