@@ -114,4 +114,9 @@ describe('endpoints', () => {
     fetch.mockResolvedValue(jsonResponse(500, {}));
     await expect(api.verifyAdminPin(1, 'x')).rejects.toThrow('Fehler bei der PIN-Prüfung');
   });
+
+  it('verifyAdminPin passes on the lockout message', async () => {
+    fetch.mockResolvedValue(jsonResponse(429, { detail: 'Zu viele falsche Admin-PINs.' }));
+    await expect(api.verifyAdminPin(1, 'x')).rejects.toThrow('Zu viele falsche Admin-PINs.');
+  });
 });

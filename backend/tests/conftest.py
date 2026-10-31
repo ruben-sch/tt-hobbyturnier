@@ -1,6 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.app.auth import pin_attempts
 from backend.app.database import Base, engine
 from backend.app.main import app
 
@@ -9,6 +10,14 @@ ADMIN = {"X-Admin-Pin": "admin123"}
 
 WIN_A = {"sets_a": 3, "sets_b": 0}
 WIN_B = {"sets_a": 0, "sets_b": 3}
+
+
+@pytest.fixture(autouse=True)
+def no_pin_lockout():
+    """Every test starts without failed admin-PIN attempts; all test clients share one address."""
+    pin_attempts.clear()
+    yield
+    pin_attempts.clear()
 
 
 @pytest.fixture

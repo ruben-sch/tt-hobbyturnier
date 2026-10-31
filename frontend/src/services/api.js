@@ -51,7 +51,11 @@ export async function verifyAdminPin(tournamentId, pin) {
     headers: { 'X-Admin-Pin': pin },
   });
   if (res.status === 401 || res.status === 403) return false;
-  if (!res.ok) throw new Error("Fehler bei der PIN-Prüfung");
+  if (!res.ok) {
+    // 429 after too many wrong PINs carries the German lockout message
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Fehler bei der PIN-Prüfung");
+  }
   return true;
 }
 

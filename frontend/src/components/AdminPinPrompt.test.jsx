@@ -35,4 +35,14 @@ describe('AdminPinPrompt', () => {
     expect(await screen.findByText('Falsche Admin-PIN.')).toBeInTheDocument();
     expect(api.setAdminPin).not.toHaveBeenCalled();
   });
+
+  it('shows the lockout message after too many wrong PINs', async () => {
+    api.verifyAdminPin.mockRejectedValue(new Error('Zu viele falsche Admin-PINs.'));
+    render(<AdminPinPrompt tournament={{ id: 3 }} />);
+
+    await userEvent.type(screen.getByLabelText('Admin-PIN eingeben'), 'falsch');
+    await userEvent.click(screen.getByRole('button', { name: 'Entsperren' }));
+
+    expect(await screen.findByText('Zu viele falsche Admin-PINs.')).toBeInTheDocument();
+  });
 });
