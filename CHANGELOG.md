@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.4.0](https://github.com/ruben-sch/tt-hobbyturnier/compare/tt-hobbyturnier-v1.3.0...tt-hobbyturnier-v1.4.0) (2026-10-31)
+
+
+### Features
+
+* **monitor:** Hallen-Monitor für 4K mit Einzeln und Live-Stand ([aae4a54](https://github.com/ruben-sch/tt-hobbyturnier/commit/aae4a54e2465ff64b35a45ce9b02f9dc149d9a01))
+* **monitor:** optimize Hallen-Monitor for 4K and show the singles of each match ([814f6be](https://github.com/ruben-sch/tt-hobbyturnier/commit/814f6be033a52ac615d9ce326c3e76218da02a67)), closes [#29](https://github.com/ruben-sch/tt-hobbyturnier/issues/29)
+
+
+### Bug Fixes
+
+* **auth:** lock out clients after too many wrong admin PINs ([843b91e](https://github.com/ruben-sch/tt-hobbyturnier/commit/843b91ed49292da5069737684d568a0aa36fd4b5))
+* **auth:** lock out clients after too many wrong admin PINs ([9eb1dc2](https://github.com/ruben-sch/tt-hobbyturnier/commit/9eb1dc213cf63f8f3c4299c169f1c2cca7a67b02)), closes [#30](https://github.com/ruben-sch/tt-hobbyturnier/issues/30)
+
 ## [1.3.0](https://github.com/ruben-sch/tt-hobbyturnier/compare/tt-hobbyturnier-v1.2.0...tt-hobbyturnier-v1.3.0) (2026-10-27)
 
 
