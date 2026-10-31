@@ -109,6 +109,37 @@ def test_monitor_keeps_finished_matches_of_the_round(client, t_id, add_teams, pl
     assert running["active_game_desc"].startswith("Einzel ")
 
 
+def test_monitor_lists_the_games_of_each_match(client, t_id, add_teams, play):
+    add_teams(t_id, 2)
+    match = client.post(f"/api/tournaments/{t_id}/rounds/next-swiss").json()["team_matches"][0]
+    play(match["id"], "AB")
+
+    running = client.get(f"/api/monitors/{t_id}/dashboard").json()["matches"][0]
+    assert running["table_number"] == match["table_number"]
+    games = running["games"]
+    assert [g["game_order"] for g in games] == [1, 2, 3, 4]
+    assert [(g["sets_a"], g["sets_b"], g["is_completed"]) for g in games[:2]] == [(3, 0, True), (0, 3, True)]
+    # One table: only the next open game runs
+    assert [g["is_running"] for g in games] == [False, False, True, False]
+    # Game 3 is the duel of both position-1 players
+    assert games[2]["player_a_name"].endswith("A") and games[2]["player_b_name"].endswith("A")
+
+    play(match["id"], "AA")
+    done = client.get(f"/api/monitors/{t_id}/dashboard").json()["matches"][0]
+    assert not any(g["is_running"] for g in done["games"])
+
+
+def test_monitor_runs_one_game_per_table_of_a_two_table_match(client, t_id, add_teams, play):
+    client.put(f"/api/tournaments/{t_id}", json={"tables_per_match": 2, "table_count": 4})
+    add_teams(t_id, 2)
+    match = client.post(f"/api/tournaments/{t_id}/rounds/next-swiss").json()["team_matches"][0]
+    play(match["id"], "A")
+
+    games = client.get(f"/api/monitors/{t_id}/dashboard").json()["matches"][0]["games"]
+    # Game 1 is done; table 1 plays game 3, table 2 still plays game 2
+    assert [g["is_running"] for g in games] == [False, True, True, False]
+
+
 def test_default_admin_pin_comes_from_env(clean_db, monkeypatch):
     monkeypatch.setenv("TT_ADMIN_PIN", " geheim42 ")
     client = TestClient(app)

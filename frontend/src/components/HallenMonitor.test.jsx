@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import HallenMonitor from './HallenMonitor';
+import HallenMonitor, { MONITOR_FONT_SIZE } from './HallenMonitor';
 import * as api from '../services/api';
 import { standingsRow } from '../test/fixtures';
 
@@ -70,7 +70,7 @@ describe('HallenMonitor', () => {
     expect(screen.getByText('1 aktive Paarungen')).toBeInTheDocument();
     expect(screen.getByText('Einzel 2: Anna vs Ben')).toBeInTheDocument();
     // The match score is the live number; there are no set points any more
-    expect(screen.getByText('1 : 0')).toBeInTheDocument();
+    expect(screen.getByText('1:0')).toBeInTheDocument();
     expect(screen.queryByText(/Satzstand/)).not.toBeInTheDocument();
     expect(screen.getByText('Aktuelle Tabelle')).toBeInTheDocument();
     expect(screen.getByText('-2')).toBeInTheDocument();
@@ -92,13 +92,55 @@ describe('HallenMonitor', () => {
       expect(finished).toHaveClass('opacity-60', 'border-emerald-500/70');
       expect(finished).toHaveTextContent('Chopper');
       expect(finished).toHaveTextContent('Fertig');
-      expect(finished).toHaveTextContent('2 : 2');
+      expect(finished).toHaveTextContent('2:2');
     };
 
     expect(await screen.findByText('1 aktive Paarungen')).toBeInTheDocument();
     check();
     await user.click(screen.getByRole('button', { name: 'Aktuelle Paarungen' }));
     check();
+  });
+
+  it('lists the singles of each match with their set counts and the running game', async () => {
+    const game = (order, a, b, extra) => ({
+      game_order: order, is_doubles: false, player_a_name: a, player_b_name: b, table_number: 3,
+      sets_a: 0, sets_b: 0, is_completed: false, is_running: false, ...extra,
+    });
+    api.fetchMonitorDashboard.mockResolvedValue({
+      ...swissData,
+      matches: [{
+        ...runningMatch,
+        table_number: 3,
+        table_number_b: 4,
+        games: [
+          game(1, 'Anna', 'Dora', { sets_a: 3, sets_b: 1, is_completed: true }),
+          game(2, 'Ben', 'Carl', { is_running: true }),
+          game(3, 'Anna', 'Carl'),
+        ],
+      }],
+    });
+    render(<HallenMonitor tournament={tournament} />);
+
+    const card = await screen.findByTestId('monitor-match');
+    expect(card).toHaveTextContent('Tisch3+4');
+    // The game rows replace the one-line description of the next game
+    expect(card).not.toHaveTextContent('Einzel 2: Anna vs Ben');
+    const [done, running, open] = within(card).getAllByTestId('monitor-game');
+    expect(done).toHaveTextContent('E1Anna3:1Dora');
+    expect(within(done).getByText('Anna')).toHaveClass('text-emerald-300');
+    expect(running).toHaveAttribute('data-running', 'true');
+    expect(running).toHaveTextContent('läuft');
+    expect(open).toHaveTextContent('E3Anna–Carl');
+  });
+
+  it('scales the root font with the screen while it is shown', async () => {
+    api.fetchMonitorDashboard.mockResolvedValue(swissData);
+    document.documentElement.style.fontSize = '';
+    const { unmount } = render(<HallenMonitor tournament={tournament} />);
+    await screen.findByText('1 aktive Paarungen');
+    expect(MONITOR_FONT_SIZE).toContain('100vw');
+    unmount();
+    expect(document.documentElement.style.fontSize).toBe('');
   });
 
   it('shows a QR code that opens the live scores', async () => {

@@ -72,6 +72,30 @@ def tables_status(tournament_id: int, db: Session) -> List[TableStatusResponse]:
     return response
 
 
+def _running_game_ids(match: TeamMatch) -> set:
+    """The game each table of the match plays now: its first open game. Games run in game order per table."""
+    running = {}
+    for g in sorted(match.individual_games, key=lambda g: g.game_order):
+        if not g.is_completed and g.table_number not in running:
+            running[g.table_number] = g.id
+    return set(running.values())
+
+
+def _games(match: TeamMatch) -> List[Dict[str, Any]]:
+    running = set() if match.is_completed else _running_game_ids(match)
+    return [{
+        "game_order": g.game_order,
+        "is_doubles": bool(g.is_doubles),
+        "player_a_name": g.player_a_name,
+        "player_b_name": g.player_b_name,
+        "table_number": g.table_number,
+        "sets_a": g.sets_won_a or 0,
+        "sets_b": g.sets_won_b or 0,
+        "is_completed": bool(g.is_completed),
+        "is_running": g.id in running,
+    } for g in sorted(match.individual_games, key=lambda g: g.game_order)]
+
+
 def round_matches(tournament_id: int, db: Session) -> List[Dict[str, Any]]:
     """Every match of the active round (byes left out), finished ones included, in a stable order."""
     matches = db.query(TeamMatch).join(Round).filter(
@@ -84,9 +108,12 @@ def round_matches(tournament_id: int, db: Session) -> List[Dict[str, Any]]:
         "match_id": m.id,
         "team_a_name": m.team_a.name if m.team_a else "Team A",
         "team_b_name": m.team_b.name if m.team_b else "Team B",
+        "table_number": m.table_number,
+        "table_number_b": m.table_number_b,
         "score_a": m.score_a or 0,
         "score_b": m.score_b or 0,
         "is_completed": bool(m.is_completed),
         "active_game_desc": "" if m.is_completed else _game_desc(
             next((g for g in m.individual_games if not g.is_completed), None)),
+        "games": _games(m),
     } for m in matches]
