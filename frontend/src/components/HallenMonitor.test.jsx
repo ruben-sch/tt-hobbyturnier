@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import HallenMonitor, { MONITOR_FONT_SIZE } from './HallenMonitor';
+import HallenMonitor, { MONITOR_ROOT_CLASS } from './HallenMonitor';
 import * as api from '../services/api';
 import { standingsRow } from '../test/fixtures';
 
@@ -135,12 +135,11 @@ describe('HallenMonitor', () => {
 
   it('scales the root font with the screen while it is shown', async () => {
     api.fetchMonitorDashboard.mockResolvedValue(swissData);
-    document.documentElement.style.fontSize = '';
     const { unmount } = render(<HallenMonitor tournament={tournament} />);
     await screen.findByText('1 aktive Paarungen');
-    expect(MONITOR_FONT_SIZE).toContain('100vw');
+    expect(document.documentElement).toHaveClass(MONITOR_ROOT_CLASS);
     unmount();
-    expect(document.documentElement.style.fontSize).toBe('');
+    expect(document.documentElement).not.toHaveClass(MONITOR_ROOT_CLASS);
   });
 
   it('shows a QR code that opens the live scores', async () => {
