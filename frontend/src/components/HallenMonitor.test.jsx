@@ -161,7 +161,8 @@ describe('HallenMonitor', () => {
 
     await user.click(screen.getByRole('button', { name: 'Nur Tabelle' }));
     expect(screen.getByText('Gesamttabelle Schweizer System')).toBeInTheDocument();
-    expect(screen.getAllByText('1S - 0U - 1N', { exact: false })).toHaveLength(2);
+    expect(screen.queryByText(/S-U-N|Matches/)).not.toBeInTheDocument();
+    expect(screen.queryByText('1S - 0U - 1N', { exact: false })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Aktuelle Paarungen' }));
     expect(screen.getByText('Laufende Begegnungen & Spielstände')).toBeInTheDocument();
