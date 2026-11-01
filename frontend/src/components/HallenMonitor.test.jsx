@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import HallenMonitor, { MONITOR_ROOT_CLASS } from './HallenMonitor';
+import HallenMonitor, { MONITOR_ROOT_CLASS, MonitorClock } from './HallenMonitor';
 import * as api from '../services/api';
 import { standingsRow } from '../test/fixtures';
 
@@ -214,5 +214,21 @@ describe('HallenMonitor', () => {
 
     await user.click(await screen.findByTitle('Vollbild'));
     expect(request).toHaveBeenCalled();
+  });
+});
+
+describe('MonitorClock', () => {
+  it('shows the local time as hours:minutes and follows the minute', () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 10, 1, 9, 5, 58));
+      render(<MonitorClock />);
+      expect(screen.getByTestId('monitor-clock')).toHaveTextContent(/^09:05$/);
+
+      act(() => { vi.advanceTimersByTime(3000); });
+      expect(screen.getByTestId('monitor-clock')).toHaveTextContent(/^09:06$/);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
