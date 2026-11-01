@@ -332,7 +332,6 @@ export default function HallenMonitor({ tournament }) {
                       <tr>
                         <th className="w-12 px-2 py-2 text-center">#</th>
                         <th className="px-2 py-2">Team</th>
-                        <th className="w-24 px-2 py-2 text-center">S-U-N</th>
                         <th className="w-16 px-2 py-2 text-center">Pkt.</th>
                         <th className="hidden sm:table-cell w-20 px-2 py-2 text-center">Buchh.</th>
                         <th className="hidden sm:table-cell w-16 px-2 py-2 text-center">Satz</th>
@@ -346,9 +345,6 @@ export default function HallenMonitor({ tournament }) {
                           </td>
                           <td className="px-2 py-1 font-bold text-white text-xl truncate">
                             {row.team_name}
-                          </td>
-                          <td className="px-2 py-1 text-center text-slate-400">
-                            {row.won_matches}-{row.drawn_matches}-{row.lost_matches}
                           </td>
                           <td className="px-2 py-1 text-center font-mono font-bold text-emerald-400 text-xl">
                             {row.game_points}
@@ -398,7 +394,6 @@ export default function HallenMonitor({ tournament }) {
                     <th className="px-4 py-2 text-center">Platz</th>
                     <th className="px-4 py-2">Mannschaft</th>
                     <th className="px-4 py-2">Spieler</th>
-                    <th className="px-4 py-2 text-center">Matches</th>
                     <th className="px-4 py-2 text-center">Spielpunkte</th>
                     <th className="px-4 py-2 text-center">Buchholz</th>
                     <th className="px-4 py-2 text-center">Sätze</th>
@@ -415,9 +410,6 @@ export default function HallenMonitor({ tournament }) {
                       </td>
                       <td className="px-4 py-1.5 text-slate-400 text-lg">
                         {row.player1} & {row.player2}
-                      </td>
-                      <td className="px-4 py-1.5 text-center text-slate-300">
-                        {row.won_matches}S - {row.drawn_matches}U - {row.lost_matches}N
                       </td>
                       <td className="px-4 py-1.5 text-center font-mono font-bold text-emerald-400 text-2xl">
                         {row.game_points} : {row.game_points_lost}
