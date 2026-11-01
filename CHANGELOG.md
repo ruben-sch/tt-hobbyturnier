@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.0](https://github.com/ruben-sch/tt-hobbyturnier/compare/tt-hobbyturnier-v1.5.0...tt-hobbyturnier-v1.6.0) (2026-11-01)
+
+
+### Features
+
+* **history:** view past Swiss rounds with pairings and results ([011f26d](https://github.com/ruben-sch/tt-hobbyturnier/commit/011f26d792b48bc264a780c88ddd95c7c3a7a685))
+* **history:** view past Swiss rounds with pairings and results ([b4f885c](https://github.com/ruben-sch/tt-hobbyturnier/commit/b4f885cc80cfeb4738727f71a0637fb5b40e485a))
+* remove win/draw/loss column from Hallenmonitor standings ([e95e9ed](https://github.com/ruben-sch/tt-hobbyturnier/commit/e95e9edb282bb5e142a5a9ffdcb6f6ecff6a92ff))
+* remove win/draw/loss column from Hallenmonitor standings ([8392d23](https://github.com/ruben-sch/tt-hobbyturnier/commit/8392d23c125b7a052267f6df76f08d6f07f872c3))
+
 ## [1.5.0](https://github.com/ruben-sch/tt-hobbyturnier/compare/tt-hobbyturnier-v1.4.0...tt-hobbyturnier-v1.5.0) (2026-11-01)
 
 
