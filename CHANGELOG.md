@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.5.0](https://github.com/ruben-sch/tt-hobbyturnier/compare/tt-hobbyturnier-v1.4.0...tt-hobbyturnier-v1.5.0) (2026-11-01)
+
+
+### Features
+
+* **monitor:** show the local time above the QR code ([219d4c8](https://github.com/ruben-sch/tt-hobbyturnier/commit/219d4c85fb7a665d961b5597fd2f0fd7f9fa527a))
+* **monitor:** show the local time above the QR code ([adeb29c](https://github.com/ruben-sch/tt-hobbyturnier/commit/adeb29cbb04b2361f68b2a4cb125f51618bd64c1))
+
+
+### Bug Fixes
+
+* **monitor:** fit 8 matches on Full HD and other screens in the split view ([c495707](https://github.com/ruben-sch/tt-hobbyturnier/commit/c495707e49cef3311020d66641a2a79bed8d990b))
+* **monitor:** fit 8 matches on Full HD in the split view ([fedc039](https://github.com/ruben-sch/tt-hobbyturnier/commit/fedc039d56e30b51f2c3e4ab2967201fd1363d3f))
+
 ## [1.4.0](https://github.com/ruben-sch/tt-hobbyturnier/compare/tt-hobbyturnier-v1.3.0...tt-hobbyturnier-v1.4.0) (2026-10-31)
 
 
