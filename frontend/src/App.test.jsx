@@ -27,6 +27,7 @@ vi.mock('./components/HallenMonitor', () => stub('HallenMonitor'));
 vi.mock('./components/TableScorer', () => stub('TableScorer'));
 vi.mock('./components/StandingsTable', () => stub('StandingsTable'));
 vi.mock('./components/KOBracket', () => stub('KOBracket'));
+vi.mock('./components/RoundHistory', () => stub('RoundHistory'));
 vi.mock('./components/AdminDashboard', () => stub('AdminDashboard'));
 vi.mock('./components/PrintableSheets', () => stub('PrintableSheets'));
 vi.mock('./components/AdminPinPrompt', () => ({
@@ -73,6 +74,7 @@ describe('App', () => {
     const tabs = [
       ['Ergebniseingabe', 'AdminPinPrompt Ergebniseingabe'],
       ['Tabelle', 'StandingsTable'],
+      ['Runden', 'RoundHistory'],
       ['KO-Baum', 'KOBracket'],
       ['Spielzettel', 'PrintableSheets'],
     ];

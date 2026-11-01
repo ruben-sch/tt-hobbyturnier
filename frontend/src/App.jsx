@@ -4,6 +4,7 @@ import HallenMonitor from './components/HallenMonitor';
 import TableScorer from './components/TableScorer';
 import StandingsTable from './components/StandingsTable';
 import KOBracket from './components/KOBracket';
+import RoundHistory from './components/RoundHistory';
 import AdminDashboard from './components/AdminDashboard';
 import PrintableSheets from './components/PrintableSheets';
 import AdminPinPrompt from './components/AdminPinPrompt';
@@ -11,7 +12,7 @@ import { fetchActiveTournament, getAdminPin, subscribeAdminPin, verifyAdminPin, 
 import { useWebSocket } from './hooks/useWebSocket';
 import { LiveEventsContext, TOURNAMENT_EVENTS, createLiveEvents } from './hooks/useLiveEvents';
 
-const TABS = ['monitor', 'scorer', 'standings', 'bracket', 'admin', 'print'];
+const TABS = ['monitor', 'scorer', 'standings', 'history', 'bracket', 'admin', 'print'];
 
 // The monitor QR code links to ?tab=monitor (see useAppBaseUrl).
 function readDeepLinkTab() {
@@ -91,6 +92,9 @@ export default function App() {
         )}
         {currentTab === 'standings' && (
           <StandingsTable tournament={tournament} />
+        )}
+        {currentTab === 'history' && (
+          <RoundHistory tournament={tournament} />
         )}
         {currentTab === 'bracket' && (
           <KOBracket 

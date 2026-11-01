@@ -21,7 +21,7 @@ describe('Navbar', () => {
       tournament={{ name: 'X', current_round_number: 0, ko_enabled: true }} />);
 
     expect(screen.getByText('Offline')).toBeInTheDocument();
-    expect(screen.queryByText(/^Runde/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Runde \d/)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'KO-Baum' }));
     expect(setCurrentTab).toHaveBeenCalledWith('bracket');
