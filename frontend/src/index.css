@@ -19,6 +19,18 @@
   }
 }
 
+/* Hallen-Monitor: rem follows the screen (see HallenMonitor.jsx). The split
+   view is about 80rem tall, so 100vh / 80 keeps all 8 matches on screen.
+   No 16px floor here: on Full HD that floor made the last row overflow. */
+html.hallen-monitor {
+  font-size: 16px;
+}
+@media (min-width: 1024px) {
+  html.hallen-monitor {
+    font-size: max(10px, min(40px, 100vw / 120, 100vh / 80));
+  }
+}
+
 /* Print CSS */
 @media print {
   @page {

@@ -12,11 +12,11 @@ import {
   CheckCircle2
 } from 'lucide-react';
 
-// Scales rem with the screen: 16px up to Full HD, about 30px on a 4K TV in
-// fullscreen (bounded by the height, so the split view with 8 matches fits
-// without scrolling). The layout is sized in rem, so it fills a 4K screen the same way
-// it fills a Full HD one, and phones keep the normal 16px.
-export const MONITOR_FONT_SIZE = 'max(16px, min(40px, 100vw / 120, 100vh / 78))';
+// Class on <html> while the monitor is shown. index.css scales rem with the
+// screen from lg up (where the split view kicks in): bounded by width and by
+// height, so the split view with 8 matches fits Full HD, 1440p, 4K and a
+// non-fullscreen browser window without scrolling. Phones keep the normal 16px.
+export const MONITOR_ROOT_CLASS = 'hallen-monitor';
 
 const gameLabel = (g) => (g.is_doubles ? 'D' : `E${g.game_order}`);
 
@@ -119,9 +119,8 @@ export default function HallenMonitor({ tournament }) {
 
   useEffect(() => {
     const root = document.documentElement;
-    const previous = root.style.fontSize;
-    root.style.fontSize = MONITOR_FONT_SIZE;
-    return () => { root.style.fontSize = previous; };
+    root.classList.add(MONITOR_ROOT_CLASS);
+    return () => { root.classList.remove(MONITOR_ROOT_CLASS); };
   }, []);
 
   const loadData = useCallback(async () => {
@@ -194,7 +193,7 @@ export default function HallenMonitor({ tournament }) {
   );
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-slate-950 text-slate-100 flex flex-col p-3 sm:p-4 lg:p-5 select-none">
+    <div className="min-h-[calc(100vh-4rem-1px)] bg-slate-950 text-slate-100 flex flex-col p-3 sm:p-4 lg:p-5 select-none">
 
       {/* Top Header / Status bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800">
