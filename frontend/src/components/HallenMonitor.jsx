@@ -18,6 +18,26 @@ import {
 // non-fullscreen browser window without scrolling. Phones keep the normal 16px.
 export const MONITOR_ROOT_CLASS = 'hallen-monitor';
 
+const formatClock = (date) => date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+// Local time (hours:minutes) for the hall. Checks every second but only
+// re-renders when the minute changes.
+export function MonitorClock() {
+  const [time, setTime] = useState(() => formatClock(new Date()));
+  useEffect(() => {
+    const timer = setInterval(() => setTime(formatClock(new Date())), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <div
+      data-testid="monitor-clock"
+      className="font-mono font-black text-3xl sm:text-4xl leading-none text-white tabular-nums"
+    >
+      {time}
+    </div>
+  );
+}
+
 const gameLabel = (g) => (g.is_doubles ? 'D' : `E${g.game_order}`);
 
 // The table(s) a match is played on, or its number in the round before tables are assigned.
@@ -230,26 +250,29 @@ export default function HallenMonitor({ tournament }) {
           </button>
         </div>
 
-        {/* QR code for players: opens the live scores on their phone */}
-        {baseUrl && (
-          <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-xl p-2 pr-4">
-            <div className="bg-white p-1.5 rounded-lg">
-              <QRCodeSVG
-                value={monitorUrl(baseUrl)}
-                size={160}
-                style={{ width: '5.5rem', height: '5.5rem' }}
-                title="QR-Code zur Spielstandsanzeige"
-                data-testid="monitor-qr"
-                data-url={monitorUrl(baseUrl)}
-              />
+        {/* Clock above the QR code; the QR code opens the live scores on players' phones */}
+        <div className="flex flex-col items-end gap-2">
+          <MonitorClock />
+          {baseUrl && (
+            <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-xl p-2 pr-4">
+              <div className="bg-white p-1.5 rounded-lg">
+                <QRCodeSVG
+                  value={monitorUrl(baseUrl)}
+                  size={160}
+                  style={{ width: '5.5rem', height: '5.5rem' }}
+                  title="QR-Code zur Spielstandsanzeige"
+                  data-testid="monitor-qr"
+                  data-url={monitorUrl(baseUrl)}
+                />
+              </div>
+              <div className="text-sm">
+                <div className="font-bold text-sky-400 uppercase tracking-wide">Live-Spielstände</div>
+                <div className="text-slate-400">QR-Code mit dem Handy scannen</div>
+                <div className="font-mono text-slate-500 mt-1">{baseUrl.replace(/^https?:\/\//, '')}</div>
+              </div>
             </div>
-            <div className="text-sm">
-              <div className="font-bold text-sky-400 uppercase tracking-wide">Live-Spielstände</div>
-              <div className="text-slate-400">QR-Code mit dem Handy scannen</div>
-              <div className="font-mono text-slate-500 mt-1">{baseUrl.replace(/^https?:\/\//, '')}</div>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Main Content Area */}
