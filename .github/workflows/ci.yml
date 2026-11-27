@@ -73,7 +73,7 @@ jobs:
           docker logs tt
           [[ "$status" == healthy ]] || { echo "::error::Container nicht healthy: $status"; exit 1; }
           curl -fsS http://localhost:8000/ | grep -q '<div id="root">'
-          curl -fsS -H 'X-Admin-Pin: ci-pin' "http://localhost:8000/api/tournaments/$(curl -fsS http://localhost:8000/api/tournaments/active | jq .id)/admin-check"
+          curl -fsS -H 'X-Admin-Pin: ci-pin' http://localhost:8000/api/tournaments/admin-check
 
   e2e:
     name: E2E (full tournament, 17 teams)
