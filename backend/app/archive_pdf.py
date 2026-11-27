@@ -75,6 +75,20 @@ def _standings_section(pdf: _ArchivePdf, tournament: Tournament, db: Session) ->
     if not standings:
         pdf.cell(0, 6, "Keine Mannschaften.", new_x="LMARGIN", new_y="NEXT")
         return
+    if tournament.is_singles:
+        with pdf.table(
+            col_widths=(12, 90, 14, 24, 22, 28),
+            text_align=("RIGHT", "LEFT", "RIGHT", "CENTER", "RIGHT", "CENTER"),
+            headings_style=HEADER,
+            line_height=5.5,
+        ) as table:
+            table.row(["Pl.", "Spieler", "Sp.", "S-N", "Buchh.", "Sätze"])
+            for s in standings:
+                table.row([_text(v) for v in (
+                    s["rank"], s["team_name"], s["matches_played"], f"{s['won_matches']}-{s['lost_matches']}",
+                    f"{s['buchholz']:g}", f"{s['sets_won']}:{s['sets_lost']}",
+                )])
+        return
     with pdf.table(
         col_widths=(10, 42, 58, 10, 18, 18, 16, 18),
         text_align=("RIGHT", "LEFT", "LEFT", "RIGHT", "CENTER", "CENTER", "RIGHT", "CENTER"),
@@ -135,6 +149,8 @@ def _match_rows(table, match: TeamMatch, number: int) -> None:
     row.cell(_text(_team_name(match, "A")))
     row.cell(score)
     row.cell(_text(_team_name(match, "B")))
+    if match.round.tournament.is_singles:
+        return  # the match is its one game, the score above is its set count
     for game in match.individual_games:
         row = table.row()
         row.cell(_text(_game_label(game)))
@@ -183,7 +199,7 @@ def build_archive_pdf(tournament: Tournament, db: Session, now: Optional[datetim
     pdf.set_font("Helvetica", size=9)
     pdf.cell(0, 5, _text(
         f"Ergebnisarchiv, erstellt am {now:%d.%m.%Y um %H:%M} Uhr · {len(rounds)} Runden · "
-        f"Best of {tournament.best_of_sets}"
+        f"{'Einzelturnier' if tournament.is_singles else '2er-Teams'} · Best of {tournament.best_of_sets}"
     ), new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
 

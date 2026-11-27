@@ -14,7 +14,8 @@ from backend.app.models import IndividualGame, Round, TeamMatch
 def _game_desc(game: Optional[IndividualGame]) -> str:
     if game is None:
         return ""
-    label = "Doppel" if game.is_doubles else f"Einzel {game.game_order}"
+    singles = game.team_match.round.tournament.is_singles  # the match is this one game
+    label = "Doppel" if game.is_doubles else "Spiel" if singles else f"Einzel {game.game_order}"
     return f"{label}: {game.player_a_name or 'A'} vs {game.player_b_name or 'B'}"
 
 
@@ -78,6 +79,7 @@ def live_matches(db: Session) -> List[Dict[str, Any]]:
             "tournament_id": t.id,
             "tournament_name": t.name,
             "best_of_sets": t.best_of_sets,
+            "is_singles": bool(t.is_singles),
             "round_number": m.round.round_number,
             "ko_stage": m.round.ko_stage,
         })

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { fetchRounds } from '../services/api';
 import { useLiveEvent, MATCH_EVENTS, TEAM_EVENTS } from '../hooks/useLiveEvents';
 import { Printer } from 'lucide-react';
+import { isSingles } from '../lib/tournamentFormat';
 
 // Four sheets per A4 page (2x2). The page box is the printable area of A4
 // minus the 10mm @page margin from index.css (1mm spare in height so
@@ -15,6 +16,8 @@ const SINGLES = [
   [3, 1, 1],
   [4, 2, 2],
 ];
+// Einzelturnier: one game between the two players.
+const ONE_GAME = [[1, 1, 1]];
 
 function chunk(items, size) {
   const chunks = [];
@@ -37,6 +40,8 @@ function setsCell(match, gameOrder) {
 
 function MatchSheet({ tournament, round, match, number }) {
   const roundLabel = round.round_type === 'ko' ? round.ko_stage : 'Schweizer System';
+  const singles = isSingles(tournament);
+  const side = singles ? 'Spieler' : 'Mannschaft';
 
   return (
     <div className="flex flex-col p-[5mm] border border-dashed border-neutral-400 overflow-hidden">
@@ -58,18 +63,22 @@ function MatchSheet({ tournament, round, match, number }) {
 
       {/* Teams & Aufstellung Info */}
       <div className="grid grid-cols-2 gap-2 border border-black p-1.5 mb-2 rounded">
-        {['a', 'b'].map(side => (
-          <div key={side} className="min-w-0">
+        {['a', 'b'].map(s => (
+          <div key={s} className="min-w-0">
             <span className="text-[8px] uppercase font-bold text-neutral-500 block">
-              Mannschaft {side.toUpperCase()}
+              {side} {s.toUpperCase()}
             </span>
-            <span className="text-xs font-bold block truncate">{match[`team_${side}`]?.name}</span>
-            <span className="text-[10px] text-neutral-700 block truncate">
-              1: {playerName(match, side, 1) || '____________'}
-            </span>
-            <span className="text-[10px] text-neutral-700 block truncate">
-              2: {playerName(match, side, 2) || '____________'}
-            </span>
+            <span className="text-xs font-bold block truncate">{match[`team_${s}`]?.name}</span>
+            {!singles && (
+              <>
+                <span className="text-[10px] text-neutral-700 block truncate">
+                  1: {playerName(match, s, 1) || '____________'}
+                </span>
+                <span className="text-[10px] text-neutral-700 block truncate">
+                  2: {playerName(match, s, 2) || '____________'}
+                </span>
+              </>
+            )}
           </div>
         ))}
       </div>
@@ -85,15 +94,15 @@ function MatchSheet({ tournament, round, match, number }) {
           </tr>
         </thead>
         <tbody>
-          {SINGLES.map(([order, a, b]) => (
+          {(singles ? ONE_GAME : SINGLES).map(([order, a, b]) => (
             <tr key={order}>
               <td className="border border-black px-1 py-3 text-center font-bold">{order}</td>
-              <td className="border border-black px-1 py-3 truncate">A{a}: {playerName(match, 'a', a) || `Spieler A${a}`}</td>
-              <td className="border border-black px-1 py-3 truncate">B{b}: {playerName(match, 'b', b) || `Spieler B${b}`}</td>
+              <td className="border border-black px-1 py-3 truncate">{singles ? '' : `A${a}: `}{playerName(match, 'a', a) || `Spieler A${a}`}</td>
+              <td className="border border-black px-1 py-3 truncate">{singles ? '' : `B${b}: `}{playerName(match, 'b', b) || `Spieler B${b}`}</td>
               <td className="border border-black px-1 py-3 text-center font-bold">{setsCell(match, order)}</td>
             </tr>
           ))}
-          {round.round_type === 'ko' && (
+          {round.round_type === 'ko' && !singles && (
             <tr className="bg-neutral-50">
               <td className="border border-black px-1 py-3 text-center font-bold">5</td>
               <td className="border border-black px-1 py-3 italic" colSpan={2}>
@@ -109,11 +118,11 @@ function MatchSheet({ tournament, round, match, number }) {
       <div className="grid grid-cols-2 gap-4 mt-auto pt-4 text-[9px] text-center">
         <div>
           <div className="border-b border-black mb-0.5"></div>
-          <span className="text-neutral-600">Unterschrift Mannschaft A</span>
+          <span className="text-neutral-600">Unterschrift {side} A</span>
         </div>
         <div>
           <div className="border-b border-black mb-0.5"></div>
-          <span className="text-neutral-600">Unterschrift Mannschaft B</span>
+          <span className="text-neutral-600">Unterschrift {side} B</span>
         </div>
       </div>
     </div>

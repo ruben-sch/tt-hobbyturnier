@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { createTournament } from '../services/api';
 import { Tv, Trophy, Plus, Archive, RefreshCw } from 'lucide-react';
+import { formatLabel } from '../lib/tournamentFormat';
 
 // Start page, also where the monitor QR code leads: players pick their class
 // (running tournament) and open its live scores or standings. Abgeschlossene
 // tournaments stay below as history. The Turnierleitung creates new ones here.
 export default function TournamentOverview({ tournaments, isAdmin, onOpen }) {
   const [newName, setNewName] = useState('');
+  const [newSingles, setNewSingles] = useState(false); // Einzelturnier instead of 2er-Teams; fixed once created
+  const [newBestOf, setNewBestOf] = useState(5);
   const [creating, setCreating] = useState(false);
 
   if (!tournaments) {
@@ -27,8 +30,10 @@ export default function TournamentOverview({ tournaments, isAdmin, onOpen }) {
     if (!name) return;
     try {
       setCreating(true);
-      const created = await createTournament({ name });
+      const created = await createTournament({ name, is_singles: newSingles, best_of_sets: newBestOf });
       setNewName('');
+      setNewSingles(false);
+      setNewBestOf(5);
       onOpen(created.id, 'admin');
     } catch (err) {
       alert("Fehler: " + err.message);
@@ -55,7 +60,7 @@ export default function TournamentOverview({ tournaments, isAdmin, onOpen }) {
             className="bg-slate-800/90 border border-sky-500/40 rounded-2xl p-5"
           >
             <div className="font-bold text-xl text-white truncate">{t.name}</div>
-            <div className="text-sm text-slate-400 mb-4">{roundInfo(t)}</div>
+            <div className="text-sm text-slate-400 mb-4"><span>{formatLabel(t)}</span> • <span>{roundInfo(t)}</span></div>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -89,8 +94,33 @@ export default function TournamentOverview({ tournaments, isAdmin, onOpen }) {
             Neues Turnier (z. B. eine weitere Klasse)
           </label>
           <p className="text-xs text-slate-400 mb-3">
-            Läuft neben den anderen; Einstellungen und Teams danach unter „Turnierleitung“.
+            Läuft neben den anderen; Teams bzw. Spieler danach unter „Turnierleitung“. Die Spielform lässt sich
+            später nicht mehr ändern, die Gewinnsätze schon.
           </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+            <label className="text-xs text-slate-400 font-medium">
+              Spielform
+              <select
+                value={newSingles ? 'singles' : 'teams'}
+                onChange={(e) => setNewSingles(e.target.value === 'singles')}
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm"
+              >
+                <option value="teams">2er-Teams (4 Einzel pro Begegnung)</option>
+                <option value="singles">Einzelturnier (1 Spiel pro Begegnung)</option>
+              </select>
+            </label>
+            <label className="text-xs text-slate-400 font-medium">
+              Gewinnsätze
+              <select
+                value={newBestOf}
+                onChange={(e) => setNewBestOf(parseInt(e.target.value))}
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm"
+              >
+                <option value={5}>3 Gewinnsätze (Best of 5)</option>
+                <option value={3}>2 Gewinnsätze (Best of 3)</option>
+              </select>
+            </label>
+          </div>
           <div className="flex gap-2">
             <input
               id="new-tournament"

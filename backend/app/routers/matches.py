@@ -35,7 +35,8 @@ def get_match(match_id: int, db: Session = Depends(get_db)):
 
 def check_and_update_match_status(match: TeamMatch, db: Session):
     """Applies match_rules.match_result to the match, adding or dropping the deciding doubles."""
-    result = match_rules.match_result(match.round.round_type, match.individual_games)
+    singles_count = match_rules.singles_per_match(match.round.tournament.is_singles)
+    result = match_rules.match_result(match.round.round_type, match.individual_games, singles_count)
     if result.needs_doubles:
         add_deciding_doubles(match, db)
     if result.drop_doubles:

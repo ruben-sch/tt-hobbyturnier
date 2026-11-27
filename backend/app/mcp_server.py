@@ -23,9 +23,10 @@ from backend.app.swiss_system import calculate_standings
 mcp = MCPServer(
     name="tt-hobbyturnier",
     instructions=(
-        "Tischtennis-Hobbyturnier mit 2er-Teams. Eine Begegnung (match) besteht aus 4 Einzeln, "
-        "in der KO-Phase bei 2:2 plus Doppel. Pro Spiel wird nur der Satzstand (z.B. 3:1) eingetragen, "
-        "Satz- oder Ballstände gibt es nicht."
+        "Tischtennis-Hobbyturnier, pro Turnier entweder mit 2er-Teams oder als Einzelturnier (is_singles). "
+        "Bei 2er-Teams besteht eine Begegnung (match) aus 4 Einzeln, in der KO-Phase bei 2:2 plus Doppel. "
+        "Im Einzelturnier ist ein Team ein einzelner Spieler und eine Begegnung genau ein Spiel. "
+        "Pro Spiel wird nur der Satzstand (z.B. 3:1) eingetragen, Satz- oder Ballstände gibt es nicht."
     ),
     auth=auth_settings,
     auth_server_provider=provider,
@@ -52,7 +53,8 @@ def _label(t: Tournament) -> Dict[str, Any]:
 def _game(g) -> Dict[str, Any]:
     return {
         "game_id": g.id,
-        "game": "Doppel" if g.is_doubles else f"Einzel {g.game_order}",
+        "game": "Doppel" if g.is_doubles else "Spiel" if g.team_match.round.tournament.is_singles
+        else f"Einzel {g.game_order}",
         "player_a": g.player_a_name,
         "player_b": g.player_b_name,
         "sets": f"{g.sets_won_a}:{g.sets_won_b}" if g.is_completed else None,
@@ -86,7 +88,8 @@ def list_tournaments() -> List[Dict[str, Any]]:
     """Every tournament (one per class, e.g. Hobby and Jugend), newest first; running ones have is_running."""
     with SessionLocal() as db:
         return [
-            {**_label(t), "is_running": bool(t.is_active), "current_round_number": t.current_round_number}
+            {**_label(t), "is_running": bool(t.is_active), "is_singles": bool(t.is_singles),
+             "current_round_number": t.current_round_number}
             for t in db.query(Tournament).order_by(Tournament.id.desc()).all()
         ]
 
@@ -101,6 +104,7 @@ def get_tournament(tournament_id: Optional[int] = None) -> List[Dict[str, Any]]:
             result.append({
                 **_label(t),
                 "is_running": bool(t.is_active),
+                "is_singles": bool(t.is_singles),
                 "swiss_rounds_count": t.swiss_rounds_count,
                 "ko_enabled": t.ko_enabled,
                 "best_of_sets": t.best_of_sets,
@@ -167,6 +171,8 @@ def get_live_status(tournament_id: Optional[int] = None) -> List[Dict[str, Any]]
 @mcp.tool()
 async def enter_game_result(match_id: int, game_id: int, sets_a: int, sets_b: int) -> Dict[str, Any]:
     """Enters the final set count of one game (e.g. 3:1 means team A's player won 3 sets to 1).
+
+    In an Einzelturnier the match has exactly one game; its set count decides the match.
 
     0:0 resets the game. Corrections are allowed. Returns the updated match.
     """

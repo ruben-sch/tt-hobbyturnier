@@ -6,8 +6,9 @@ from pydantic import BaseModel, ConfigDict
 
 class TeamBase(BaseModel):
     name: str
-    player1_name: str
-    player2_name: str
+    # In an Einzelturnier only name (the player) is needed: player1_name defaults to it, player2_name stays "".
+    player1_name: str = ""
+    player2_name: str = ""
 
 
 class TeamCreate(TeamBase):
@@ -28,6 +29,7 @@ class TournamentBase(BaseModel):
     ko_enabled: bool = False
     ko_teams_count: int = 4
     best_of_sets: int = 5
+    is_singles: bool = False  # Einzelturnier; only set at creation
 
 
 class TournamentCreate(TournamentBase):

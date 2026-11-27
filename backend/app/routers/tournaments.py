@@ -10,7 +10,8 @@ from backend.app import progression
 from backend.app.archive_pdf import build_archive_pdf
 from backend.app.auth import require_admin
 from backend.app.database import get_db
-from backend.app.models import Team, Tournament
+from backend.app.models import Tournament
+from backend.app.routers.teams import new_team
 from backend.app.schemas import (
     StandingsRow,
     TournamentCreate,
@@ -19,6 +20,8 @@ from backend.app.schemas import (
 )
 from backend.app.swiss_system import calculate_standings
 from backend.app.websocket_hub import ws_manager
+
+HEADER_CELLS = {"team", "mannschaft", "teamname", "spieler", "name", "teilnehmer"}
 
 router = APIRouter(prefix="/api/tournaments", tags=["Tournaments"])
 
@@ -108,58 +111,52 @@ def get_standings(tournament_id: int, db: Session = Depends(get_db)):
 
 @router.post("/{tournament_id}/teams/csv", dependencies=[Depends(require_admin)])
 async def import_teams_csv(tournament_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
-    _get(tournament_id, db)
+    """2er-Teams: Teamname;Spieler 1;Spieler 2 per row. Einzelturnier: the player's name in the first column."""
+    tournament = _get(tournament_id, db)
     content = await file.read()
     text = content.decode("utf-8-sig", errors="ignore")
     reader = csv.reader(io.StringIO(text), delimiter=";" if ";" in text else ",")
 
     imported = []
     for row in reader:
-        if not row or len(row) < 3:
+        if not row or not row[0].strip():
             continue
         # Skip header if present
-        if row[0].strip().lower() in ["team", "mannschaft", "teamname"]:
+        if row[0].strip().lower() in HEADER_CELLS:
             continue
-        
-        name = row[0].strip()
-        p1 = row[1].strip()
-        p2 = row[2].strip()
-        if not name or not p1 or not p2:
-            continue
-
-        team = Team(
-            tournament_id=tournament_id,
-            name=name,
-            player1_name=p1,
-            player2_name=p2
-        )
+        try:
+            team = new_team(tournament, *row[:3])
+        except ValueError:
+            continue  # incomplete row
         db.add(team)
-        imported.append(name)
+        imported.append(team.name)
 
     db.commit()
     await ws_manager.broadcast({"type": "TEAMS_UPDATED", "tournament_id": tournament_id})
-    return {"message": f"{len(imported)} Teams erfolgreich importiert", "teams": imported}
+    unit = "Spieler" if tournament.is_singles else "Teams"
+    return {"message": f"{len(imported)} {unit} erfolgreich importiert", "teams": imported}
 
 
 @router.get("/{tournament_id}/export/csv")
 def export_standings_csv(tournament_id: int, db: Session = Depends(get_db)):
+    singles = _get(tournament_id, db).is_singles
     standings = calculate_standings(tournament_id, db)
 
     output = io.StringIO()
     writer = csv.writer(output, delimiter=";")
-    writer.writerow([
-        "Platz", "Mannschaft", "Spieler 1", "Spieler 2",
-        "Spiele", "S", "U", "N", "Spielpunkte", "Gegenpunkte",
-        "Buchholz", "Sätze+", "Sätze-", "Satz-Diff"
-    ])
+    # An Einzelturnier has no player columns (the player is the name) and no draws
+    names = ["Platz", "Spieler"] if singles else ["Platz", "Mannschaft", "Spieler 1", "Spieler 2"]
+    results = ["Spiele", "S", "N"] if singles else ["Spiele", "S", "U", "N", "Spielpunkte", "Gegenpunkte"]
+    writer.writerow(names + results + ["Buchholz", "Sätze+", "Sätze-", "Satz-Diff"])
 
     for s in standings:
-        writer.writerow([
-            s["rank"], s["team_name"], s["player1"], s["player2"],
-            s["matches_played"], s["won_matches"], s["drawn_matches"], s["lost_matches"],
-            s["game_points"], s["game_points_lost"], s["buchholz"],
-            s["sets_won"], s["sets_lost"], s["set_diff"]
-        ])
+        name_cells = [s["rank"], s["team_name"]] + ([] if singles else [s["player1"], s["player2"]])
+        result_cells = (
+            [s["matches_played"], s["won_matches"], s["lost_matches"]] if singles else
+            [s["matches_played"], s["won_matches"], s["drawn_matches"], s["lost_matches"],
+             s["game_points"], s["game_points_lost"]]
+        )
+        writer.writerow(name_cells + result_cells + [s["buchholz"], s["sets_won"], s["sets_lost"], s["set_diff"]])
 
     output.seek(0)
     return StreamingResponse(

@@ -421,4 +421,47 @@ describe('AdminDashboard', () => {
 
     expect(await screen.findByText('Keine aktive Runde')).toBeInTheDocument();
   });
+
+  describe('Einzelturnier', () => {
+    const players = [{ id: 1, name: 'Anna', player1_name: 'Anna', player2_name: '' }];
+    const singlesSetup = (opts = {}) => setup({
+      teamList: players, ...opts, props: { tournament: { ...tournament, is_singles: true, best_of_sets: 3 } },
+    });
+
+    it('adds players by name only', async () => {
+      const { user } = singlesSetup();
+      expect(await screen.findByText(/Einzel · 2 Gewinnsätze/)).toBeInTheDocument();
+      await user.click(await screen.findByRole('button', { name: 'Spieler (1)' }));
+
+      expect(screen.getByText('Neuen Spieler anlegen')).toBeInTheDocument();
+      expect(screen.queryByText('Spieler 1 Name')).not.toBeInTheDocument();
+      expect(screen.getByText(/ein Name pro Zeile/)).toBeInTheDocument();
+      expect(screen.getByRole('columnheader', { name: 'Spieler' })).toBeInTheDocument();
+
+      await user.type(screen.getByPlaceholderText('Vor- und Nachname'), 'Ben');
+      await user.click(screen.getByRole('button', { name: 'Spieler hinzufügen' }));
+      expect(api.createTeam).toHaveBeenCalledWith(1, { name: 'Ben', player1_name: '', player2_name: '' });
+    });
+
+    it('loads demo players and shows the fixed Spielform in the settings', async () => {
+      const { user } = singlesSetup({ teamList: [] });
+      await user.click(await screen.findByRole('button', { name: 'Spieler (0)' }));
+      expect(screen.getByText('Noch keine Spieler angelegt.')).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: /8 Demo-Spieler automatisch laden/ }));
+      expect(api.createTeam).toHaveBeenCalledWith(1, { name: 'Lukas Weber' });
+      expect(alert).toHaveBeenCalledWith('8 Demo-Spieler wurden erfolgreich hinzugefügt!');
+
+      await user.click(screen.getByRole('button', { name: 'Einstellungen' }));
+      expect(screen.getByText('Satzmodus pro Spiel')).toBeInTheDocument();
+      expect(screen.getByText('Einzelturnier (1 Spiel pro Begegnung)')).toBeInTheDocument();
+    });
+
+    it('shows pairings without player lines or singles counter', async () => {
+      const singlesMatch = match(1, 'Anna', 'Ben', { team_a_p2_name: '', individual_games: [{ is_completed: false }] });
+      singlesSetup({ rounds: [{ ...activeRound, team_matches: [singlesMatch] }] });
+      expect(await screen.findByTestId('active-round')).toBeInTheDocument();
+      expect(screen.queryByText(/Einzel gespielt/)).not.toBeInTheDocument();
+      expect(within(screen.getByTestId('active-round')).queryByText(/Anna1 &/)).not.toBeInTheDocument();
+    });
+  });
 });

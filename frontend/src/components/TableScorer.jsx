@@ -5,6 +5,7 @@ import {
   submitGameResult
 } from '../services/api';
 import { useLiveEvent, MATCH_EVENTS } from '../hooks/useLiveEvents';
+import { pairNames } from '../lib/tournamentFormat';
 import { 
   Trophy, 
   ListOrdered
@@ -241,7 +242,7 @@ export default function TableScorer({ tournaments }) {
               {matchData.team_a?.name}
             </h3>
             <p className="text-xs text-slate-400">
-              {matchData.team_a_p1_name} & {matchData.team_a_p2_name}
+              {pairNames(matchData.team_a_p1_name, matchData.team_a_p2_name)}
             </p>
           </div>
 
@@ -259,7 +260,7 @@ export default function TableScorer({ tournaments }) {
               {matchData.team_b?.name || "BYE"}
             </h3>
             <p className="text-xs text-slate-400">
-              {matchData.team_b_p1_name} & {matchData.team_b_p2_name}
+              {pairNames(matchData.team_b_p1_name, matchData.team_b_p2_name)}
             </p>
           </div>
         </div>
@@ -269,7 +270,7 @@ export default function TableScorer({ tournaments }) {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
         {matchData.individual_games.map((g) => {
           const isSelected = g.id === activeGameId;
-          const orderLabel = g.is_doubles ? "5. Doppel" : `${g.game_order}. Einzel`;
+          const orderLabel = g.is_doubles ? "5. Doppel" : selected?.is_singles ? "Spiel" : `${g.game_order}. Einzel`;
           return (
             <button
               key={g.id}

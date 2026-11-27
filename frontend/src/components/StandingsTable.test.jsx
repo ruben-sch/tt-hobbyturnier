@@ -75,4 +75,15 @@ describe('StandingsTable', () => {
 
     expect(await screen.findByText('Keine Einträge gefunden.')).toBeInTheDocument();
   });
+
+  it('shows players without player column or draws in an Einzelturnier', async () => {
+    api.fetchStandings.mockResolvedValue([standingsRow(1, 'Anna', { player1: 'Anna', player2: '', game_points: 1 })]);
+    render(<StandingsTable tournament={{ id: 7, is_singles: true }} />);
+    expect(await screen.findByText('Anna')).toBeInTheDocument();
+    expect(screen.getAllByText('Siege').length).toBeGreaterThan(0);
+    expect(screen.queryByText('S - U - N')).not.toBeInTheDocument();
+    expect(screen.getByText('1 - 1')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Spieler suchen...')).toBeInTheDocument();
+    expect(screen.getByText(/Summe der Siege/)).toBeInTheDocument();
+  });
 });

@@ -9,7 +9,9 @@ from backend.app.models import Round, Team, TeamMatch, Tournament
 
 def calculate_standings(tournament_id: int, db: Session) -> List[Dict]:
     teams = Team.active(db, tournament_id).all()
-    bye_sets = match_rules.bye_sets(db.get(Tournament, tournament_id).best_of_sets)
+    tournament = db.get(Tournament, tournament_id)
+    singles_count = match_rules.singles_per_match(tournament.is_singles)
+    bye_sets = match_rules.bye_sets(tournament.best_of_sets, singles_count)
 
     # Initialize statistics for each team
     stats = {}
@@ -45,14 +47,16 @@ def calculate_standings(tournament_id: int, db: Session) -> List[Dict]:
     for m in matches:
         a_id = m.team_a_id
         b_id = m.team_b_id
+        winner = "A" if m.winner_team_id == a_id else "B" if b_id and m.winner_team_id == b_id else None
+        points_a, points_b = match_rules.match_points(m.score_a, m.score_b, winner, singles_count)
 
         # BYE match handling (team_b_id is None)
         if b_id is None:
             if a_id in stats:
                 stats[a_id]["matches_played"] += 1
                 stats[a_id]["won_matches"] += 1
-                stats[a_id]["game_points"] += m.score_a
-                stats[a_id]["game_points_lost"] += m.score_b
+                stats[a_id]["game_points"] += points_a
+                stats[a_id]["game_points_lost"] += points_b
                 stats[a_id]["sets_won"] += bye_sets
             continue
 
@@ -62,15 +66,15 @@ def calculate_standings(tournament_id: int, db: Session) -> List[Dict]:
             opponents_map[a_id].append(b_id)
             opponents_map[b_id].append(a_id)
 
-            stats[a_id]["game_points"] += m.score_a
-            stats[a_id]["game_points_lost"] += m.score_b
-            stats[b_id]["game_points"] += m.score_b
-            stats[b_id]["game_points_lost"] += m.score_a
+            stats[a_id]["game_points"] += points_a
+            stats[a_id]["game_points_lost"] += points_b
+            stats[b_id]["game_points"] += points_b
+            stats[b_id]["game_points_lost"] += points_a
 
-            if m.score_a > m.score_b:
+            if points_a > points_b:
                 stats[a_id]["won_matches"] += 1
                 stats[b_id]["lost_matches"] += 1
-            elif m.score_b > m.score_a:
+            elif points_b > points_a:
                 stats[b_id]["won_matches"] += 1
                 stats[a_id]["lost_matches"] += 1
             else:
