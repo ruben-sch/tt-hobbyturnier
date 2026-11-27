@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/ruben-sch/tt-hobbyturnier/compare/tt-hobbyturnier-v1.6.0...tt-hobbyturnier-v1.7.0) (2026-11-27)
+
+
+### Features
+
+* mehrere Turniere parallel verwalten ([#40](https://github.com/ruben-sch/tt-hobbyturnier/issues/40)) ([6747191](https://github.com/ruben-sch/tt-hobbyturnier/commit/6747191dbbf13d06277fcc61b29d5e6405ab4cfe))
+
 ## [1.6.0](https://github.com/ruben-sch/tt-hobbyturnier/compare/tt-hobbyturnier-v1.5.0...tt-hobbyturnier-v1.6.0) (2026-11-01)
 
 
