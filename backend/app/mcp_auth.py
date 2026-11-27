@@ -1,12 +1,12 @@
 """OAuth for the MCP server, so claude.ai can connect as a custom connector.
 
 The app is its own small authorization server: the login step is entering the admin PIN
-of the active tournament. Every /mcp request needs a bearer token, which is either an
+(TT_ADMIN_PIN). Every /mcp request needs a bearer token, which is either an
 OAuth access token issued here or the admin PIN itself (for Claude Code / Desktop).
 
 Pending logins and authorization codes live in memory (single process, minutes long);
 clients and tokens are in SQLite so they survive restarts. Tokens are stored hashed and
-bound to the admin PIN they were issued under: changing the PIN revokes them all.
+bound to the admin PIN they were issued under: changing TT_ADMIN_PIN revokes them all.
 """
 
 import hashlib
@@ -33,9 +33,9 @@ from mcp.server.auth.provider import (
 from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, RevocationOptions
 from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 
-from backend.app.auth import active_tournament, check_admin_pin, client_key, locked_out_message, pin_attempts
+from backend.app.auth import check_admin_pin, client_key, locked_out_message, pin_attempts
 from backend.app.database import SessionLocal
-from backend.app.models import OAuthClient
+from backend.app.models import OAuthClient, admin_pin
 from backend.app.models import OAuthToken as StoredToken
 
 PUBLIC_URL = os.getenv("TT_PUBLIC_URL", "http://localhost:8000").rstrip("/")
@@ -70,23 +70,17 @@ def _hash(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
 
-def _current_pin_fingerprint() -> Optional[str]:
-    with SessionLocal() as db:
-        tournament = active_tournament(db)
-        return _hash(tournament.admin_pin) if tournament else None
+def _current_pin_fingerprint() -> str:
+    return _hash(admin_pin())
 
 
 def _pin_is_valid(pin: str, client: Optional[str] = None) -> bool:
     """With a client key, wrong PINs count towards its lockout, and a locked-out client never passes."""
-    with SessionLocal() as db:
-        tournament = active_tournament(db)
-        if tournament is None:
-            return False
-        try:
-            check_admin_pin(tournament, pin, client)
-        except HTTPException:
-            return False
-        return True
+    try:
+        check_admin_pin(pin, client)
+    except HTTPException:
+        return False
+    return True
 
 
 def _allowed_redirect(uri: str) -> bool:
@@ -184,8 +178,6 @@ class TournamentOAuthProvider:
 
     def _issue(self, client_id: str, scopes: List[str]) -> OAuthToken:
         fingerprint = _current_pin_fingerprint()
-        if fingerprint is None:
-            raise TokenError("invalid_grant", "Kein aktives Turnier.")
         access, refresh = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
         grant_id = secrets.token_hex(16)
         now = int(time.time())

@@ -7,8 +7,8 @@ from sqlalchemy.orm import Query, Session, relationship
 from backend.app.database import Base
 
 
-def default_admin_pin() -> str:
-    """Admin PIN of a new tournament. Set TT_ADMIN_PIN on a public server, where admin123 is guessable."""
+def admin_pin() -> str:
+    """The Turnierleitung's PIN, for every tournament. Set TT_ADMIN_PIN on a public server: admin123 is guessable."""
     return os.getenv("TT_ADMIN_PIN", "").strip() or "admin123"
 
 
@@ -18,7 +18,7 @@ class Tournament(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None))  # naive UTC
-    is_active = Column(Boolean, default=True)
+    is_active = Column(Boolean, default=True)  # "läuft"; False: abgeschlossen (history). Several may run at once.
 
     # Tournament configuration
     swiss_rounds_count = Column(Integer, default=5)
@@ -26,9 +26,7 @@ class Tournament(Base):
     ko_enabled = Column(Boolean, default=False)
     ko_teams_count = Column(Integer, default=4)  # 4 or 8
     best_of_sets = Column(Integer, default=5)     # 3 or 5
-    table_count = Column(Integer, default=8)
-    tables_per_match = Column(Integer, default=1)  # 1 or 2
-    admin_pin = Column(String(20), default=default_admin_pin)
+    # Older databases still hold table_count, tables_per_match and admin_pin columns; they are unused.
 
     teams = relationship("Team", back_populates="tournament", cascade="all, delete-orphan")
     rounds = relationship("Round", back_populates="tournament", cascade="all, delete-orphan")
@@ -76,9 +74,7 @@ class TeamMatch(Base):
     round_id = Column(Integer, ForeignKey("rounds.id"), nullable=False)
     team_a_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
     team_b_id = Column(Integer, ForeignKey("teams.id"), nullable=True)  # None: bye (Swiss)
-    
-    table_number = Column(Integer, nullable=True)
-    table_number_b = Column(Integer, nullable=True)  # if 2 tables assigned
+    # No table numbers: they are written on the match sheet by hand (older databases keep unused columns).
 
     # Players at position 1 and 2 of Team A and Team B (fixed order from registration)
     team_a_p1_name = Column(String(100), nullable=True)
@@ -118,7 +114,6 @@ class IndividualGame(Base):
     team_match_id = Column(Integer, ForeignKey("team_matches.id"), nullable=False)
     game_order = Column(Integer, nullable=False)  # see match_sheet.SINGLES; 5: deciding doubles (KO)
     is_doubles = Column(Boolean, default=False)
-    table_number = Column(Integer, nullable=True)
 
     player_a_name = Column(String(100), nullable=True)
     player_b_name = Column(String(100), nullable=True)
@@ -148,5 +143,5 @@ class OAuthToken(Base):
     kind = Column(String(10), nullable=False)  # "access" or "refresh"
     client_id = Column(String(64), nullable=False)
     grant_id = Column(String(64), nullable=False, index=True)  # shared by a token pair, for revocation
-    pin_fingerprint = Column(String(64), nullable=False)  # admin PIN at issue time; a new PIN revokes
+    pin_fingerprint = Column(String(64), nullable=False)  # admin PIN at issue time; a new TT_ADMIN_PIN revokes
     expires_at = Column(Integer, nullable=False)

@@ -95,9 +95,9 @@ def test_refresh_rotates_the_tokens(oauth):
     assert "access_token" not in oauth.exchange(refresh_token=first["refresh_token"])
 
 
-def test_new_admin_pin_revokes_tokens(oauth, client, t_id):
+def test_new_admin_pin_revokes_tokens(oauth, monkeypatch):
     tokens = oauth.tokens()
-    client.put(f"/api/tournaments/{t_id}", json={"admin_pin": "neu"})
+    monkeypatch.setenv("TT_ADMIN_PIN", "neu")
 
     assert oauth.list_tools(tokens["access_token"]).status_code == 401
     assert "access_token" not in oauth.exchange(refresh_token=tokens["refresh_token"])

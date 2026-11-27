@@ -18,10 +18,10 @@ def setup_clean_db():
 def test_full_tournament_lifecycle():
     client = TestClient(app)
 
-    # 1. Get or create active tournament
-    res = client.get("/api/tournaments/active")
+    # 1. An empty database gets a first tournament
+    res = client.get("/api/tournaments")
     assert res.status_code == 200
-    t_data = res.json()
+    t_data = res.json()[0]
     t_id = t_data["id"]
     assert t_id > 0
 
@@ -95,18 +95,18 @@ def test_full_tournament_lifecycle():
     mon_res = client.get(f"/api/monitors/{t_id}/dashboard")
     assert mon_res.status_code == 200
     mon_data = mon_res.json()
-    assert "tables" in mon_data
+    assert "matches" in mon_data
     assert "standings" in mon_data
     assert "ticker" in mon_data
     assert len(mon_data["ticker"]) == 2  # The 2 completed matches from round 1!
 
     # 11. No table or match PINs anymore: result entry needs the admin PIN
-    assert "pin_code" not in mon_data["tables"][0]
+    assert "pin_code" not in mon_data["matches"][0]
 
 
 def test_monitor_shows_match_score_of_running_match():
     client = TestClient(app)
-    t_id = client.get("/api/tournaments/active").json()["id"]
+    t_id = client.get("/api/tournaments").json()[0]["id"]
     for i in range(1, 3):
         client.post(f"/api/tournaments/{t_id}/teams", headers=ADMIN, json={
             "name": f"Team {i}", "player1_name": f"Spieler {i}A", "player2_name": f"Spieler {i}B"
@@ -118,6 +118,6 @@ def test_monitor_shows_match_score_of_running_match():
     client.post(f"/api/matches/{match['id']}/games/{games[0]['id']}/result", headers=ADMIN,
                 json={"sets_a": 3, "sets_b": 0})
 
-    tables = client.get(f"/api/monitors/{t_id}/dashboard").json()["tables"]
-    table = next(t for t in tables if t["current_team_match_id"] == match["id"])
-    assert (table["match_score_a"], table["match_score_b"]) == (1, 0)
+    matches = client.get(f"/api/monitors/{t_id}/dashboard").json()["matches"]
+    shown = next(m for m in matches if m["match_id"] == match["id"])
+    assert (shown["score_a"], shown["score_b"]) == (1, 0)

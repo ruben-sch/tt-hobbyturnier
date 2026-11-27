@@ -16,18 +16,18 @@ describe('AdminPinPrompt', () => {
 
   it('stores the PIN when the server accepts it', async () => {
     api.verifyAdminPin.mockResolvedValue(true);
-    render(<AdminPinPrompt tournament={{ id: 3 }} />);
+    render(<AdminPinPrompt />);
 
     await userEvent.type(screen.getByLabelText('Admin-PIN eingeben'), ' 4711 ');
     await userEvent.click(screen.getByRole('button', { name: 'Entsperren' }));
 
-    expect(api.verifyAdminPin).toHaveBeenCalledWith(3, '4711');
+    expect(api.verifyAdminPin).toHaveBeenCalledWith('4711');
     expect(api.setAdminPin).toHaveBeenCalledWith('4711');
   });
 
   it('shows an error and stays locked on a wrong PIN', async () => {
     api.verifyAdminPin.mockResolvedValue(false);
-    render(<AdminPinPrompt tournament={{ id: 3 }} />);
+    render(<AdminPinPrompt />);
 
     await userEvent.type(screen.getByLabelText('Admin-PIN eingeben'), 'falsch');
     await userEvent.click(screen.getByRole('button', { name: 'Entsperren' }));
@@ -38,7 +38,7 @@ describe('AdminPinPrompt', () => {
 
   it('shows the lockout message after too many wrong PINs', async () => {
     api.verifyAdminPin.mockRejectedValue(new Error('Zu viele falsche Admin-PINs.'));
-    render(<AdminPinPrompt tournament={{ id: 3 }} />);
+    render(<AdminPinPrompt />);
 
     await userEvent.type(screen.getByLabelText('Admin-PIN eingeben'), 'falsch');
     await userEvent.click(screen.getByRole('button', { name: 'Entsperren' }));

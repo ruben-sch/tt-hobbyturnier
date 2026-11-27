@@ -123,16 +123,15 @@ def _ko_section(pdf: _ArchivePdf, rounds: List[Round]) -> None:
                          style=WINNER if m.team_b_id and m.winner_team_id == m.team_b_id else None)
 
 
-def _match_rows(table, match: TeamMatch) -> None:
+def _match_rows(table, match: TeamMatch, number: int) -> None:
     if match.is_bye:
         row = table.row()
         row.cell(_text(f"{_team_name(match, 'A')} hat ein Freilos ({match.score_a}:{match.score_b})"), colspan=4,
                  style=WINNER)
         return
-    tables = "/".join(str(t) for t in (match.table_number, match.table_number_b) if t)
     score = f"{match.score_a}:{match.score_b}" if match.is_completed else f"{match.score_a}:{match.score_b} (offen)"
     row = table.row(style=MATCH)
-    row.cell(_text(f"Tisch {tables}" if tables else ""))
+    row.cell(f"Spiel {number}")
     row.cell(_text(_team_name(match, "A")))
     row.cell(score)
     row.cell(_text(_team_name(match, "B")))
@@ -163,8 +162,12 @@ def _rounds_section(pdf: _ArchivePdf, rounds: List[Round]) -> None:
             line_height=5,
         ) as table:
             table.row(["", "Heim", "Ergebnis", "Gast"])
-            for m in sorted(r.team_matches, key=lambda m: (m.ko_slot or 0, m.table_number or 999, m.id)):
-                _match_rows(table, m)
+            matches = sorted(r.team_matches, key=lambda m: (m.ko_slot or 0, m.id))
+            for number, m in enumerate((m for m in matches if not m.is_bye), start=1):
+                _match_rows(table, m, number)
+            for m in matches:
+                if m.is_bye:
+                    _match_rows(table, m, 0)
 
 
 def build_archive_pdf(tournament: Tournament, db: Session, now: Optional[datetime] = None) -> bytes:

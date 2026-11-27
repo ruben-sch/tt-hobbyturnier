@@ -3,7 +3,6 @@ import { verifyAdminPin, setAdminPin } from '../services/api';
 import { Lock } from 'lucide-react';
 
 export default function AdminPinPrompt({
-  tournament,
   title = 'Turnierleitung',
   description = 'Dieser Bereich ist durch die Admin-PIN geschützt.',
 }) {
@@ -14,11 +13,11 @@ export default function AdminPinPrompt({
   const handleSubmit = async (e) => {
     e.preventDefault();
     const pin = pinInput.trim();
-    if (!pin || !tournament?.id) return;
+    if (!pin) return;
     setPinError('');
     setChecking(true);
     try {
-      if (await verifyAdminPin(tournament.id, pin)) {
+      if (await verifyAdminPin(pin)) {
         setAdminPin(pin);
       } else {
         setPinError('Falsche Admin-PIN.');

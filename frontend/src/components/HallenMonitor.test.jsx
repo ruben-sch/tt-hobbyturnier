@@ -15,7 +15,7 @@ vi.mock('qrcode.react', () => ({
   QRCodeSVG: ({ value, title }) => <div title={title}>{value}</div>,
 }));
 
-const tournament = { id: 3 };
+const tournaments = [{ id: 3 }];
 
 const runningMatch = {
   match_id: 11,
@@ -56,13 +56,13 @@ describe('HallenMonitor', () => {
 
   it('shows a loading state until data arrives', () => {
     api.fetchMonitorDashboard.mockReturnValue(new Promise(() => {}));
-    render(<HallenMonitor tournament={tournament} />);
+    render(<HallenMonitor tournaments={tournaments} />);
     expect(screen.getByText('Lade Hallen-Monitor Daten...')).toBeInTheDocument();
   });
 
   it('shows live tables, standings and ticker in split mode', async () => {
     api.fetchMonitorDashboard.mockResolvedValue(swissData);
-    render(<HallenMonitor tournament={tournament} />);
+    render(<HallenMonitor tournaments={tournaments} />);
 
     expect(await screen.findByText('SOMMERTURNIER', { exact: false })).toBeInTheDocument();
     expect(api.fetchMonitorDashboard).toHaveBeenCalledWith(3);
@@ -81,7 +81,7 @@ describe('HallenMonitor', () => {
   it('keeps finished matches of the round and marks them as done', async () => {
     api.fetchMonitorDashboard.mockResolvedValue(swissData);
     const user = userEvent.setup();
-    render(<HallenMonitor tournament={tournament} />);
+    render(<HallenMonitor tournaments={tournaments} />);
 
     const check = () => {
       const [running, finished] = screen.getAllByTestId('monitor-match');
@@ -103,15 +103,13 @@ describe('HallenMonitor', () => {
 
   it('lists the singles of each match with their set counts and the running game', async () => {
     const game = (order, a, b, extra) => ({
-      game_order: order, is_doubles: false, player_a_name: a, player_b_name: b, table_number: 3,
+      game_order: order, is_doubles: false, player_a_name: a, player_b_name: b,
       sets_a: 0, sets_b: 0, is_completed: false, is_running: false, ...extra,
     });
     api.fetchMonitorDashboard.mockResolvedValue({
       ...swissData,
       matches: [{
         ...runningMatch,
-        table_number: 3,
-        table_number_b: 4,
         games: [
           game(1, 'Anna', 'Dora', { sets_a: 3, sets_b: 1, is_completed: true }),
           game(2, 'Ben', 'Carl', { is_running: true }),
@@ -119,10 +117,11 @@ describe('HallenMonitor', () => {
         ],
       }],
     });
-    render(<HallenMonitor tournament={tournament} />);
+    render(<HallenMonitor tournaments={tournaments} />);
 
     const card = await screen.findByTestId('monitor-match');
-    expect(card).toHaveTextContent('Tisch3+4');
+    expect(card).toHaveTextContent('Spiel1');
+    expect(card).not.toHaveTextContent('Tisch');
     // The game rows replace the one-line description of the next game
     expect(card).not.toHaveTextContent('Einzel 2: Anna vs Ben');
     const [done, running, open] = within(card).getAllByTestId('monitor-game');
@@ -135,26 +134,26 @@ describe('HallenMonitor', () => {
 
   it('scales the root font with the screen while it is shown', async () => {
     api.fetchMonitorDashboard.mockResolvedValue(swissData);
-    const { unmount } = render(<HallenMonitor tournament={tournament} />);
+    const { unmount } = render(<HallenMonitor tournaments={tournaments} />);
     await screen.findByText('1 aktive Paarungen');
     expect(document.documentElement).toHaveClass(MONITOR_ROOT_CLASS);
     unmount();
     expect(document.documentElement).not.toHaveClass(MONITOR_ROOT_CLASS);
   });
 
-  it('shows a QR code that opens the live scores', async () => {
+  it('shows a QR code that opens the list of running tournaments', async () => {
     api.fetchMonitorDashboard.mockResolvedValue(swissData);
-    render(<HallenMonitor tournament={tournament} />);
+    render(<HallenMonitor tournaments={tournaments} />);
 
     expect(await screen.findByTitle('QR-Code zur Spielstandsanzeige'))
-      .toHaveTextContent('http://192.168.8.10:8000/?tab=monitor');
+      .toHaveTextContent('http://192.168.8.10:8000/?tab=start');
     expect(screen.getByText('192.168.8.10:8000')).toBeInTheDocument();
   });
 
   it('switches to the single views', async () => {
     api.fetchMonitorDashboard.mockResolvedValue({ ...swissData, matches: [], ticker: [] });
     const user = userEvent.setup();
-    render(<HallenMonitor tournament={tournament} />);
+    render(<HallenMonitor tournaments={tournaments} />);
 
     expect(await screen.findByText('Aktuell keine laufenden Begegnungen.')).toBeInTheDocument();
     expect(screen.getByText('Noch keine Spiele abgeschlossen.')).toBeInTheDocument();
@@ -174,7 +173,7 @@ describe('HallenMonitor', () => {
     try {
       api.fetchMonitorDashboard.mockResolvedValue(swissData);
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-      render(<HallenMonitor tournament={tournament} />);
+      render(<HallenMonitor tournaments={tournaments} />);
 
       await user.click(await screen.findByRole('button', { name: /Auto/ }));
       expect(screen.getByText('Laufende Begegnungen & Spielstände')).toBeInTheDocument();
@@ -184,6 +183,67 @@ describe('HallenMonitor', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('shows several running tournaments in turn, keeping the chosen view', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      api.fetchMonitorDashboard.mockImplementation(async (id) => (id === 3
+        ? swissData
+        : { ...swissData, tournament_name: 'Jugend', matches: [], current_round: 1 }));
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      render(<HallenMonitor tournaments={[{ id: 3 }, { id: 4 }]} />);
+
+      expect(await screen.findByText('Sommerturnier')).toBeInTheDocument();
+      expect(api.fetchMonitorDashboard).toHaveBeenCalledWith(4);
+      expect(screen.getByTestId('monitor-rotation')).toHaveTextContent('Turnier 1/2');
+      await user.click(screen.getByRole('button', { name: 'Nur Tabelle' }));
+
+      await vi.advanceTimersByTimeAsync(15000);
+      expect(screen.getByText('Jugend')).toBeInTheDocument();
+      expect(screen.getByTestId('monitor-rotation')).toHaveTextContent('Turnier 2/2');
+      expect(screen.getByText('Gesamttabelle Schweizer System')).toBeInTheDocument();
+
+      await vi.advanceTimersByTimeAsync(15000);
+      expect(screen.getByText('Sommerturnier')).toBeInTheDocument();
+
+      // Auto mode: both views of one tournament, then the next tournament
+      await user.click(screen.getByRole('button', { name: /Auto/ }));
+      const shown = [];
+      for (let i = 0; i < 4; i += 1) {
+        shown.push([
+          screen.getByRole('heading', { level: 1 }).textContent,
+          screen.queryByText('Gesamttabelle Schweizer System') ? 'Tabelle' : 'Paarungen',
+        ]);
+        await vi.advanceTimersByTimeAsync(15000);
+      }
+      expect(new Set(shown.map((x) => x.join('/'))).size).toBe(4);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('refetches every shown tournament on live events', async () => {
+    const { LiveEventsContext, createLiveEvents } = await import('../hooks/useLiveEvents');
+    const events = createLiveEvents();
+    api.fetchMonitorDashboard.mockResolvedValue(swissData);
+    render(
+      <LiveEventsContext.Provider value={events}>
+        <HallenMonitor tournaments={[{ id: 3 }, { id: 4 }]} />
+      </LiveEventsContext.Provider>
+    );
+    await screen.findByText('Sommerturnier');
+    expect(api.fetchMonitorDashboard).toHaveBeenCalledTimes(2);
+    await act(async () => { events.emit({ type: 'SCORE_UPDATE', match_id: 1, tournament_id: 4 }); });
+    expect(api.fetchMonitorDashboard).toHaveBeenCalledTimes(4);
+  });
+
+  it('logs load errors', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    api.fetchMonitorDashboard.mockRejectedValue(new Error('down'));
+    render(<HallenMonitor tournaments={tournaments} />);
+    await vi.waitFor(() => expect(spy).toHaveBeenCalled());
+    spy.mockRestore();
   });
 
   it('shows the KO tree with highlighted winners during KO rounds', async () => {
@@ -198,7 +258,7 @@ describe('HallenMonitor', () => {
           is_completed: true, winner_team_id: 1 }],
       }],
     });
-    render(<HallenMonitor tournament={tournament} />);
+    render(<HallenMonitor tournaments={tournaments} />);
 
     expect(await screen.findByText('KO-Runde: Halbfinale')).toBeInTheDocument();
     expect(screen.getByText('KO-Turnierbaum')).toBeInTheDocument();
@@ -211,7 +271,7 @@ describe('HallenMonitor', () => {
     const request = vi.fn().mockResolvedValue();
     document.documentElement.requestFullscreen = request;
     const user = userEvent.setup();
-    render(<HallenMonitor tournament={tournament} />);
+    render(<HallenMonitor tournaments={tournaments} />);
 
     await user.click(await screen.findByTitle('Vollbild'));
     expect(request).toHaveBeenCalled();

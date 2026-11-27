@@ -122,7 +122,7 @@ async def swap_pairings(round_id: int, payload: SwapPairingsRequest, db: Session
             create_games(m, db)
 
     db.commit()
-    await ws_manager.broadcast({"type": "ROUND_UPDATED", "round_id": round_id})
+    await ws_manager.broadcast({"type": "ROUND_UPDATED", "round_id": round_id, "tournament_id": m1.round.tournament_id})
     return {"message": "Paarungen erfolgreich getauscht"}
 
 

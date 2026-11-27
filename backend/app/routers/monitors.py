@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.app.database import get_db
+from backend.app.live_status import round_matches
 from backend.app.models import Round, TeamMatch, Tournament
 from backend.app.swiss_system import calculate_standings
-from backend.app.table_status import round_matches, tables_status
 
 router = APIRouter(prefix="/api/monitors", tags=["Monitors"])
 
@@ -18,7 +18,6 @@ def get_monitor_dashboard(tournament_id: int, db: Session = Depends(get_db)) -> 
         raise HTTPException(status_code=404, detail="Turnier nicht gefunden")
 
     standings = calculate_standings(tournament_id, db)
-    tables = tables_status(tournament_id, db)
 
     # Active round
     active_round = db.query(Round).filter(
@@ -70,11 +69,11 @@ def get_monitor_dashboard(tournament_id: int, db: Session = Depends(get_db)) -> 
         })
 
     return {
+        "tournament_id": tournament.id,
         "tournament_name": tournament.name,
         "current_round": active_round.round_number if active_round else tournament.current_round_number,
         "round_type": active_round.round_type if active_round else "swiss",
         "ko_stage": active_round.ko_stage if active_round else None,
-        "tables": [t.model_dump() for t in tables],
         "matches": round_matches(tournament_id, db),
         "standings": standings,
         "ticker": ticker,

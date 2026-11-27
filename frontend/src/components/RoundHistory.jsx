@@ -5,11 +5,6 @@ import { History, CheckCircle2, Coffee } from 'lucide-react';
 
 const gameLabel = (g) => (g.is_doubles ? 'D' : `E${g.game_order}`);
 
-function tableLabel(m) {
-  if (!m.table_number) return null;
-  return m.table_number_b ? `Tisch ${m.table_number}+${m.table_number_b}` : `Tisch ${m.table_number}`;
-}
-
 function TeamRow({ team, p1, p2, score, won, draw }) {
   return (
     <div className={`p-3 flex items-center justify-between gap-3 ${won ? 'bg-emerald-950/30' : ''}`}>
@@ -53,7 +48,7 @@ function MatchCard({ match, index }) {
     <div data-testid="history-match" className="bg-slate-900/90 rounded-2xl border border-slate-700/80 overflow-hidden shadow-xl">
       <div className="p-2.5 bg-slate-800/60 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400">
         <span className="font-semibold text-sky-400">
-          {tableLabel(match) || `Spiel ${index + 1}`}
+          {`Spiel ${index + 1}`}
         </span>
         {draw ? (
           <span className="text-amber-400 font-bold text-[11px]">Unentschieden</span>

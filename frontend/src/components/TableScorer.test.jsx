@@ -6,12 +6,12 @@ import * as api from '../services/api';
 import { LiveEventsContext, createLiveEvents } from '../hooks/useLiveEvents';
 
 vi.mock('../services/api', () => ({
-  fetchTablesStatus: vi.fn(),
+  fetchLiveMatches: vi.fn(),
   fetchMatch: vi.fn(),
   submitGameResult: vi.fn(),
 }));
 
-const tournament = { id: 1, name: 'Testturnier', best_of_sets: 5 };
+const tournaments = [{ id: 1, name: 'Testturnier', best_of_sets: 5, is_active: true }];
 
 const game = (id, order, extra = {}) => ({
   id,
@@ -24,10 +24,10 @@ const game = (id, order, extra = {}) => ({
   ...extra,
 });
 
-const runningTable = {
-  table_number: 1, is_active: true, current_team_match_id: 42,
+const liveMatch = {
+  match_id: 42, tournament_id: 1, tournament_name: 'Testturnier', best_of_sets: 5, round_number: 1,
   team_a_name: 'Team Alpha', team_b_name: 'Team Beta', active_game_desc: 'Einzel 1: A1 vs B2',
-  match_score_a: 0, match_score_b: 0,
+  score_a: 0, score_b: 0, is_completed: false,
 };
 
 // Opens match 42 from the list of running matches.
@@ -48,14 +48,14 @@ const match = {
 describe('TableScorer', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    api.fetchTablesStatus.mockResolvedValue([runningTable]);
+    api.fetchLiveMatches.mockResolvedValue([liveMatch]);
     api.fetchMatch.mockResolvedValue(match);
     api.submitGameResult.mockResolvedValue({});
   });
 
   it('opens a running match and saves the tapped set count', async () => {
     const user = userEvent.setup();
-    render(<TableScorer tournament={tournament} />);
+    render(<TableScorer tournaments={tournaments} />);
 
     await openMatch(user);
 
@@ -68,7 +68,7 @@ describe('TableScorer', () => {
 
   it('offers exactly the possible results for best of 5 and best of 3', async () => {
     const user = userEvent.setup();
-    const { unmount } = render(<TableScorer tournament={tournament} />);
+    const { unmount } = render(<TableScorer tournaments={tournaments} />);
     await openMatch(user);
 
     const labels = () => screen.getAllByRole('button', { name: /^\d:\d$/ }).map(b => b.textContent);
@@ -78,7 +78,9 @@ describe('TableScorer', () => {
       .toEqual(['0:3', '1:3', '2:3']);
     unmount();
 
-    render(<TableScorer tournament={{ ...tournament, best_of_sets: 3 }} />);
+    // Best of comes with each match: its tournament may differ from the others
+    api.fetchLiveMatches.mockResolvedValue([{ ...liveMatch, best_of_sets: 3 }]);
+    render(<TableScorer tournaments={tournaments} />);
     await openMatch(user);
     expect(labels()).toEqual(['2:0', '2:1', '0:2', '1:2']);
   });
@@ -88,7 +90,7 @@ describe('TableScorer', () => {
     const user = userEvent.setup();
     render(
       <LiveEventsContext.Provider value={events}>
-        <TableScorer tournament={tournament} />
+        <TableScorer tournaments={tournaments} />
       </LiveEventsContext.Provider>
     );
 
@@ -117,35 +119,56 @@ describe('TableScorer', () => {
     expect(api.fetchMatch.mock.calls.length).toBe(fetchesBefore + 1);
   });
 
-  it('lists the running matches and opens one by click', async () => {
-    api.fetchTablesStatus.mockResolvedValue([
-      { table_number: 1, is_active: true, current_team_match_id: 42,
-        team_a_name: 'Team Alpha', team_b_name: 'Team Beta', active_game_desc: 'Einzel 1: A1 vs B2',
-        match_score_a: 2, match_score_b: 1 },
-      { table_number: 2, is_active: false, current_team_match_id: null },
+  it('lists the matches of every running tournament, labelled, and opens one by click', async () => {
+    api.fetchLiveMatches.mockResolvedValue([
+      { ...liveMatch, score_a: 2, score_b: 1, tournament_name: 'Hobby' },
+      { ...liveMatch, match_id: 43, team_a_name: 'Gamma', team_b_name: 'Delta', is_completed: true,
+        score_a: 4, score_b: 0, active_game_desc: '', tournament_name: 'Hobby' },
+      { ...liveMatch, match_id: 50, tournament_id: 2, tournament_name: 'Jugend',
+        team_a_name: 'Epsilon', team_b_name: 'Zeta', active_game_desc: 'Einzel 3: E1 vs Z1' },
     ]);
     const user = userEvent.setup();
-    render(<TableScorer tournament={tournament} />);
+    render(<TableScorer tournaments={[...tournaments, { id: 2, name: 'Jugend', is_active: true }]} />);
 
-    expect(await screen.findByText('2 Begegnungen')).toBeInTheDocument();
+    expect(await screen.findByText('2 offen')).toBeInTheDocument();
     expect(screen.getByText('Einzel 1: A1 vs B2')).toBeInTheDocument();
     expect(screen.getByText('2 : 1')).toBeInTheDocument();
-    expect(screen.getByText('Tisch 1')).toBeInTheDocument();
+    const tiles = screen.getAllByTestId('match-tile');
+    expect(tiles.map((t) => [t.dataset.tournament, t.dataset.active])).toEqual([
+      ['Hobby', 'true'], ['Hobby', 'false'], ['Jugend', 'true'],
+    ]);
+    // Paarung n counts within each tournament's round
+    expect(within(tiles[1]).getByText('Paarung 2')).toBeInTheDocument();
+    expect(within(tiles[2]).getByText('Paarung 1')).toBeInTheDocument();
+    expect(within(tiles[2]).getByText('Jugend')).toBeInTheDocument();
+    expect(within(tiles[1]).getByText(/zum Korrigieren/)).toBeInTheDocument();
 
-    await user.click(screen.getByText('Aktuell kein Spiel zugewiesen'));
-    expect(api.fetchMatch).not.toHaveBeenCalled();
-
-    await user.click(screen.getByText('Team Alpha vs. Team Beta'));
+    await user.click(screen.getByText('Epsilon vs. Zeta'));
     expect(await screen.findByText(/Ergebnis eintragen/)).toBeInTheDocument();
-    expect(api.fetchMatch).toHaveBeenCalledWith(42);
+    expect(api.fetchMatch).toHaveBeenCalledWith(50);
+    expect(screen.getByText('Jugend')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Begegnungsauswahl/ }));
-    expect(screen.getByText('2 Begegnungen')).toBeInTheDocument();
+    expect(screen.getByText('2 offen')).toBeInTheDocument();
+  });
+
+  it('says when no round is running', async () => {
+    api.fetchLiveMatches.mockResolvedValue([]);
+    render(<TableScorer tournaments={[]} />);
+    expect(await screen.findByText('Aktuell läuft keine Runde.')).toBeInTheDocument();
+  });
+
+  it('logs load errors', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    api.fetchLiveMatches.mockRejectedValue(new Error('down'));
+    render(<TableScorer tournaments={tournaments} />);
+    await vi.waitFor(() => expect(spy).toHaveBeenCalled());
+    spy.mockRestore();
   });
 
   it('opens a match straight into result entry with the registered order and goes back', async () => {
     const user = userEvent.setup();
-    render(<TableScorer tournament={tournament} />);
+    render(<TableScorer tournaments={tournaments} />);
 
     await openMatch(user);
     expect(screen.queryByText('Aufstellung festlegen')).not.toBeInTheDocument();
@@ -166,8 +189,8 @@ describe('TableScorer', () => {
     };
 
     async function openScorer(user, data = played) {
-        api.fetchMatch.mockResolvedValue(data);
-      render(<TableScorer tournament={tournament} />);
+      api.fetchMatch.mockResolvedValue(data);
+      render(<TableScorer tournaments={tournaments} />);
       await openMatch(user);
     }
 

@@ -6,6 +6,7 @@ from backend.app.database import Base, engine
 from backend.app.main import app
 
 ADMIN = {"X-Admin-Pin": "admin123"}
+WIN = {"sets_a": 3, "sets_b": 0}
 
 
 @pytest.fixture(autouse=True)
@@ -23,7 +24,7 @@ def client():
 
 @pytest.fixture
 def t_id(client):
-    return client.get("/api/tournaments/active").json()["id"]
+    return client.get("/api/tournaments").json()[0]["id"]
 
 
 def add_teams(client, t_id, count):
@@ -35,7 +36,8 @@ def add_teams(client, t_id, count):
 
 
 def test_tournament_response_does_not_leak_admin_pin(client, t_id):
-    assert "admin_pin" not in client.get("/api/tournaments/active").json()
+    assert "admin_pin" not in client.get("/api/tournaments").json()[0]
+    assert "admin_pin" not in client.get(f"/api/tournaments/{t_id}").json()
     res = client.put(f"/api/tournaments/{t_id}", headers=ADMIN, json={"name": "Neu"})
     assert res.status_code == 200
     assert "admin_pin" not in res.json()
@@ -52,6 +54,9 @@ def test_admin_endpoints_reject_missing_and_wrong_pin(client, t_id):
     admin_calls = [
         ("post", "/api/tournaments", {"json": {"name": "Neues Turnier"}}),
         ("put", f"/api/tournaments/{t_id}", {"json": {"name": "X"}}),
+        ("put", f"/api/tournaments/{t_id}", {"json": {"is_active": False}}),
+        ("delete", f"/api/tournaments/{t_id}", {}),
+        ("post", f"/api/tournaments/{t_id}/reset", {}),
         ("post", f"/api/tournaments/{t_id}/teams/csv", {"files": {"file": ("t.csv", b"A;B;C")}}),
         ("post", f"/api/tournaments/{t_id}/teams", {"json": {"name": "T", "player1_name": "a", "player2_name": "b"}}),
         ("delete", f"/api/tournaments/{t_id}/teams/{team_id}", {}),
@@ -60,7 +65,7 @@ def test_admin_endpoints_reject_missing_and_wrong_pin(client, t_id):
         ("post", f"/api/tournaments/{t_id}/rounds/advance-ko", {}),
         ("post", f"/api/rounds/{round_id}/swap-pairings", {"json": {"match_id_1": 1, "match_id_2": 2}}),
         ("post", f"/api/rounds/{round_id}/complete", {}),
-        ("get", f"/api/tournaments/{t_id}/admin-check", {}),
+        ("get", "/api/tournaments/admin-check", {}),
         ("post", f"/api/matches/{match['id']}/games/{game_id}/result", {"json": {"sets_a": 3, "sets_b": 0}}),
     ]
     for method, url, kwargs in admin_calls:
@@ -72,7 +77,8 @@ def test_admin_endpoints_reject_missing_and_wrong_pin(client, t_id):
 
     # Nothing changed
     assert len(client.get(f"/api/tournaments/{t_id}/teams").json()) == 4
-    assert client.get("/api/tournaments/active").json()["id"] == t_id
+    assert [t["id"] for t in client.get("/api/tournaments").json()] == [t_id]
+    assert client.get(f"/api/tournaments/{t_id}").json()["is_active"] is True
     stored = client.get(f"/api/matches/{match['id']}").json()
     assert stored["score_a"] == 0
 
@@ -85,23 +91,30 @@ def test_result_entry_with_admin_pin(client, t_id):
 
     url = f"/api/matches/{match['id']}/games/{game['id']}/result"
     assert client.post(url, headers=ADMIN, json={"sets_a": 3, "sets_b": 0}).status_code == 200
-    # Unknown matches have no tournament to protect and answer 404
-    unknown = client.post(f"/api/matches/999/games/{game['id']}/result", json={"sets_a": 3, "sets_b": 0})
+    unknown = client.post(f"/api/matches/999/games/{game['id']}/result", headers=ADMIN, json=WIN)
     assert unknown.status_code == 404
 
 
-def test_admin_check_and_pin_change(client, t_id):
-    assert client.get(f"/api/tournaments/{t_id}/admin-check", headers=ADMIN).status_code == 200
-    assert client.get("/api/tournaments/999/admin-check", headers=ADMIN).status_code == 404
+def test_admin_check(client):
+    assert client.get("/api/tournaments/admin-check", headers=ADMIN).status_code == 200
+    assert client.get("/api/tournaments/admin-check", headers={"X-Admin-Pin": " admin123 "}).status_code == 200
+    assert client.get("/api/tournaments/admin-check", headers={"X-Admin-Pin": "admin"}).status_code == 403
 
-    res = client.put(f"/api/tournaments/{t_id}", headers=ADMIN, json={"admin_pin": " 4711 "})
+
+def test_the_pin_is_not_a_tournament_setting(client, t_id):
+    """The PIN comes from TT_ADMIN_PIN only: a PIN sent along with the settings is ignored."""
+    res = client.put(f"/api/tournaments/{t_id}", headers=ADMIN, json={"admin_pin": "4711"})
     assert res.status_code == 200
+    assert client.get("/api/tournaments/admin-check", headers=ADMIN).status_code == 200
+    assert client.get("/api/tournaments/admin-check", headers={"X-Admin-Pin": "4711"}).status_code == 403
 
-    assert client.get(f"/api/tournaments/{t_id}/admin-check", headers=ADMIN).status_code == 403
-    assert client.get(f"/api/tournaments/{t_id}/admin-check", headers={"X-Admin-Pin": "4711"}).status_code == 200
 
-
-def test_admin_pin_cannot_be_blank(client, t_id):
-    res = client.put(f"/api/tournaments/{t_id}", headers=ADMIN, json={"admin_pin": "   "})
-    assert res.status_code == 400
-    assert client.get(f"/api/tournaments/{t_id}/admin-check", headers=ADMIN).status_code == 200
+def test_admin_pin_comes_from_env(client, monkeypatch):
+    monkeypatch.setenv("TT_ADMIN_PIN", " geheim42 ")
+    assert client.get("/api/tournaments/admin-check", headers=ADMIN).status_code == 403
+    assert client.get("/api/tournaments/admin-check", headers={"X-Admin-Pin": "geheim42"}).status_code == 200
+    # It covers every tournament
+    new = client.post("/api/tournaments", json={"name": "Jugend"}, headers={"X-Admin-Pin": "geheim42"})
+    assert new.status_code == 200
+    res = client.put(f"/api/tournaments/{new.json()['id']}", json={"name": "U18"}, headers={"X-Admin-Pin": "geheim42"})
+    assert res.status_code == 200

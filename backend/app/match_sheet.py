@@ -1,9 +1,9 @@
 """
-The games of a team match: who plays whom in which order and on which table.
+The games of a team match: who plays whom in which order.
 
 Every team has positions 1 and 2 (player 1 and 2 from registration). The singles cross over first, then
-the direct duels; the KO deciding doubles is game 5. With two tables per
-match, games 2 and 4 go to the second table.
+the direct duels; the KO deciding doubles is game 5. Tables aren't tracked: the
+Turnierleitung writes the table number on the match sheet by hand.
 """
 from typing import Dict
 
@@ -11,12 +11,12 @@ from sqlalchemy.orm import Session
 
 from backend.app.models import IndividualGame, TeamMatch
 
-# game_order -> (position of team A, position of team B, second table?)
+# game_order -> (position of team A, position of team B)
 SINGLES = {
-    1: (1, 2, False),
-    2: (2, 1, True),
-    3: (1, 1, False),
-    4: (2, 2, True),
+    1: (1, 2),
+    2: (2, 1),
+    3: (1, 1),
+    4: (2, 2),
 }
 DOUBLES_ORDER = 5
 
@@ -36,14 +36,13 @@ def _positions(match: TeamMatch) -> Dict[str, Dict[int, str]]:
 def create_games(match: TeamMatch, db: Session) -> None:
     """Creates the 4 singles of a match from its players at position 1 and 2."""
     players = _positions(match)
-    for order, (pos_a, pos_b, second_table) in SINGLES.items():
+    for order, (pos_a, pos_b) in SINGLES.items():
         db.add(IndividualGame(
             team_match_id=match.id,
             game_order=order,
             is_doubles=False,
             player_a_name=players["A"][pos_a],
             player_b_name=players["B"][pos_b],
-            table_number=(match.table_number_b or match.table_number) if second_table else match.table_number,
         ))
 
 
@@ -64,7 +63,6 @@ def add_deciding_doubles(match: TeamMatch, db: Session) -> IndividualGame:
         is_doubles=True,
         player_a_name=player_a,
         player_b_name=player_b,
-        table_number=match.table_number,
     )
     match.individual_games.append(game)
     db.flush()

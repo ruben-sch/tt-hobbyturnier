@@ -10,7 +10,7 @@ from backend.tests.test_mcp_auth import LIST_TOOLS, MCP_HEADERS, oauth  # noqa: 
 
 
 def admin_check(http, t_id, pin):
-    return http.get(f"/api/tournaments/{t_id}/admin-check", headers={"X-Admin-Pin": pin})
+    return http.get("/api/tournaments/admin-check", headers={"X-Admin-Pin": pin})
 
 
 def guess_wrong(http, t_id, times=MAX_PIN_FAILURES):

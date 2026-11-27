@@ -4,7 +4,7 @@ Outcome of an architecture and tech stack review. It records the requirements th
 
 ## Requirements
 
-- **Scope:** one club, a few tournaments a year, one active tournament at a time, run by one organiser. Not multi-tenant, and not shared with other clubs.
+- **Scope:** one club, a few tournaments a year, run by one Turnierleitung. Since 2026-11 several tournaments (classes, e.g. Hobby and Jugend) can run at once in the same hall. Not multi-tenant, and not shared with other clubs.
 - **Hosting on the day:** a laptop with its own travel router, forming a closed network. Players' phones, the beamer and the admin tablet join that network. It must not depend on the hall's Wi-Fi or on mobile data.
 - **Online results:** since 2026-10-26 the app can also run on the Hetzner server behind the shared Traefik under a public subdomain (`deploy/`, same pattern as teamtafel). The laptop + own router setup stays the fallback for halls without reliable mobile internet.
 - **Failure tolerance:** the printed match sheets (`PrintableSheets`) are the fallback. If the server or laptop dies, restart and re-enter results from paper. Automatic backups and failover are not needed. SQLite commits every result, so a process crash loses nothing.
@@ -37,5 +37,11 @@ FastAPI with SQLAlchemy and SQLite, a React single-page app (Vite, Tailwind), We
 - **2026-10-26: MCP server** at `/mcp` inside the same process (no extra service). Live scores means match score and current game per table; set or ball scores are not recorded.
 - **2026-10-26: OAuth for the MCP server** so claude.ai can connect: the app is its own authorization server and the login is the admin PIN. All of `/mcp` needs auth now (OAuth discovery only starts on a 401), the read tools included. No external identity provider.
 - **2026-10-26: Python 3.15** (was 3.9), needed by the MCP SDK.
+- **2026-11-27: several tournaments in parallel.** Use case: several classes on the same day in the same hall, plus a history of past tournaments. Decided in a design grilling:
+  - Status "läuft"/"abgeschlossen" (`Tournament.is_active`); several may run. Abgeschlossene stay viewable and editable and can be reopened or deleted. Creating a tournament no longer replaces the previous one, and reset no longer deletes older tournaments.
+  - One global admin PIN (`TT_ADMIN_PIN`) instead of one per tournament; MCP OAuth tokens are bound to it.
+  - No tables at all: no table count, no tables per match, no table assignment. The Turnierleitung writes the table number on the match sheet by hand; a match plays its games in order.
+  - The navigation picks the tournament (`?turnier=<id>`); result entry mixes all running tournaments; the Hallen-Monitor rotates through them; its QR code opens the start page "Turniere".
+  - No schema change: existing databases keep working, old columns stay unused.
 - No automatic database backups. Paper is the fallback.
 - No migration tooling.

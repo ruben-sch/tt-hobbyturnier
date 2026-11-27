@@ -13,7 +13,7 @@ Der Workflow kopiert `compose.yaml` und `compose.staging.yaml` nach `~/tt-turnie
 2. **Repo-Secrets** (Werte wie in teamtafel): `HETZNER_HOST`, `HETZNER_USER`, `HETZNER_SSH_KEY`.
 3. **Environments** `staging` und `production` (Settings → Environments), jeweils mit den Secrets:
    - `APP_HOST`, z. B. `turnier.schwarzpost.de` bzw. `staging.turnier.schwarzpost.de`
-   - `TT_ADMIN_PIN`: lange, zufällige PIN ohne Anführungszeichen. Gilt für jedes neu angelegte Turnier statt `admin123`.
+   - `TT_ADMIN_PIN`: lange, zufällige PIN ohne Anführungszeichen. Gilt für alle Turniere statt `admin123`; ein Wechsel meldet verbundene MCP-Clients ab.
 4. **release-please:** Secret `RELEASE_PLEASE_TOKEN` (Fine-grained PAT nur für dieses Repo, *Contents* + *Pull requests* read/write). Ohne ihn startet CI auf dem Release-PR nicht und `main` lässt ihn wegen der Pflicht-Checks nicht mergen. Außerdem unter Settings → Actions → General *Allow GitHub Actions to create and approve pull requests* aktivieren.
 
 ## Daten

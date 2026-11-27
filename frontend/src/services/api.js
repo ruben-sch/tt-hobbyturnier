@@ -46,8 +46,9 @@ async function adminFetch(url, options, fallbackMessage) {
   return res.json();
 }
 
-export async function verifyAdminPin(tournamentId, pin) {
-  const res = await fetch(`${API_BASE}/tournaments/${tournamentId}/admin-check`, {
+// One PIN (TT_ADMIN_PIN on the server) covers every tournament.
+export async function verifyAdminPin(pin) {
+  const res = await fetch(`${API_BASE}/tournaments/admin-check`, {
     headers: { 'X-Admin-Pin': pin },
   });
   if (res.status === 401 || res.status === 403) return false;
@@ -59,10 +60,25 @@ export async function verifyAdminPin(tournamentId, pin) {
   return true;
 }
 
-export async function fetchActiveTournament() {
-  const res = await fetch(`${API_BASE}/tournaments/active`);
-  if (!res.ok) throw new Error("Fehler beim Laden des Turniers");
+// Every tournament, newest first; is_active means "läuft", otherwise abgeschlossen.
+export async function fetchTournaments() {
+  const res = await fetch(`${API_BASE}/tournaments`);
+  if (!res.ok) throw new Error("Fehler beim Laden der Turniere");
   return res.json();
+}
+
+export async function createTournament(data) {
+  return adminFetch(`${API_BASE}/tournaments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  }, "Fehler beim Anlegen des Turniers");
+}
+
+export async function deleteTournament(tournamentId) {
+  return adminFetch(`${API_BASE}/tournaments/${tournamentId}`, {
+    method: 'DELETE',
+  }, "Fehler beim Löschen des Turniers");
 }
 
 export async function updateTournament(tournamentId, data) {
@@ -173,8 +189,9 @@ export async function submitGameResult(matchId, gameId, setsA, setsB) {
   }, "Fehler beim Speichern des Ergebnisses");
 }
 
-export async function fetchTablesStatus(tournamentId) {
-  const res = await fetch(`${API_BASE}/tables/status/${tournamentId}`);
+// Matches of the open round of every running tournament, mixed, each with its tournament.
+export async function fetchLiveMatches() {
+  const res = await fetch(`${API_BASE}/matches/live`);
   if (!res.ok) throw new Error("Fehler beim Laden der Begegnungen");
   return res.json();
 }

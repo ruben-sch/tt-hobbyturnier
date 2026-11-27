@@ -24,7 +24,6 @@ const match = (id, a, b, extra = {}) => ({
   team_a_p2_name: `${a}2`,
   team_b_p1_name: `${b}1`,
   team_b_p2_name: `${b}2`,
-  table_number: null,
   score_a: 3,
   score_b: 1,
   is_completed: true,
@@ -52,11 +51,10 @@ describe('RoundHistory', () => {
     const user = userEvent.setup();
     api.fetchRounds.mockResolvedValue([
       swiss(1, 1, [match(1, 'Asse', 'Blocker', {
-        table_number: 3,
         individual_games: [game(12, 2, 'Asse2', 'Blocker2', 1, 3), game(11, 1, 'Asse1', 'Blocker1', 3, 0)],
       })]),
       swiss(2, 2, [
-        match(2, 'Topspin', 'Konter', { score_a: 2, score_b: 2, table_number: 1, table_number_b: 2 }),
+        match(2, 'Topspin', 'Konter', { score_a: 2, score_b: 2 }),
         match(3, 'Netzroller', null, { is_bye: true, team_b: null }),
       ]),
       swiss(3, 3, [match(4, 'Offen', 'Laufend', { is_completed: false })], { is_completed: false }),
@@ -68,13 +66,13 @@ describe('RoundHistory', () => {
     expect(screen.queryByRole('tab', { name: 'Runde 3' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Runde 4' })).not.toBeInTheDocument();
     expect(screen.getByText('1 Begegnungen')).toBeInTheDocument();
-    expect(screen.getByText('Tisch 1+2')).toBeInTheDocument();
+    expect(screen.getByText('Spiel 1')).toBeInTheDocument();
     expect(screen.getByText('Unentschieden')).toBeInTheDocument();
     expect(screen.getByText('Freilos')).toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: 'Runde 1' }));
     const card = screen.getByTestId('history-match');
-    expect(within(card).getByText('Tisch 3')).toBeInTheDocument();
+    expect(within(card).getByText('Spiel 1')).toBeInTheDocument();
     expect(within(card).getByText('Asse')).toHaveClass('text-emerald-400');
     expect(within(card).getByText('Beendet')).toBeInTheDocument();
     const games = within(card).getAllByTestId('history-game');
@@ -83,7 +81,7 @@ describe('RoundHistory', () => {
     expect(within(games[1]).getByText('Blocker2')).toHaveClass('text-emerald-300');
   });
 
-  it('labels matches without tables by their number and shows open games and doubles', async () => {
+  it('labels matches by their number and shows open games and doubles', async () => {
     api.fetchRounds.mockResolvedValue([swiss(1, 1, [match(1, 'Asse', 'Blocker', {
       individual_games: [
         { ...game(1, 5, 'A', 'B', 0, 0), is_doubles: true, is_completed: false },

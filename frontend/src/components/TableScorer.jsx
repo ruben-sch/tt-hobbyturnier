@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
-  fetchTablesStatus, 
+  fetchLiveMatches, 
   fetchMatch, 
   submitGameResult
 } from '../services/api';
@@ -11,21 +11,23 @@ import {
 } from 'lucide-react';
 
 // Result entry for the Turnierleitung; App only shows it once the admin PIN is set.
-export default function TableScorer({ tournament }) {
-  const [tables, setTables] = useState([]);
-  const [, setSelectedTable] = useState(null);
+// Shows the open rounds of every running tournament mixed, each match labelled
+// with its tournament, so match sheets of all classes can be typed in without switching.
+export default function TableScorer({ tournaments }) {
+  const [matches, setMatches] = useState([]);
+  const [selected, setSelected] = useState(null); // tile of the open match (tournament, best of)
   const [matchData, setMatchData] = useState(null);
   const [activeGameId, setActiveGameId] = useState(null);
+  const showTournament = new Set(matches.map((m) => m.tournament_id)).size > 1 || (tournaments?.length ?? 0) > 1;
 
-
-  const loadTables = useCallback(async () => {
+  // Depends on `tournaments` so it refetches whenever App reloads them (new round, reconnect).
+  const loadMatches = useCallback(async () => {
     try {
-      const data = await fetchTablesStatus(tournament.id);
-      setTables(data);
+      setMatches(await fetchLiveMatches());
     } catch (e) {
       console.error(e);
     }
-  }, [tournament]);
+  }, [tournaments]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Refreshes the open match after changes from other devices. Only matchData
   // is replaced: selected game and typed-in sets stay as they are.
@@ -46,14 +48,12 @@ export default function TableScorer({ tournament }) {
   }, []);
 
   useEffect(() => {
-    if (tournament?.id) {
-      loadTables();
-      refreshOpenMatch();
-    }
-  }, [tournament, loadTables, refreshOpenMatch]);
+    loadMatches();
+    refreshOpenMatch();
+  }, [loadMatches, refreshOpenMatch]);
 
   useLiveEvent(MATCH_EVENTS, (msg) => {
-    loadTables();
+    loadMatches();
     // ROUND_UPDATED (swapped pairings) carries no match_id but can change the open match
     if (msg.type === 'ROUND_UPDATED' || msg.match_id === openMatchIdRef.current) {
       refreshOpenMatch();
@@ -86,13 +86,9 @@ export default function TableScorer({ tournament }) {
     }
   };
 
-  const handleSelectTable = (tbl) => {
-    setSelectedTable(tbl);
-    if (tbl.current_team_match_id) {
-      loadMatch(tbl.current_team_match_id);
-    } else {
-      setMatchData(null);
-    }
+  const handleSelectMatch = (tile) => {
+    setSelected(tile);
+    loadMatch(tile.match_id);
   };
 
   const handleSelectGame = (game) => {
@@ -102,7 +98,7 @@ export default function TableScorer({ tournament }) {
   const activeGame = matchData?.individual_games?.find(g => g.id === activeGameId);
 
   // Valid final set counts, e.g. best of 5: A wins 3:0 3:1 3:2, B wins 0:3 1:3 2:3
-  const setsToWin = tournament?.best_of_sets === 3 ? 2 : 3;
+  const setsToWin = selected?.best_of_sets === 3 ? 2 : 3;
   const resultOptions = (side) => Array.from({ length: setsToWin }, (_, loserSets) => (
     side === 'A' ? [setsToWin, loserSets] : [loserSets, setsToWin]
   ));
@@ -114,7 +110,7 @@ export default function TableScorer({ tournament }) {
       await submitGameResult(matchData.id, activeGame.id, setsA, setsB);
       const updatedMatch = await fetchMatch(matchData.id);
       setMatchData(updatedMatch);
-      loadTables();
+      loadMatches();
       if (isReset) return;
 
       // Find the next game in order (e.g. Einzel 2 after Einzel 1) or next uncompleted
@@ -134,6 +130,10 @@ export default function TableScorer({ tournament }) {
     }
   };
 
+  // Paarung n counts within the tournament's round, as on the monitor and the match sheets.
+  const numberInRound = (m) => matches.filter((x) => x.tournament_id === m.tournament_id && x.match_id <= m.match_id).length;
+  const openCount = matches.filter((m) => !m.is_completed).length;
+
   // If no match is selected yet
   if (!matchData) {
     return (
@@ -149,56 +149,58 @@ export default function TableScorer({ tournament }) {
 
         {/* Match Selector Grid */}
         <h3 className="text-lg font-semibold text-slate-200 mb-4 flex items-center gap-2">
-          <span>Laufende Begegnungen</span>
+          <span>Begegnungen der laufenden Runden</span>
           <span className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full border border-slate-700">
-            {tables.length} Begegnungen
+            {openCount} offen
           </span>
         </h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {tables.map((t, idx) => (
-            <div
-              key={t.table_number || idx}
-              data-testid="match-tile"
-              data-active={t.is_active ? 'true' : 'false'}
-              onClick={() => handleSelectTable(t)}
-              className={`p-5 rounded-2xl border cursor-pointer transition-all ${
-                t.is_active
-                  ? 'bg-slate-800/90 border-sky-500/50 hover:border-sky-400 hover:shadow-lg hover:shadow-sky-500/10'
-                  : 'bg-slate-800/40 border-slate-700/50 hover:border-slate-600'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="font-bold text-lg text-white">
-                  Paarung {idx + 1}
-                </span>
-                <span className="text-xs font-mono bg-slate-900/80 text-slate-400 px-2.5 py-1 rounded-md border border-slate-700">
-                  Tisch {t.table_number}
-                </span>
-              </div>
-
-              {t.is_active ? (
-                <div>
-                  <div className="text-sm font-semibold text-sky-400 mb-1">
-                    {t.team_a_name} vs. {t.team_b_name}
-                  </div>
-                  <div className="text-xs text-slate-400 truncate">
-                    {t.active_game_desc || 'Spiel läuft...'}
-                  </div>
-                  <div className="mt-3 flex items-center justify-between text-xs bg-slate-900/60 p-2 rounded-lg border border-slate-700/40">
-                    <span className="text-slate-400">Spielstand:</span>
-                    <span className="font-bold font-mono text-emerald-400 text-sm">
-                      {t.match_score_a ?? 0} : {t.match_score_b ?? 0}
+          {matches.map((m) => {
+            const isOpen = !m.is_completed;
+            return (
+              <div
+                key={m.match_id}
+                data-testid="match-tile"
+                data-active={isOpen ? 'true' : 'false'}
+                data-tournament={m.tournament_name}
+                onClick={() => handleSelectMatch(m)}
+                className={`p-5 rounded-2xl border cursor-pointer transition-all ${
+                  isOpen
+                    ? 'bg-slate-800/90 border-sky-500/50 hover:border-sky-400 hover:shadow-lg hover:shadow-sky-500/10'
+                    : 'bg-slate-800/40 border-slate-700/50 hover:border-slate-600'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <span className="font-bold text-lg text-white whitespace-nowrap">
+                    Paarung {numberInRound(m)}
+                  </span>
+                  {showTournament && (
+                    <span className="min-w-0 text-xs font-semibold bg-sky-500/15 text-sky-300 px-2.5 py-1 rounded-md border border-sky-500/30 truncate">
+                      {m.tournament_name}
                     </span>
-                  </div>
+                  )}
                 </div>
-              ) : (
-                <div className="text-xs text-slate-500 italic py-2">
-                  Aktuell kein Spiel zugewiesen
+                <div className="text-sm font-semibold text-sky-400 mb-1">
+                  {m.team_a_name} vs. {m.team_b_name}
                 </div>
-              )}
+                <div className="text-xs text-slate-400 truncate">
+                  {isOpen ? (m.active_game_desc || 'Spiel läuft...') : 'Beendet – antippen zum Korrigieren'}
+                </div>
+                <div className="mt-3 flex items-center justify-between text-xs bg-slate-900/60 p-2 rounded-lg border border-slate-700/40">
+                  <span className="text-slate-400">Spielstand:</span>
+                  <span className="font-bold font-mono text-emerald-400 text-sm">
+                    {m.score_a ?? 0} : {m.score_b ?? 0}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+          {matches.length === 0 && (
+            <div className="col-span-full bg-slate-800/40 border border-dashed border-slate-700 rounded-2xl p-6 text-center text-slate-500">
+              Aktuell läuft keine Runde.
             </div>
-          ))}
+          )}
         </div>
       </div>
     );
@@ -209,7 +211,7 @@ export default function TableScorer({ tournament }) {
       {/* Top Bar Navigation */}
       <div className="flex items-center justify-between mb-4">
         <button
-          onClick={() => { setMatchData(null); setSelectedTable(null); }}
+          onClick={() => { setMatchData(null); setSelected(null); }}
           className="text-xs text-slate-400 hover:text-white inline-flex items-center gap-1"
         >
           ← Begegnungsauswahl
@@ -226,9 +228,9 @@ export default function TableScorer({ tournament }) {
           <span className="font-semibold text-sky-400">
             Begegnung
           </span>
-          {matchData.table_number && (
-            <span className="font-mono bg-slate-900 px-2 py-0.5 rounded text-slate-400 border border-slate-700/60">
-              Tisch {matchData.table_number}{matchData.table_number_b ? ` + ${matchData.table_number_b}` : ''}
+          {selected?.tournament_name && (
+            <span className="bg-slate-900 px-2 py-0.5 rounded text-slate-300 border border-slate-700/60 truncate">
+              {selected.tournament_name}
             </span>
           )}
         </div>
