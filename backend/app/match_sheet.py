@@ -2,7 +2,8 @@
 The games of a team match: who plays whom in which order.
 
 Every team has positions 1 and 2 (player 1 and 2 from registration). The singles cross over first, then
-the direct duels; the KO deciding doubles is game 5. Tables aren't tracked: the
+the direct duels; the KO deciding doubles is game 5. In an Einzelturnier a match is just
+game 1 between the two players (position 1). Tables aren't tracked: the
 Turnierleitung writes the table number on the match sheet by hand.
 """
 from typing import Dict
@@ -33,10 +34,11 @@ def _positions(match: TeamMatch) -> Dict[str, Dict[int, str]]:
     }
 
 
-def create_games(match: TeamMatch, db: Session) -> None:
-    """Creates the 4 singles of a match from its players at position 1 and 2."""
+def create_games(match: TeamMatch, db: Session, is_singles: bool = False) -> None:
+    """Creates the 4 singles of a match from its players at position 1 and 2; one game in an Einzelturnier."""
     players = _positions(match)
-    for order, (pos_a, pos_b) in SINGLES.items():
+    layout = {1: (1, 1)} if is_singles else SINGLES
+    for order, (pos_a, pos_b) in layout.items():
         db.add(IndividualGame(
             team_match_id=match.id,
             game_order=order,

@@ -9,6 +9,20 @@ from backend.app.models import Team, Tournament
 from backend.app.schemas import TeamCreate, TeamResponse
 from backend.app.websocket_hub import ws_manager
 
+
+def new_team(tournament: Tournament, name: str, player1: str = "", player2: str = "") -> Team:
+    """A team of two players, or in an Einzelturnier one player whose name is the team name."""
+    name, player1, player2 = name.strip(), player1.strip(), player2.strip()
+    if tournament.is_singles:
+        name = name or player1
+        if not name:
+            raise ValueError("Bitte den Namen des Spielers angeben.")
+        return Team(tournament_id=tournament.id, name=name, player1_name=name, player2_name="")
+    if not name or not player1 or not player2:
+        raise ValueError("Bitte Teamnamen und beide Spieler angeben.")
+    return Team(tournament_id=tournament.id, name=name, player1_name=player1, player2_name=player2)
+
+
 router = APIRouter(prefix="/api/tournaments/{tournament_id}/teams", tags=["Teams"])
 
 
@@ -23,12 +37,10 @@ async def create_team(tournament_id: int, payload: TeamCreate, db: Session = Dep
     if not t:
         raise HTTPException(status_code=404, detail="Turnier nicht gefunden")
 
-    team = Team(
-        tournament_id=tournament_id,
-        name=payload.name,
-        player1_name=payload.player1_name,
-        player2_name=payload.player2_name
-    )
+    try:
+        team = new_team(t, payload.name, payload.player1_name, payload.player2_name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     db.add(team)
     db.commit()
     db.refresh(team)

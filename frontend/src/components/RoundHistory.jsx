@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { fetchRounds } from '../services/api';
 import { useLiveEvent, MATCH_EVENTS } from '../hooks/useLiveEvents';
 import { History, CheckCircle2, Coffee } from 'lucide-react';
+import { isSingles, pairNames } from '../lib/tournamentFormat';
 
 const gameLabel = (g) => (g.is_doubles ? 'D' : `E${g.game_order}`);
 
@@ -12,7 +13,7 @@ function TeamRow({ team, p1, p2, score, won, draw }) {
         <div className={`text-sm truncate ${won ? 'text-emerald-400 font-bold' : 'text-slate-100'}`}>
           {team?.name || 'TBD'}
         </div>
-        <div className="text-[11px] text-slate-400 truncate">{p1} & {p2}</div>
+        <div className="text-[11px] text-slate-400 truncate">{pairNames(p1, p2)}</div>
       </div>
       <span className={`font-mono text-xl font-black ${won ? 'text-emerald-400' : draw ? 'text-amber-400' : 'text-slate-300'}`}>
         {score}
@@ -21,14 +22,14 @@ function TeamRow({ team, p1, p2, score, won, draw }) {
   );
 }
 
-function MatchCard({ match, index }) {
+function MatchCard({ match, index, singles }) {
   if (match.is_bye) {
     return (
       <div className="bg-slate-900/90 rounded-2xl border border-slate-700/80 p-3.5 flex items-center justify-between">
         <div className="min-w-0">
           <div className="text-sm text-slate-100 truncate">{match.team_a?.name}</div>
           <div className="text-[11px] text-slate-400 truncate">
-            {match.team_a_p1_name} & {match.team_a_p2_name}
+            {pairNames(match.team_a_p1_name, match.team_a_p2_name)}
           </div>
         </div>
         <span className="flex items-center gap-1 text-xs font-semibold text-slate-400">
@@ -42,7 +43,8 @@ function MatchCard({ match, index }) {
   const winnerA = match.is_completed && match.score_a > match.score_b;
   const winnerB = match.is_completed && match.score_b > match.score_a;
   const draw = match.is_completed && match.score_a === match.score_b;
-  const games = [...match.individual_games].sort((a, b) => a.game_order - b.game_order);
+  // An Einzelturnier match is its one game: the score above already is its set count.
+  const games = singles ? [] : [...match.individual_games].sort((a, b) => a.game_order - b.game_order);
 
   return (
     <div data-testid="history-match" className="bg-slate-900/90 rounded-2xl border border-slate-700/80 overflow-hidden shadow-xl">
@@ -170,7 +172,7 @@ export default function RoundHistory({ tournament }) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {selected.team_matches.map((m, idx) => (
-              <MatchCard key={m.id} match={m} index={idx} />
+              <MatchCard key={m.id} match={m} index={idx} singles={isSingles(tournament)} />
             ))}
           </div>
         </>

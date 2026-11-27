@@ -3,7 +3,7 @@
 import pytest
 from sqlalchemy import text
 
-from backend.app.database import Base, engine
+from backend.app.database import Base, add_missing_columns, engine
 from backend.app.websocket_hub import ws_manager
 
 
@@ -120,9 +120,12 @@ def test_database_from_before_parallel_tournaments(client):
             "winner_team_side VARCHAR(1))"
         ))
     Base.metadata.create_all(bind=engine)
+    add_missing_columns()  # as at startup: is_singles is new
+    add_missing_columns()  # idempotent
 
     [old] = client.get("/api/tournaments").json()
     assert (old["id"], old["name"], old["is_active"]) == (1, "Hobbyturnier 1.11.", True)
+    assert old["is_singles"] is False
     # The old per-tournament PIN no longer counts, TT_ADMIN_PIN does
     assert client.get("/api/tournaments/admin-check", headers={"X-Admin-Pin": "alt-pin"}).status_code == 403
 

@@ -17,6 +17,7 @@ import {
   deleteTournament
 } from '../services/api';
 import { useLiveEvent, MATCH_EVENTS, TEAM_EVENTS } from '../hooks/useLiveEvents';
+import { isSingles, participants, pairNames, formatLabel } from '../lib/tournamentFormat';
 import { 
   Settings, 
   Plus, 
@@ -39,6 +40,9 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
   const [teams, setTeams] = useState([]);
   const [rounds, setRounds] = useState([]);
   const [loading, setLoading] = useState(false);
+  // Einzelturnier: each entry of `teams` is one player, named after them
+  const singles = isSingles(tournament);
+  const unit = participants(tournament);
 
   // New Team form
   const [newTeam, setNewTeam] = useState({ name: '', player1_name: '', player2_name: '' });
@@ -144,7 +148,7 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
 
   const handleAddTeam = async (e) => {
     e.preventDefault();
-    if (!newTeam.name || !newTeam.player1_name || !newTeam.player2_name) {
+    if (!newTeam.name || (!singles && (!newTeam.player1_name || !newTeam.player2_name))) {
       alert("Bitte alle Felder ausfüllen.");
       return;
     }
@@ -195,13 +199,15 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
       { name: "Angriffslustig", player1_name: "Jonas Zimmermann", player2_name: "Patrick Klein" }
     ];
 
+    // Einzelturnier: the first player of each demo team plays alone
+    const samples = singles ? sampleTeams.map((t) => ({ name: t.player1_name })) : sampleTeams;
     try {
       setLoading(true);
-      for (const t of sampleTeams) {
+      for (const t of samples) {
         await createTeam(tournament.id, t);
       }
       loadAll();
-      alert("8 Demo-Teams wurden erfolgreich hinzugefügt!");
+      alert(`8 Demo-${unit} wurden erfolgreich hinzugefügt!`);
     } catch (e) {
       alert("Fehler: " + e.message);
     } finally {
@@ -223,7 +229,7 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
   };
 
   const handleStartKO = async (teamCount) => {
-    if (!confirm(`KO-Runde mit den besten ${teamCount} Teams starten?`)) return;
+    if (!confirm(`KO-Runde mit den besten ${teamCount} ${unit} starten?`)) return;
     try {
       setLoading(true);
       await startKoRound(tournament.id, teamCount);
@@ -304,7 +310,8 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
           <p className="text-sm text-slate-400 mt-1">
             <span className="font-semibold text-slate-200">{tournament?.name}</span>
             {tournament && !tournament.is_active && <span className="text-amber-300"> (abgeschlossen)</span>}
-            {' • '}Runden, Paarungen, Teams und Einstellungen dieses Turniers.
+            {tournament && <span> • {formatLabel(tournament)}</span>}
+            {' • '}Runden, Paarungen, {unit} und Einstellungen dieses Turniers.
           </p>
         </div>
 
@@ -325,7 +332,7 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
                 activeTab === 'teams' ? 'bg-sky-500 text-white shadow' : 'text-slate-400 hover:text-white'
               }`}
             >
-              Teams ({teams.length})
+              {unit} ({teams.length})
             </button>
             <button
               onClick={() => setActiveTab('settings')}
@@ -493,7 +500,7 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
                     <div className="flex items-center justify-between my-2">
                       <div>
                         <div className="font-bold text-white text-sm">{m.team_a?.name}</div>
-                        <div className="text-[11px] text-slate-400">{m.team_a_p1_name} & {m.team_a_p2_name}</div>
+                        <div className="text-[11px] text-slate-400">{pairNames(m.team_a_p1_name, m.team_a_p2_name)}</div>
                       </div>
 
                       <div className="font-mono text-xl font-bold text-emerald-400 px-3">
@@ -502,7 +509,7 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
 
                       <div className="text-right">
                         <div className="font-bold text-white text-sm">{m.team_b?.name || 'FREILOS'}</div>
-                        <div className="text-[11px] text-slate-400">{m.team_b_p1_name} & {m.team_b_p2_name}</div>
+                        <div className="text-[11px] text-slate-400">{pairNames(m.team_b_p1_name, m.team_b_p2_name)}</div>
                       </div>
                     </div>
 
@@ -510,9 +517,11 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
                       <span className={m.is_completed ? 'text-emerald-400 font-semibold' : 'text-slate-400'}>
                         {m.is_completed ? '✓ Match beendet' : (m.individual_games.some(g => g.is_completed) ? 'Spiel läuft...' : 'Noch nicht begonnen')}
                       </span>
-                      <span className="text-slate-500 font-mono">
-                        {m.individual_games.filter(g => g.is_completed).length} / {m.individual_games.length} Einzel gespielt
-                      </span>
+                      {!singles && (
+                        <span className="text-slate-500 font-mono">
+                          {m.individual_games.filter(g => g.is_completed).length} / {m.individual_games.length} Einzel gespielt
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -558,22 +567,22 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
             <div className="lg:col-span-2 bg-slate-800/80 border border-slate-700 rounded-2xl p-6 shadow-xl">
               <h3 className="font-bold text-white text-base mb-4 flex items-center gap-2">
                 <Plus className="w-5 h-5 text-sky-400" />
-                <span>Neues 2er-Team anlegen</span>
+                <span>{singles ? 'Neuen Spieler anlegen' : 'Neues 2er-Team anlegen'}</span>
               </h3>
 
               <form onSubmit={handleAddTeam} className="space-y-4">
                 <div>
-                  <label className="text-xs text-slate-400 font-medium">Mannschaftsname</label>
+                  <label className="text-xs text-slate-400 font-medium">{singles ? 'Name des Spielers' : 'Mannschaftsname'}</label>
                   <input
                     type="text"
                     required
-                    placeholder="z. B. Die Schmetterbälle"
+                    placeholder={singles ? 'Vor- und Nachname' : 'z. B. Die Schmetterbälle'}
                     value={newTeam.name}
                     onChange={(e) => setNewTeam({ ...newTeam, name: e.target.value })}
                     className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-white text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none"
                   />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {!singles && <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs text-slate-400 font-medium">Spieler 1 Name</label>
                     <input
@@ -596,14 +605,14 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
                       className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-white text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none"
                     />
                   </div>
-                </div>
+                </div>}
 
                 <div className="flex justify-end gap-3 pt-2">
                   <button
                     type="submit"
                     className="bg-sky-500 hover:bg-sky-400 text-white font-semibold px-5 py-2 rounded-xl text-sm transition shadow-lg shadow-sky-500/20"
                   >
-                    Team hinzufügen
+                    {singles ? 'Spieler hinzufügen' : 'Team hinzufügen'}
                   </button>
                 </div>
               </form>
@@ -617,7 +626,9 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
                   <span>CSV-Import</span>
                 </h3>
                 <p className="text-xs text-slate-400 mb-4">
-                  Importiere mehrere Teams gleichzeitig via CSV (Format: <code>Teamname;Spieler1;Spieler2</code>).
+                  {singles
+                    ? <>Importiere mehrere Spieler gleichzeitig via CSV (ein Name pro Zeile, weitere Spalten werden ignoriert).</>
+                    : <>Importiere mehrere Teams gleichzeitig via CSV (Format: <code>Teamname;Spieler1;Spieler2</code>).</>}
                 </p>
 
                 <label className="border-2 border-dashed border-slate-600 hover:border-sky-500 rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer transition text-center">
@@ -635,7 +646,7 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
                     className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-sky-600 hover:from-emerald-500 hover:to-sky-500 text-white py-2.5 rounded-xl text-xs font-bold transition shadow"
                   >
                     <Sparkles className="w-4 h-4" />
-                    <span>8 Demo-Teams automatisch laden</span>
+                    <span>8 Demo-{unit} automatisch laden</span>
                   </button>
                 </div>
               )}
@@ -649,9 +660,9 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
               <thead className="bg-slate-900 text-slate-400 font-semibold uppercase text-xs">
                 <tr>
                   <th className="p-3.5">#</th>
-                  <th className="p-3.5">Mannschaftsname</th>
-                  <th className="p-3.5">Spieler 1</th>
-                  <th className="p-3.5">Spieler 2</th>
+                  <th className="p-3.5">{singles ? 'Spieler' : 'Mannschaftsname'}</th>
+                  {!singles && <th className="p-3.5">Spieler 1</th>}
+                  {!singles && <th className="p-3.5">Spieler 2</th>}
                   <th className="p-3.5 text-right">Aktionen</th>
                 </tr>
               </thead>
@@ -660,8 +671,8 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
                   <tr key={t.id} className="hover:bg-slate-700/30">
                     <td className="p-3.5 text-slate-400 text-xs font-mono">{idx + 1}</td>
                     <td className="p-3.5 font-bold text-white">{t.name}</td>
-                    <td className="p-3.5 text-slate-300">{t.player1_name}</td>
-                    <td className="p-3.5 text-slate-300">{t.player2_name}</td>
+                    {!singles && <td className="p-3.5 text-slate-300">{t.player1_name}</td>}
+                    {!singles && <td className="p-3.5 text-slate-300">{t.player2_name}</td>}
                     <td className="p-3.5 text-right">
                       <button
                         onClick={() => handleDeleteTeam(t.id)}
@@ -674,8 +685,8 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
                 ))}
                 {teams.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-slate-500">
-                      Noch keine Mannschaften angelegt.
+                    <td colSpan={singles ? 3 : 5} className="p-8 text-center text-slate-500">
+                      {singles ? 'Noch keine Spieler angelegt.' : 'Noch keine Mannschaften angelegt.'}
                     </td>
                   </tr>
                 )}
@@ -717,7 +728,7 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
                 />
               </div>
               <div>
-                <label className="text-xs text-slate-400 font-medium">Satzmodus pro Einzel</label>
+                <label className="text-xs text-slate-400 font-medium">Satzmodus pro {singles ? 'Spiel' : 'Einzel'}</label>
                 <select
                   value={settingsForm.best_of_sets}
                   onChange={(e) => setSettingsForm({ ...settingsForm, best_of_sets: parseInt(e.target.value) })}
@@ -728,6 +739,12 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
                 </select>
               </div>
             </div>
+
+            <p className="text-xs text-slate-400">
+              Spielform: <span className="font-semibold text-slate-200">
+                {singles ? 'Einzelturnier (1 Spiel pro Begegnung)' : '2er-Teams (4 Einzel pro Begegnung)'}
+              </span>, beim Anlegen festgelegt.
+            </p>
 
             <div className="pt-4 flex justify-end">
               <button

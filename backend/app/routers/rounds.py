@@ -119,7 +119,7 @@ async def swap_pairings(round_id: int, payload: SwapPairingsRequest, db: Session
             db.delete(g)
         db.flush()
         if m.team_b_id is not None:
-            create_games(m, db)
+            create_games(m, db, m.round.tournament.is_singles)
 
     db.commit()
     await ws_manager.broadcast({"type": "ROUND_UPDATED", "round_id": round_id, "tournament_id": m1.round.tournament_id})

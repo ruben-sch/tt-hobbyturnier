@@ -12,7 +12,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.routing import Route
 
-from backend.app.database import Base, engine
+from backend.app.database import Base, add_missing_columns, engine
 from backend.app.mcp_auth import PinHeaderAsBearer, login_router, provider
 from backend.app.mcp_server import mcp
 from backend.app.routers import (
@@ -27,6 +27,7 @@ from backend.app.websocket_hub import ws_manager
 
 # Create tables
 Base.metadata.create_all(bind=engine)
+add_missing_columns()
 
 # Fixed seed for the round 1 draw, so an e2e run can be replayed
 if os.getenv("TT_RANDOM_SEED"):

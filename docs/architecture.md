@@ -43,5 +43,6 @@ FastAPI with SQLAlchemy and SQLite, a React single-page app (Vite, Tailwind), We
   - No tables at all: no table count, no tables per match, no table assignment. The Turnierleitung writes the table number on the match sheet by hand; a match plays its games in order.
   - The navigation picks the tournament (`?turnier=<id>`); result entry mixes all running tournaments; the Hallen-Monitor rotates through them; its QR code opens the start page "Turniere".
   - No schema change: existing databases keep working, old columns stay unused.
+- **2026-11-27: Einzelturniere.** Per tournament, chosen when it is created and fixed afterwards: 2er-Teams (4 singles per match, KO doubles at 2:2) or Einzelturnier. In an Einzelturnier a "team" is one player (`Team.name`, `player2_name` empty), a match is one game, its score is that game's set count (no draws, no doubles), and the standings count wins (`match_rules.match_points`). The Gewinnsätze (best of 3/5) stay selectable for both. New column `tournaments.is_singles`; `database.add_missing_columns()` adds columns like it to older databases at startup, so their history stays.
 - No automatic database backups. Paper is the fallback.
 - No migration tooling.

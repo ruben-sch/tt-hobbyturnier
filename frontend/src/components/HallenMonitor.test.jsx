@@ -292,4 +292,24 @@ describe('MonitorClock', () => {
       vi.useRealTimers();
     }
   });
+
+  it('shows an Einzelturnier match as its set count, without game rows', async () => {
+    api.fetchMonitorDashboard.mockResolvedValue({
+      ...swissData,
+      is_singles: true,
+      matches: [{ ...runningMatch, score_a: 0, score_b: 0, active_game_desc: 'Einzel 1: Asse vs Blocker',
+        games: [{ game_order: 1, player_a_name: 'Asse', player_b_name: 'Blocker', is_running: true }] }],
+      standings: [standingsRow(1, 'Asse', { player1: 'Asse', player2: '' })],
+    });
+    const user = userEvent.setup();
+    render(<HallenMonitor tournaments={tournaments} />);
+    const card = await screen.findByTestId('monitor-match');
+    expect(within(card).queryByTestId('monitor-game')).not.toBeInTheDocument();
+    expect(within(card).queryByText(/Einzel 1/)).not.toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Spieler' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Nur Tabelle' }));
+    expect(screen.getByRole('columnheader', { name: 'Siege' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Mannschaft' })).not.toBeInTheDocument();
+  });
 });

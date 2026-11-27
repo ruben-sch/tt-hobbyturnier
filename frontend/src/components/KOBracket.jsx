@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { fetchRounds, advanceKoRound } from '../services/api';
 import { useLiveEvent, MATCH_EVENTS } from '../hooks/useLiveEvents';
 import { Trophy, GitFork, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { pairNames } from '../lib/tournamentFormat';
 
 export default function KOBracket({ tournament, isAdmin, onRoundChange }) {
   const [koRounds, setKoRounds] = useState([]);
@@ -139,7 +140,7 @@ export default function KOBracket({ tournament, isAdmin, onRoundChange }) {
                             {match.team_a?.name || "TBD"}
                           </div>
                           <div className="text-[11px] text-slate-400 truncate">
-                            {match.team_a_p1_name} & {match.team_a_p2_name}
+                            {pairNames(match.team_a_p1_name, match.team_a_p2_name)}
                           </div>
                         </div>
                         <span className={`font-mono text-xl font-black ${
@@ -160,7 +161,7 @@ export default function KOBracket({ tournament, isAdmin, onRoundChange }) {
                             {match.team_b?.name || "TBD"}
                           </div>
                           <div className="text-[11px] text-slate-400 truncate">
-                            {match.team_b_p1_name} & {match.team_b_p2_name}
+                            {pairNames(match.team_b_p1_name, match.team_b_p2_name)}
                           </div>
                         </div>
                         <span className={`font-mono text-xl font-black ${

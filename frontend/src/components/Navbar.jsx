@@ -93,7 +93,7 @@ export default function Navbar({
                 )}
               </div>
               <p className="text-xs text-slate-400 hidden sm:block">
-                Schweizer System (2er-Teams) • Live-Manager
+                Schweizer System ({tournament?.is_singles ? 'Einzel' : '2er-Teams'}) • Live-Manager
               </p>
             </div>
           </div>

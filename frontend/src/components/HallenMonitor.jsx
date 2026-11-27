@@ -3,6 +3,7 @@ import { fetchMonitorDashboard } from '../services/api';
 import { useLiveEvent, MATCH_EVENTS, TEAM_EVENTS } from '../hooks/useLiveEvents';
 import { useAppBaseUrl, startPageUrl } from '../hooks/useAppBaseUrl';
 import { QRCodeSVG } from 'qrcode.react';
+import { pairNames } from '../lib/tournamentFormat';
 import { 
   Maximize2, 
   RefreshCw, 
@@ -80,8 +81,9 @@ function GameRow({ game }) {
 }
 
 // A match of the round: its number, teams, live match score and its singles.
-function MatchCard({ match: m, idx }) {
-  const games = m.games || [];
+function MatchCard({ match: m, idx, singles }) {
+  // An Einzelturnier match is its one game: the score is its set count, a game row would only repeat the names.
+  const games = singles ? [] : m.games || [];
   const table = matchLabel(idx);
   return (
     <div
@@ -120,7 +122,7 @@ function MatchCard({ match: m, idx }) {
         <div className="mt-2 space-y-0.5">
           {games.map((g) => <GameRow key={g.game_order} game={g} />)}
         </div>
-      ) : !m.is_completed && (
+      ) : !m.is_completed && !singles && (
         <div className="mt-2 text-base text-slate-400 truncate">{m.active_game_desc || 'Spiel läuft'}</div>
       )}
     </div>
@@ -309,7 +311,7 @@ export default function HallenMonitor({ tournaments = [] }) {
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {matches.map((m, idx) => <MatchCard key={m.match_id} match={m} idx={idx} />)}
+                {matches.map((m, idx) => <MatchCard key={m.match_id} match={m} idx={idx} singles={data.is_singles} />)}
                 {matches.length === 0 && noMatches}
               </div>
             </div>
@@ -352,7 +354,7 @@ export default function HallenMonitor({ tournaments = [] }) {
                     <thead className="bg-slate-800/80 text-slate-400 font-semibold uppercase text-sm tracking-wider">
                       <tr>
                         <th className="w-12 px-2 py-2 text-center">#</th>
-                        <th className="px-2 py-2">Team</th>
+                        <th className="px-2 py-2">{data.is_singles ? 'Spieler' : 'Team'}</th>
                         <th className="w-16 px-2 py-2 text-center">Pkt.</th>
                         <th className="hidden sm:table-cell w-20 px-2 py-2 text-center">Buchh.</th>
                         <th className="hidden sm:table-cell w-16 px-2 py-2 text-center">Satz</th>
@@ -395,7 +397,7 @@ export default function HallenMonitor({ tournaments = [] }) {
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {matches.map((m, idx) => <MatchCard key={m.match_id} match={m} idx={idx} />)}
+              {matches.map((m, idx) => <MatchCard key={m.match_id} match={m} idx={idx} singles={data.is_singles} />)}
               {matches.length === 0 && noMatches}
             </div>
           </div>
@@ -413,9 +415,9 @@ export default function HallenMonitor({ tournaments = [] }) {
                 <thead className="bg-slate-800 text-slate-400 font-semibold uppercase text-base">
                   <tr>
                     <th className="px-4 py-2 text-center">Platz</th>
-                    <th className="px-4 py-2">Mannschaft</th>
-                    <th className="px-4 py-2">Spieler</th>
-                    <th className="px-4 py-2 text-center">Spielpunkte</th>
+                    <th className="px-4 py-2">{data.is_singles ? 'Spieler' : 'Mannschaft'}</th>
+                    {!data.is_singles && <th className="px-4 py-2">Spieler</th>}
+                    <th className="px-4 py-2 text-center">{data.is_singles ? 'Siege' : 'Spielpunkte'}</th>
                     <th className="px-4 py-2 text-center">Buchholz</th>
                     <th className="px-4 py-2 text-center">Sätze</th>
                   </tr>
@@ -429,9 +431,11 @@ export default function HallenMonitor({ tournaments = [] }) {
                       <td className="px-4 py-1.5 font-bold text-white text-2xl">
                         {row.team_name}
                       </td>
-                      <td className="px-4 py-1.5 text-slate-400 text-lg">
-                        {row.player1} & {row.player2}
-                      </td>
+                      {!data.is_singles && (
+                        <td className="px-4 py-1.5 text-slate-400 text-lg">
+                          {pairNames(row.player1, row.player2)}
+                        </td>
+                      )}
                       <td className="px-4 py-1.5 text-center font-mono font-bold text-emerald-400 text-2xl">
                         {row.game_points} : {row.game_points_lost}
                       </td>

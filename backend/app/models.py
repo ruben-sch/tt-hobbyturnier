@@ -1,7 +1,7 @@
 import os
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, false
 from sqlalchemy.orm import Query, Session, relationship
 
 from backend.app.database import Base
@@ -26,6 +26,8 @@ class Tournament(Base):
     ko_enabled = Column(Boolean, default=False)
     ko_teams_count = Column(Integer, default=4)  # 4 or 8
     best_of_sets = Column(Integer, default=5)     # 3 or 5
+    # Einzelturnier: a "team" is one player and a match is a single game. Chosen at creation, not changed later.
+    is_singles = Column(Boolean, nullable=False, default=False, server_default=false())
     # Older databases still hold table_count, tables_per_match and admin_pin columns; they are unused.
 
     teams = relationship("Team", back_populates="tournament", cascade="all, delete-orphan")
@@ -39,7 +41,7 @@ class Team(Base):
     tournament_id = Column(Integer, ForeignKey("tournaments.id"), nullable=False)
     name = Column(String(100), nullable=False)
     player1_name = Column(String(100), nullable=False)
-    player2_name = Column(String(100), nullable=False)
+    player2_name = Column(String(100), nullable=False)  # "" in an Einzelturnier
     is_active = Column(Boolean, default=True)  # False once deleted; kept for past matches
 
     tournament = relationship("Tournament", back_populates="teams")

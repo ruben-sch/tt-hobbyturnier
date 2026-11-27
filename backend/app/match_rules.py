@@ -2,13 +2,20 @@
 Scoring rules of a team match, without database or HTTP.
 
 Swiss matches are 4 singles and may end 2:2. KO matches end at 3 wins; 2:2
-after the singles calls for a deciding doubles. Only the final set count of
+after the singles calls for a deciding doubles. In an Einzelturnier a match is
+one single, so it can't be drawn and has no doubles; its score is the set count
+of that game (3:1 says more than 1:0). Only the final set count of
 each game is recorded.
 """
 from typing import NamedTuple, Optional, Sequence
 
-SWISS_SINGLES = 4
+SWISS_SINGLES = 4  # singles of a team match
 KO_WINS_NEEDED = 3
+
+
+def singles_per_match(is_singles: bool) -> int:
+    """4 singles between 2er-Teams, one game between two players in an Einzelturnier."""
+    return 1 if is_singles else SWISS_SINGLES
 
 
 class GameResult(NamedTuple):
@@ -45,15 +52,23 @@ def _wins(games, side: str) -> int:
     return sum(1 for g in games if g.is_completed and g.winner_team_side == side)
 
 
-def match_result(round_type: str, games: Sequence) -> MatchResult:
+def match_result(round_type: str, games: Sequence, singles_count: int = SWISS_SINGLES) -> MatchResult:
     """
     Recomputes a match from its games (objects with is_doubles, is_completed,
     winner_team_side, game_order), so corrections work both ways.
+    singles_count is singles_per_match() of the tournament.
     """
     games = sorted(games, key=lambda g: g.game_order)
     singles = [g for g in games if not g.is_doubles]
     doubles = next((g for g in games if g.is_doubles), None)
     singles_a, singles_b = _wins(singles, "A"), _wins(singles, "B")
+
+    if singles_count == 1:
+        game = singles[0] if singles else None
+        if game is None or not game.is_completed:
+            return MatchResult(0, 0, False, None, needs_doubles=False, drop_doubles=False)
+        return MatchResult(game.sets_won_a, game.sets_won_b, True, game.winner_team_side,
+                           needs_doubles=False, drop_doubles=False)
 
     if round_type == "ko":
         tied = singles_a == 2 and singles_b == 2
@@ -66,18 +81,27 @@ def match_result(round_type: str, games: Sequence) -> MatchResult:
             drop_doubles=not tied and doubles is not None,
         )
 
-    completed = len(singles) >= SWISS_SINGLES and all(g.is_completed for g in singles[:SWISS_SINGLES])
+    completed = len(singles) >= singles_count and all(g.is_completed for g in singles[:singles_count])
     winner = None
     if completed and singles_a != singles_b:
         winner = "A" if singles_a > singles_b else "B"
     return MatchResult(singles_a, singles_b, completed, winner, needs_doubles=False, drop_doubles=False)
 
 
-def bye_result() -> MatchResult:
-    """A bye counts as a match won without losing a game."""
-    return MatchResult(SWISS_SINGLES, 0, True, "A", needs_doubles=False, drop_doubles=False)
+def bye_result(singles_count: int = SWISS_SINGLES, best_of_sets: int = 5) -> MatchResult:
+    """A bye counts as a match won without losing a game (in an Einzelturnier: without losing a set)."""
+    score = sets_to_win(best_of_sets) if singles_count == 1 else singles_count
+    return MatchResult(score, 0, True, "A", needs_doubles=False, drop_doubles=False)
 
 
-def bye_sets(best_of_sets: int) -> int:
+def match_points(score_a: int, score_b: int, winner_side: Optional[str], singles_count: int) -> tuple[int, int]:
+    """What a completed match adds to the standings' game points: the games won, or in an
+    Einzelturnier (whose score is sets) 1 for the winner."""
+    if singles_count != 1:
+        return score_a, score_b
+    return (1, 0) if winner_side == "A" else (0, 1) if winner_side == "B" else (0, 0)
+
+
+def bye_sets(best_of_sets: int, singles_count: int = SWISS_SINGLES) -> int:
     """Sets credited for a bye: every single won without dropping a set."""
-    return SWISS_SINGLES * sets_to_win(best_of_sets)
+    return singles_count * sets_to_win(best_of_sets)

@@ -71,6 +71,7 @@ def get_monitor_dashboard(tournament_id: int, db: Session = Depends(get_db)) -> 
     return {
         "tournament_id": tournament.id,
         "tournament_name": tournament.name,
+        "is_singles": bool(tournament.is_singles),
         "current_round": active_round.round_number if active_round else tournament.current_round_number,
         "round_type": active_round.round_type if active_round else "swiss",
         "ko_stage": active_round.ko_stage if active_round else None,

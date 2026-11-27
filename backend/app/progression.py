@@ -28,7 +28,8 @@ NEXT_KO_STAGE = {2: "Finale", 4: "Halbfinale"}
 def next_swiss_round(tournament: Tournament, db: Session) -> Round:
     _ensure_no_open_round(tournament, db)
     if Team.active(db, tournament.id).count() < 2:
-        raise ValueError("Es werden mindestens 2 Mannschaften benötigt.")
+        raise ValueError("Es werden mindestens 2 Spieler benötigt." if tournament.is_singles
+                         else "Es werden mindestens 2 Mannschaften benötigt.")
     pairings = [(a, b, None) for a, b in generate_swiss_round_pairings(tournament.id, db)]
     return _open_round(tournament, "swiss", None, pairings, db)
 
@@ -165,14 +166,14 @@ def _open_round(
             is_completed=False,
         )
         if team_b is None:
-            bye = match_rules.bye_result()
+            bye = match_rules.bye_result(match_rules.singles_per_match(tournament.is_singles), tournament.best_of_sets)
             match.score_a, match.score_b = bye.score_a, bye.score_b
             match.is_completed = True
             match.winner_team_id = team_a_id
         db.add(match)
         db.flush()
         if team_b is not None:
-            create_games(match, db)
+            create_games(match, db, tournament.is_singles)
 
     db.flush()
     db.refresh(new_round)

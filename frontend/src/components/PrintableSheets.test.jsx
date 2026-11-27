@@ -102,4 +102,22 @@ describe('PrintableSheets', () => {
     await user.click(screen.getByRole('button', { name: /Jetzt drucken/ }));
     expect(print).toHaveBeenCalled();
   });
+
+  it('prints one game per sheet in an Einzelturnier, without doubles', async () => {
+    const player = (name) => ({ name, player1_name: name, player2_name: '' });
+    api.fetchRounds.mockResolvedValue([{
+      id: 3, round_number: 1, round_type: 'ko', ko_stage: 'Finale', is_active: true,
+      team_matches: [{
+        id: 31, team_a_id: 1, team_b_id: 2, team_a: player('Anna'), team_b: player('Ben'),
+        team_a_p1_name: 'Anna', team_b_p1_name: 'Ben', is_completed: true, score_a: 3, score_b: 1,
+        individual_games: [game(1, 3, 1)],
+      }],
+    }]);
+    render(<PrintableSheets tournament={{ ...tournament, is_singles: true }} />);
+    expect((await screen.findAllByText('Spieler A')).length).toBe(2); // side caption and table header
+    expect(screen.getByText('3 : 1')).toBeInTheDocument();
+    expect(screen.queryByText(/Doppel/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^2:/)).not.toBeInTheDocument();
+    expect(screen.getByText('Unterschrift Spieler A')).toBeInTheDocument();
+  });
 });
