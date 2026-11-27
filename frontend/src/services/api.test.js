@@ -51,9 +51,11 @@ describe('admin PIN handling', () => {
 
   it('verifyAdminPin reports wrong PINs as false', async () => {
     fetch.mockResolvedValueOnce(jsonResponse(200, {}));
-    expect(await verifyAdminPin(1, 'richtig')).toBe(true);
+    expect(await verifyAdminPin('richtig')).toBe(true);
+    expect(fetch.mock.calls[0][0]).toBe('/api/tournaments/admin-check');
+    expect(fetch.mock.calls[0][1].headers['X-Admin-Pin']).toBe('richtig');
     fetch.mockResolvedValueOnce(jsonResponse(403, {}));
-    expect(await verifyAdminPin(1, 'falsch')).toBe(false);
+    expect(await verifyAdminPin('falsch')).toBe(false);
   });
 });
 
@@ -65,7 +67,9 @@ describe('endpoints', () => {
 
   // [call, expected URL, expected method, error message on failure]
   const cases = [
-    [() => api.fetchActiveTournament(), '/api/tournaments/active', undefined, 'Fehler beim Laden des Turniers'],
+    [() => api.fetchTournaments(), '/api/tournaments', undefined, 'Fehler beim Laden der Turniere'],
+    [() => api.createTournament({ name: 'Jugend' }), '/api/tournaments', 'POST', 'Fehler beim Anlegen des Turniers'],
+    [() => api.deleteTournament(2), '/api/tournaments/2', 'DELETE', 'Fehler beim Löschen des Turniers'],
     [() => api.updateTournament(1, { name: 'X' }), '/api/tournaments/1', 'PUT', 'Fehler beim Aktualisieren'],
     [() => api.resetTournament(1), '/api/tournaments/1/reset', 'POST', 'Fehler beim Zurücksetzen des Turniers'],
     [() => api.fetchTeams(1), '/api/tournaments/1/teams', undefined, 'Fehler beim Laden der Teams'],
@@ -81,7 +85,7 @@ describe('endpoints', () => {
     [() => api.fetchStandings(1), '/api/tournaments/1/standings', undefined, 'Fehler beim Laden der Tabelle'],
     [() => api.fetchMatch(7), '/api/matches/7', undefined, 'Fehler beim Laden des Spiels'],
     [() => api.submitGameResult(7, 3, 3, 1), '/api/matches/7/games/3/result', 'POST', 'Fehler beim Speichern des Ergebnisses'],
-    [() => api.fetchTablesStatus(1), '/api/tables/status/1', undefined, 'Fehler beim Laden der Begegnungen'],
+    [() => api.fetchLiveMatches(), '/api/matches/live', undefined, 'Fehler beim Laden der Begegnungen'],
     [() => api.fetchMonitorDashboard(1), '/api/monitors/1/dashboard', undefined, 'Fehler beim Laden der Monitor-Daten'],
     [() => api.fetchServerInfo(), '/api/server/info', undefined, 'Fehler beim Laden der Server-Adresse'],
   ];
@@ -112,11 +116,11 @@ describe('endpoints', () => {
 
   it('verifyAdminPin throws on server errors', async () => {
     fetch.mockResolvedValue(jsonResponse(500, {}));
-    await expect(api.verifyAdminPin(1, 'x')).rejects.toThrow('Fehler bei der PIN-Prüfung');
+    await expect(api.verifyAdminPin('x')).rejects.toThrow('Fehler bei der PIN-Prüfung');
   });
 
   it('verifyAdminPin passes on the lockout message', async () => {
     fetch.mockResolvedValue(jsonResponse(429, { detail: 'Zu viele falsche Admin-PINs.' }));
-    await expect(api.verifyAdminPin(1, 'x')).rejects.toThrow('Zu viele falsche Admin-PINs.');
+    await expect(api.verifyAdminPin('x')).rejects.toThrow('Zu viele falsche Admin-PINs.');
   });
 });

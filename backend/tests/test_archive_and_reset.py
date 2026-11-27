@@ -1,9 +1,6 @@
 import re
 import zlib
 
-from backend.app.database import SessionLocal
-from backend.app.models import Tournament
-
 
 def pdf_text(data: bytes) -> str:
     """The text drawn in an fpdf2 PDF: its content streams, inflated.
@@ -73,30 +70,24 @@ def test_pdf_export_with_an_open_round(client, t_id, add_teams):
 
 def test_reset_deletes_everything_but_settings(client, t_id, add_teams, play):
     play_tournament(client, t_id, add_teams, play)
-    old = client.post("/api/tournaments", json={"name": "Alt"}).json()  # becomes active
-    client.post(f"/api/tournaments/{old['id']}/reset")  # resetting the new one removes t_id
-    active_id = old["id"]
+    other = client.post("/api/tournaments", json={"name": "Jugend"}).json()
+    add_teams(other["id"], 2)
+    client.put(f"/api/tournaments/{t_id}", json={"name": "Alt"})
 
-    with SessionLocal() as db:
-        assert db.get(Tournament, t_id) is None
-
-    add_teams(active_id, 2)
-    client.post(f"/api/tournaments/{active_id}/rounds/next-swiss")
-    res = client.post(f"/api/tournaments/{active_id}/reset")
+    res = client.post(f"/api/tournaments/{t_id}/reset")
     assert res.status_code == 200
 
-    t = client.get("/api/tournaments/active").json()
-    assert t["id"] == active_id
-    assert t["name"] == "Alt"
-    assert t["current_round_number"] == 0
-    assert client.get(f"/api/tournaments/{active_id}/teams").json() == []
-    assert client.get(f"/api/tournaments/{active_id}/rounds").json() == []
-    assert client.get(f"/api/tournaments/{active_id}/standings").json() == []
-    assert len(client.get(f"/api/tables/status/{active_id}").json()) == t["table_count"]
+    t = client.get(f"/api/tournaments/{t_id}").json()
+    assert (t["name"], t["current_round_number"]) == ("Alt", 0)
+    assert client.get(f"/api/tournaments/{t_id}/teams").json() == []
+    assert client.get(f"/api/tournaments/{t_id}/rounds").json() == []
+    assert client.get(f"/api/tournaments/{t_id}/standings").json() == []
+    # The other tournaments stay as they are
+    assert len(client.get(f"/api/tournaments/{other['id']}/teams").json()) == 2
 
     # A fresh round starts again at 1
-    add_teams(active_id, 2)
-    assert client.post(f"/api/tournaments/{active_id}/rounds/next-swiss").json()["round_number"] == 1
+    add_teams(t_id, 2)
+    assert client.post(f"/api/tournaments/{t_id}/rounds/next-swiss").json()["round_number"] == 1
 
 
 def test_reset_needs_the_admin_pin(client, t_id):

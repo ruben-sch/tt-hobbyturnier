@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
-import { useAppBaseUrl, monitorUrl } from './useAppBaseUrl';
+import { useAppBaseUrl, startPageUrl } from './useAppBaseUrl';
 import * as api from '../services/api';
 
 vi.mock('../services/api', () => ({
@@ -45,8 +45,8 @@ describe('useAppBaseUrl', () => {
   });
 });
 
-describe('monitorUrl', () => {
+describe('startPageUrl', () => {
   it('links to the Hallen-Monitor', () => {
-    expect(monitorUrl('http://10.0.0.2:8000')).toBe('http://10.0.0.2:8000/?tab=monitor');
+    expect(startPageUrl('http://10.0.0.2:8000')).toBe('http://10.0.0.2:8000/?tab=start');
   });
 });

@@ -1,9 +1,12 @@
+from typing import Any, Dict, List
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.app import match_rules
 from backend.app.auth import require_admin
 from backend.app.database import get_db
+from backend.app.live_status import live_matches
 from backend.app.match_sheet import add_deciding_doubles
 from backend.app.models import IndividualGame, TeamMatch
 from backend.app.schemas import (
@@ -14,6 +17,12 @@ from backend.app.schemas import (
 from backend.app.websocket_hub import ws_manager
 
 router = APIRouter(prefix="/api/matches", tags=["Matches"])
+
+
+@router.get("/live")
+def get_live_matches(db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
+    """The open round of every running tournament, mixed, for result entry (each match labelled with its class)."""
+    return live_matches(db)
 
 
 @router.get("/{match_id}", response_model=TeamMatchResponse)
@@ -82,7 +91,7 @@ async def set_game_result(
         "type": "SCORE_UPDATE",
         "match_id": match.id,
         "game_id": game.id,
-        "table_number": game.table_number or match.table_number,
+        "tournament_id": match.round.tournament_id,
         "sets_won_a": game.sets_won_a,
         "sets_won_b": game.sets_won_b,
         "is_game_completed": game.is_completed,

@@ -19,11 +19,11 @@ vi.mock('../services/api', () => ({
   getAdminPin: vi.fn(),
   setAdminPin: vi.fn(),
   resetTournament: vi.fn(),
+  deleteTournament: vi.fn(),
 }));
 
 const tournament = {
-  id: 1, name: 'Sommerturnier', swiss_rounds_count: 5, best_of_sets: 5,
-  table_count: 8, tables_per_match: 1, ko_enabled: false,
+  id: 1, name: 'Sommerturnier', swiss_rounds_count: 5, best_of_sets: 5, ko_enabled: false, is_active: true,
 };
 
 const teams = (count) => Array.from({ length: count }, (_, i) => ({
@@ -31,7 +31,7 @@ const teams = (count) => Array.from({ length: count }, (_, i) => ({
 }));
 
 const match = (id, a, b, extra = {}) => ({
-  id, table_number: id, team_a: { name: a }, team_b: b ? { name: b } : null, team_b_id: b ? id + 100 : null, is_bye: !b,
+  id, team_a: { name: a }, team_b: b ? { name: b } : null, team_b_id: b ? id + 100 : null, is_bye: !b,
   team_a_p1_name: `${a}1`, team_a_p2_name: `${a}2`, team_b_p1_name: null, team_b_p2_name: null,
   score_a: 0, score_b: 0, is_completed: false,
   individual_games: [{ is_completed: true }, { is_completed: false }],
@@ -71,7 +71,7 @@ describe('AdminDashboard', () => {
     confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
     alert = vi.spyOn(window, 'alert').mockImplementation(() => {});
     for (const fn of ['updateTournament', 'createTeam', 'deleteTeam', 'generateNextSwissRound',
-      'startKoRound', 'completeRound', 'deleteRound', 'swapPairings', 'resetTournament']) {
+      'startKoRound', 'completeRound', 'deleteRound', 'swapPairings', 'resetTournament', 'deleteTournament']) {
       api[fn].mockResolvedValue({});
     }
   });
@@ -105,7 +105,7 @@ describe('AdminDashboard', () => {
 
       expect(await screen.findByText('Runde 2 (Schweizer System) läuft')).toBeInTheDocument();
       expect(screen.getByText('FREILOS (BYE)')).toBeInTheDocument();
-      expect(screen.getByText('Tisch 1')).toBeInTheDocument();
+      expect(screen.queryByText(/Tisch/)).not.toBeInTheDocument();
       expect(screen.getByText('Spiel läuft...')).toBeInTheDocument();
       expect(screen.getByText('Noch nicht begonnen')).toBeInTheDocument();
       expect(screen.getByText('✓ Match beendet')).toBeInTheDocument();
@@ -311,9 +311,10 @@ describe('AdminDashboard', () => {
       expect(await screen.findByText(/Standardwert/)).toBeInTheDocument();
     });
 
-    it('saves the settings and switches to the new PIN', async () => {
+    it('saves the settings; the PIN is not one of them', async () => {
       const { user, onTournamentChange } = setup();
       await user.click(await screen.findByRole('button', { name: 'Einstellungen' }));
+      expect(screen.queryByText(/Admin-PIN \(Passcode\)/)).not.toBeInTheDocument();
 
       const name = screen.getByDisplayValue('Sommerturnier');
       await user.clear(name);
@@ -321,27 +322,60 @@ describe('AdminDashboard', () => {
       await user.clear(screen.getByDisplayValue('5'));
       await user.type(screen.getByRole('spinbutton'), '7');
       await user.selectOptions(screen.getByRole('combobox'), '3');
-      const pin = screen.getByDisplayValue('4711');
-      await user.clear(pin);
-      await user.type(pin, ' 0815 ');
       await user.click(screen.getByRole('button', { name: /Änderungen speichern/ }));
 
-      expect(api.updateTournament).toHaveBeenCalledWith(1, expect.objectContaining({
-        name: 'Herbstturnier', swiss_rounds_count: 7, best_of_sets: 3, admin_pin: ' 0815 ',
-      }));
-      expect(api.setAdminPin).toHaveBeenCalledWith('0815');
+      expect(api.updateTournament).toHaveBeenCalledWith(1, {
+        name: 'Herbstturnier', swiss_rounds_count: 7, best_of_sets: 3,
+      });
+      expect(api.setAdminPin).not.toHaveBeenCalled();
       expect(onTournamentChange).toHaveBeenCalled();
       expect(alert).toHaveBeenCalledWith('Einstellungen gespeichert!');
     });
 
-    it('keeps the old PIN when saving fails', async () => {
-      api.updateTournament.mockRejectedValue(new Error('Die Admin-PIN darf nicht leer sein.'));
+    it('reports a failed save', async () => {
+      api.updateTournament.mockRejectedValue(new Error('Turnier nicht gefunden'));
       const { user } = setup();
       await user.click(await screen.findByRole('button', { name: 'Einstellungen' }));
 
       await user.click(screen.getByRole('button', { name: /Änderungen speichern/ }));
-      expect(alert).toHaveBeenCalledWith('Fehler: Die Admin-PIN darf nicht leer sein.');
-      expect(api.setAdminPin).not.toHaveBeenCalled();
+      expect(alert).toHaveBeenCalledWith('Fehler: Turnier nicht gefunden');
+    });
+
+    it('closes a running tournament', async () => {
+      const { user, onTournamentChange } = setup();
+      await user.click(await screen.findByRole('button', { name: 'Einstellungen' }));
+      expect(screen.queryByRole('button', { name: /Turnier löschen/ })).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: /Turnier abschließen/ }));
+      expect(api.updateTournament).toHaveBeenCalledWith(1, { is_active: false });
+      expect(onTournamentChange).toHaveBeenCalled();
+
+      api.updateTournament.mockRejectedValue(new Error('Falsche Admin-PIN.'));
+      await user.click(screen.getByRole('button', { name: /Turnier abschließen/ }));
+      expect(alert).toHaveBeenCalledWith('Fehler: Falsche Admin-PIN.');
+    });
+
+    it('reopens or deletes an abgeschlossenes tournament', async () => {
+      const prompt = vi.spyOn(window, 'prompt').mockReturnValue('nein');
+      const { user, onTournamentChange } = setup({ props: { tournament: { ...tournament, is_active: false } } });
+      expect(await screen.findByText('(abgeschlossen)')).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Einstellungen' }));
+
+      await user.click(screen.getByRole('button', { name: /Wieder öffnen/ }));
+      expect(api.updateTournament).toHaveBeenCalledWith(1, { is_active: true });
+
+      await user.click(screen.getByRole('button', { name: /Turnier löschen/ }));
+      expect(prompt).toHaveBeenCalledWith(expect.stringContaining('Sommerturnier'));
+      expect(api.deleteTournament).not.toHaveBeenCalled();
+
+      prompt.mockReturnValue(' löschen ');
+      await user.click(screen.getByRole('button', { name: /Turnier löschen/ }));
+      expect(api.deleteTournament).toHaveBeenCalledWith(1);
+      expect(onTournamentChange).toHaveBeenCalled();
+
+      api.deleteTournament.mockRejectedValue(new Error('Nur abgeschlossene Turniere können gelöscht werden.'));
+      await user.click(screen.getByRole('button', { name: /Turnier löschen/ }));
+      expect(alert).toHaveBeenCalledWith('Fehler: Nur abgeschlossene Turniere können gelöscht werden.');
     });
 
     it('resets the tournament only after typing RESET', async () => {

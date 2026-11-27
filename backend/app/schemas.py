@@ -1,8 +1,7 @@
+from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
-
-from backend.app.models import default_admin_pin
+from pydantic import BaseModel, ConfigDict
 
 
 class TeamBase(BaseModel):
@@ -29,12 +28,10 @@ class TournamentBase(BaseModel):
     ko_enabled: bool = False
     ko_teams_count: int = 4
     best_of_sets: int = 5
-    table_count: int = 8
-    tables_per_match: int = 1
 
 
 class TournamentCreate(TournamentBase):
-    admin_pin: str = Field(default_factory=default_admin_pin)
+    pass
 
 
 class TournamentUpdate(BaseModel):
@@ -43,15 +40,14 @@ class TournamentUpdate(BaseModel):
     ko_enabled: Optional[bool] = None
     ko_teams_count: Optional[int] = None
     best_of_sets: Optional[int] = None
-    table_count: Optional[int] = None
-    tables_per_match: Optional[int] = None
-    admin_pin: Optional[str] = None
+    is_active: Optional[bool] = None  # False: abschließen, True: wieder öffnen
 
 
 class TournamentResponse(TournamentBase):
     id: int
     is_active: bool
     current_round_number: int
+    created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -61,7 +57,6 @@ class IndividualGameResponse(BaseModel):
     team_match_id: int
     game_order: int
     is_doubles: bool
-    table_number: Optional[int] = None
     player_a_name: Optional[str] = None
     player_b_name: Optional[str] = None
     sets_won_a: int
@@ -80,8 +75,6 @@ class TeamMatchResponse(BaseModel):
     is_bye: bool
     team_a: Optional[TeamResponse] = None
     team_b: Optional[TeamResponse] = None
-    table_number: Optional[int] = None
-    table_number_b: Optional[int] = None
     team_a_p1_name: Optional[str] = None
     team_a_p2_name: Optional[str] = None
     team_b_p1_name: Optional[str] = None
@@ -131,14 +124,3 @@ class StandingsRow(BaseModel):
     sets_won: int
     sets_lost: int
     set_diff: int
-
-
-class TableStatusResponse(BaseModel):
-    table_number: int
-    current_team_match_id: Optional[int] = None
-    team_a_name: Optional[str] = None
-    team_b_name: Optional[str] = None
-    active_game_desc: Optional[str] = None
-    match_score_a: int = 0
-    match_score_b: int = 0
-    is_active: bool = False

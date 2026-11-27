@@ -11,14 +11,14 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from sqlalchemy.orm import Session
 
-from backend.app.auth import active_tournament
+from backend.app.auth import running_tournaments
 from backend.app.database import SessionLocal
+from backend.app.live_status import round_matches
 from backend.app.mcp_auth import auth_settings, provider
 from backend.app.models import Round, TeamMatch, Tournament
 from backend.app.routers import matches
 from backend.app.schemas import GameResultUpdate
 from backend.app.swiss_system import calculate_standings
-from backend.app.table_status import tables_status
 
 mcp = MCPServer(
     name="tt-hobbyturnier",
@@ -32,11 +32,21 @@ mcp = MCPServer(
 )
 
 
-def _tournament(db: Session) -> Tournament:
-    tournament = active_tournament(db)
-    if tournament is None:
-        raise ToolError("Kein aktives Turnier.")
-    return tournament
+def _tournaments(db: Session, tournament_id: Optional[int]) -> List[Tournament]:
+    """The tournament asked for, or without an id every running one."""
+    if tournament_id is not None:
+        tournament = db.get(Tournament, tournament_id)
+        if tournament is None:
+            raise ToolError("Turnier nicht gefunden.")
+        return [tournament]
+    tournaments = running_tournaments(db)
+    if not tournaments:
+        raise ToolError("Kein laufendes Turnier.")
+    return tournaments
+
+
+def _label(t: Tournament) -> Dict[str, Any]:
+    return {"tournament_id": t.id, "tournament": t.name}
 
 
 def _game(g) -> Dict[str, Any]:
@@ -45,7 +55,6 @@ def _game(g) -> Dict[str, Any]:
         "game": "Doppel" if g.is_doubles else f"Einzel {g.game_order}",
         "player_a": g.player_a_name,
         "player_b": g.player_b_name,
-        "table_number": g.table_number,
         "sets": f"{g.sets_won_a}:{g.sets_won_b}" if g.is_completed else None,
     }
 
@@ -55,7 +64,6 @@ def _match(m: TeamMatch) -> Dict[str, Any]:
         "match_id": m.id,
         "team_a": m.team_a.name,
         "team_b": m.team_b.name if m.team_b else None,
-        "tables": [t for t in (m.table_number, m.table_number_b) if t],
         "score": f"{m.score_a}:{m.score_b}",
         "is_completed": m.is_completed,
         "games": [_game(g) for g in sorted(m.individual_games, key=lambda g: g.game_order)],
@@ -74,61 +82,86 @@ def _round(r: Round) -> Dict[str, Any]:
 
 
 @mcp.tool()
-def get_tournament() -> Dict[str, Any]:
-    """Active tournament: name, settings and an overview of all rounds."""
+def list_tournaments() -> List[Dict[str, Any]]:
+    """Every tournament (one per class, e.g. Hobby and Jugend), newest first; running ones have is_running."""
     with SessionLocal() as db:
-        t = _tournament(db)
-        rounds = db.query(Round).filter(Round.tournament_id == t.id).order_by(Round.round_number).all()
-        return {
-            "name": t.name,
-            "swiss_rounds_count": t.swiss_rounds_count,
-            "ko_enabled": t.ko_enabled,
-            "best_of_sets": t.best_of_sets,
-            "table_count": t.table_count,
-            "current_round_number": t.current_round_number,
-            "rounds": [
-                {k: v for k, v in _round(r).items() if k != "matches"} for r in rounds
-            ],
-        }
+        return [
+            {**_label(t), "is_running": bool(t.is_active), "current_round_number": t.current_round_number}
+            for t in db.query(Tournament).order_by(Tournament.id.desc()).all()
+        ]
 
 
 @mcp.tool()
-def get_standings() -> List[Dict[str, Any]]:
-    """Current standings (Tabelle) of the active tournament, best team first."""
+def get_tournament(tournament_id: Optional[int] = None) -> List[Dict[str, Any]]:
+    """Name, settings and an overview of all rounds. Without tournament_id: every running tournament."""
     with SessionLocal() as db:
-        return calculate_standings(_tournament(db).id, db)
+        result = []
+        for t in _tournaments(db, tournament_id):
+            rounds = db.query(Round).filter(Round.tournament_id == t.id).order_by(Round.round_number).all()
+            result.append({
+                **_label(t),
+                "is_running": bool(t.is_active),
+                "swiss_rounds_count": t.swiss_rounds_count,
+                "ko_enabled": t.ko_enabled,
+                "best_of_sets": t.best_of_sets,
+                "current_round_number": t.current_round_number,
+                "rounds": [{k: v for k, v in _round(r).items() if k != "matches"} for r in rounds],
+            })
+        return result
 
 
 @mcp.tool()
-def get_round(round_number: Optional[int] = None) -> Dict[str, Any]:
+def get_standings(tournament_id: Optional[int] = None) -> List[Dict[str, Any]]:
+    """Current standings (Tabelle), best team first. Without tournament_id: every running tournament."""
+    with SessionLocal() as db:
+        return [
+            {**_label(t), "standings": calculate_standings(t.id, db)}
+            for t in _tournaments(db, tournament_id)
+        ]
+
+
+@mcp.tool()
+def get_round(round_number: Optional[int] = None, tournament_id: Optional[int] = None) -> List[Dict[str, Any]]:
     """All matches of a round with their games, set counts and the match/game ids needed to enter results.
 
     Without round_number: the active round, or the last one if none is active.
+    Without tournament_id: that round of every running tournament.
     """
     with SessionLocal() as db:
-        t = _tournament(db)
-        query = db.query(Round).filter(Round.tournament_id == t.id)
-        if round_number is not None:
-            r = query.filter(Round.round_number == round_number).first()
-        else:
-            r = query.order_by(Round.is_active.desc(), Round.round_number.desc()).first()
-        if r is None:
+        result = []
+        for t in _tournaments(db, tournament_id):
+            query = db.query(Round).filter(Round.tournament_id == t.id)
+            if round_number is not None:
+                r = query.filter(Round.round_number == round_number).first()
+            else:
+                r = query.order_by(Round.is_active.desc(), Round.round_number.desc()).first()
+            if r is not None:
+                result.append({**_label(t), **_round(r)})
+        if not result:
             raise ToolError("Runde nicht gefunden.")
-        return _round(r)
+        return result
 
 
 @mcp.tool()
-def get_live_status() -> Dict[str, Any]:
-    """What is being played right now: per table the running match, its next open game and the match score."""
+def get_live_status(tournament_id: Optional[int] = None) -> List[Dict[str, Any]]:
+    """What is being played right now: per open match its score and running game (games run in order).
+
+    Without tournament_id: every running tournament.
+    """
     with SessionLocal() as db:
-        t = _tournament(db)
-        active = db.query(Round).filter(Round.tournament_id == t.id, Round.is_active == True).first()
-        return {
-            "round_number": active.round_number if active else None,
-            "ko_stage": active.ko_stage if active else None,
-            "open_matches": sum(not m.is_completed for m in active.team_matches) if active else 0,
-            "tables": [s.model_dump(exclude_none=True) for s in tables_status(t.id, db)],
-        }
+        result = []
+        for t in _tournaments(db, tournament_id):
+            active = db.query(Round).filter(Round.tournament_id == t.id, Round.is_active == True).first()
+            matches = round_matches(t.id, db)
+            result.append({
+                **_label(t),
+                "round_number": active.round_number if active else None,
+                "ko_stage": active.ko_stage if active else None,
+                "open_matches": [
+                    {k: v for k, v in m.items() if k != "games"} for m in matches if not m["is_completed"]
+                ],
+            })
+        return result
 
 
 @mcp.tool()

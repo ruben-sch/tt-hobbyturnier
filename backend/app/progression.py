@@ -1,8 +1,8 @@
 """
 The round lifecycle of a tournament: Swiss rounds, then optionally a KO phase.
 
-Only one round is open at a time. A round opens with its matches, tables and
-games set up, and closes once every match is completed. Errors are
+Only one round per tournament is open at a time; tournaments run independently. A round opens
+with its matches and games set up, and closes once every match is completed. Errors are
 ValueErrors with a German message; callers commit.
 """
 from typing import List, Optional, Tuple
@@ -98,15 +98,23 @@ def delete_last_round(round_obj: Round, db: Session) -> None:
 
 
 def reset_tournament(tournament: Tournament, db: Session) -> None:
-    """Deletes every team, round, match and game; settings and admin PIN stay. Older tournaments go too."""
+    """Deletes every team, round, match and game of this tournament; its settings stay."""
     for round_obj in list(tournament.rounds):
         db.delete(round_obj)
     db.flush()  # matches reference teams, so they go first
     for team in list(tournament.teams):
         db.delete(team)
     tournament.current_round_number = 0
-    for old in db.query(Tournament).filter(Tournament.id != tournament.id).all():
-        db.delete(old)
+    db.flush()
+
+
+def delete_tournament(tournament: Tournament, db: Session) -> None:
+    """Deletes a tournament with everything in it. Only abgeschlossene tournaments may go."""
+    if tournament.is_active:
+        raise ValueError("Nur abgeschlossene Turniere können gelöscht werden.")
+    reset_tournament(tournament, db)
+    db.refresh(tournament)  # its collections still hold the rows deleted above
+    db.delete(tournament)
     db.flush()
 
 
@@ -122,22 +130,6 @@ def _ensure_no_open_round(tournament: Tournament, db: Session) -> None:
     ).first()
     if open_round:
         raise ValueError(f"Runde {open_round.round_number} ist noch aktiv und nicht abgeschlossen.")
-
-
-def _assign_tables(tournament: Tournament, pairings: List[Pairing]) -> List[Tuple[Optional[int], Optional[int]]]:
-    """Hands out tables in order and starts again at table 1 when the next match doesn't fit."""
-    width = 2 if tournament.tables_per_match == 2 else 1
-    tables = []
-    next_table = 1
-    for _, team_b_id, _ in pairings:
-        if team_b_id is None:
-            tables.append((None, None))
-            continue
-        if next_table + width - 1 > tournament.table_count:
-            next_table = 1
-        tables.append((next_table, next_table + 1 if width == 2 else None))
-        next_table += width
-    return tables
 
 
 def _open_round(
@@ -156,17 +148,13 @@ def _open_round(
     db.flush()
     tournament.current_round_number = round_number
 
-    for (team_a_id, team_b_id, slot), (table_a, table_b) in zip(
-        pairings, _assign_tables(tournament, pairings), strict=True
-    ):
+    for team_a_id, team_b_id, slot in pairings:
         team_a = db.get(Team, team_a_id)
         team_b = db.get(Team, team_b_id) if team_b_id is not None else None
         match = TeamMatch(
             round_id=new_round.id,
             team_a_id=team_a_id,
             team_b_id=team_b_id,
-            table_number=table_a,
-            table_number_b=table_b,
             ko_slot=slot,
             team_a_p1_name=team_a.player1_name,
             team_a_p2_name=team_a.player2_name,

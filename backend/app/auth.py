@@ -4,13 +4,12 @@ import secrets
 import threading
 import time
 from collections import deque
-from typing import Deque, Dict, Optional
+from typing import Deque, Dict, List, Optional
 
-from fastapi import Depends, Header, HTTPException, Request
+from fastapi import Header, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from backend.app.database import get_db
-from backend.app.models import Round, TeamMatch, Tournament
+from backend.app.models import Tournament, admin_pin
 
 ADMIN_PIN_HEADER = "X-Admin-Pin"
 
@@ -84,37 +83,21 @@ def locked_out_message(retry_after: int) -> str:
     return f"Zu viele falsche Admin-PINs. Bitte in {minutes} Minute{'n' if minutes != 1 else ''} erneut versuchen."
 
 
-def active_tournament(db: Session) -> Optional[Tournament]:
-    return db.query(Tournament).filter(Tournament.is_active == True).order_by(Tournament.id.desc()).first()
+def running_tournaments(db: Session) -> List[Tournament]:
+    """Tournaments that are "läuft" (not abgeschlossen), oldest first. Several may run at once."""
+    return db.query(Tournament).filter(Tournament.is_active == True).order_by(Tournament.id).all()
 
 
-def _tournament_for_request(request: Request, db: Session) -> Optional[Tournament]:
-    """Finds the tournament an admin request acts on, from its path parameters."""
-    params = request.path_params
-    if "tournament_id" in params:
-        return db.get(Tournament, int(params["tournament_id"]))
-    if "round_id" in params:
-        round_obj = db.get(Round, int(params["round_id"]))
-        return round_obj.tournament if round_obj else None
-    if "match_id" in params:
-        match = db.get(TeamMatch, int(params["match_id"]))
-        return match.round.tournament if match else None
-    # Creating a tournament replaces the active one, so its PIN guards the call.
-    return active_tournament(db)
-
-
-def check_admin_pin(tournament: Optional[Tournament], pin: Optional[str], client: Optional[str] = None) -> None:
-    """Raises 401/403 unless pin is the tournament's admin PIN. No tournament: nothing to protect.
+def check_admin_pin(pin: Optional[str], client: Optional[str] = None) -> None:
+    """Raises 401/403 unless pin is the Turnierleitung's PIN (TT_ADMIN_PIN), which covers every tournament.
 
     With a client key, wrong PINs count towards that client's lockout (429).
     """
-    if tournament is None:
-        return
     if not pin:
         raise HTTPException(status_code=401, detail="Admin-PIN erforderlich.")
     if client is not None and (wait := pin_attempts.retry_after(client)):
         raise HTTPException(status_code=429, detail=locked_out_message(wait), headers={"Retry-After": str(wait)})
-    if not secrets.compare_digest(pin.strip().encode(), tournament.admin_pin.encode()):
+    if not secrets.compare_digest(pin.strip().encode(), admin_pin().encode()):
         if client is not None:
             pin_attempts.record_failure(client)
         raise HTTPException(status_code=403, detail="Falsche Admin-PIN.")
@@ -125,9 +108,6 @@ def check_admin_pin(tournament: Optional[Tournament], pin: Optional[str], client
 def require_admin(
     request: Request,
     x_admin_pin: Optional[str] = Header(None, alias=ADMIN_PIN_HEADER),
-    db: Session = Depends(get_db),
 ) -> None:
-    """Rejects the request unless the X-Admin-Pin header matches the tournament's admin PIN."""
-    # Without a tournament the endpoint itself answers with 404 where needed.
-    client = client_key(request.client.host if request.client else None)
-    check_admin_pin(_tournament_for_request(request, db), x_admin_pin, client)
+    """Rejects the request unless the X-Admin-Pin header carries the admin PIN."""
+    check_admin_pin(x_admin_pin, client_key(request.client.host if request.client else None))

@@ -3,13 +3,40 @@ import { randomGameResult } from './random.js';
 
 export const ADMIN_PIN = 'admin123';
 
-// Replaces the active tournament with a fresh one, so every scenario starts empty.
-// There is no UI for this; the organiser starts each event with a new database.
-export async function createTournament(request, settings) {
+const headers = { 'X-Admin-Pin': ADMIN_PIN };
+
+// Closes (abschließen) every running tournament, so a scenario sees only its own.
+export async function closeRunningTournaments(request) {
+  const res = await request.get('/api/tournaments');
+  expect(res.ok(), await res.text()).toBeTruthy();
+  for (const t of (await res.json()).filter((t) => t.is_active)) {
+    const closed = await request.put(`/api/tournaments/${t.id}`, { headers, data: { is_active: false } });
+    expect(closed.ok(), await closed.text()).toBeTruthy();
+  }
+}
+
+// A fresh running tournament. Unless `parallel`, the others are closed first, so the
+// scenario starts empty with this one as the only running tournament.
+export async function createTournament(request, settings, { parallel = false } = {}) {
+  if (!parallel) await closeRunningTournaments(request);
   const res = await request.post('/api/tournaments', {
-    headers: { 'X-Admin-Pin': ADMIN_PIN },
-    data: { admin_pin: ADMIN_PIN, best_of_sets: 5, table_count: 8, tables_per_match: 1, ...settings },
+    headers,
+    data: { best_of_sets: 5, ...settings },
   });
+  expect(res.ok(), await res.text()).toBeTruthy();
+  return res.json();
+}
+
+// Adds teams and draws round 1 through the API.
+export async function startFirstRound(request, tournamentId, teams) {
+  for (const team of teams) {
+    const res = await request.post(`/api/tournaments/${tournamentId}/teams`, {
+      headers,
+      data: { name: team.name, player1_name: team.player1, player2_name: team.player2 },
+    });
+    expect(res.ok(), await res.text()).toBeTruthy();
+  }
+  const res = await request.post(`/api/tournaments/${tournamentId}/rounds/next-swiss`, { headers });
   expect(res.ok(), await res.text()).toBeTruthy();
   return res.json();
 }

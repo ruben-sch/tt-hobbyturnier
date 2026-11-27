@@ -28,24 +28,11 @@ def test_odd_team_count_gets_a_bye(client, t_id, add_teams):
     assert bye["is_completed"] is True
     assert (bye["score_a"], bye["score_b"]) == (4, 0)
     assert bye["winner_team_id"] == bye["team_a_id"]
-    assert bye["table_number"] is None
     assert bye["individual_games"] == []
 
     standings = client.get(f"/api/tournaments/{t_id}/standings").json()
     bye_row = next(s for s in standings if s["team_id"] == bye["team_a_id"])
     assert (bye_row["won_matches"], bye_row["game_points"]) == (1, 4)
-
-
-def test_two_tables_per_match(client, t_id, add_teams):
-    client.put(f"/api/tournaments/{t_id}", json={"tables_per_match": 2})
-    add_teams(t_id, 4)
-    r = next_swiss(client, t_id).json()
-
-    tables = sorted((m["table_number"], m["table_number_b"]) for m in r["team_matches"])
-    assert tables == [(1, 2), (3, 4)]
-    games = {g["game_order"]: g["table_number"] for g in r["team_matches"][0]["individual_games"]}
-    m0 = r["team_matches"][0]
-    assert games == {1: m0["table_number"], 2: m0["table_number_b"], 3: m0["table_number"], 4: m0["table_number_b"]}
 
 
 def test_swap_pairings(client, t_id, add_teams):
@@ -166,7 +153,7 @@ def test_deleting_the_only_round_starts_over(client, t_id, add_teams):
     r = next_swiss(client, t_id).json()
     assert client.delete(f"/api/rounds/{r['id']}").status_code == 200
     assert client.get(f"/api/tournaments/{t_id}/rounds").json() == []
-    assert client.get("/api/tournaments/active").json()["current_round_number"] == 0
+    assert client.get(f"/api/tournaments/{t_id}").json()["current_round_number"] == 0
     assert next_swiss(client, t_id).json()["round_number"] == 1
 
 
@@ -184,10 +171,10 @@ def test_deleting_the_ko_rounds_ends_the_ko_phase(client, t_id, add_teams, play)
     final = client.post(f"/api/tournaments/{t_id}/rounds/advance-ko").json()
 
     assert client.delete(f"/api/rounds/{final['id']}").status_code == 200
-    assert client.get("/api/tournaments/active").json()["ko_enabled"] is True
+    assert client.get(f"/api/tournaments/{t_id}").json()["ko_enabled"] is True
     # The finished semis can be advanced again
     assert client.post(f"/api/tournaments/{t_id}/rounds/advance-ko").json()["ko_stage"] == "Finale"
 
     for r in reversed(client.get(f"/api/tournaments/{t_id}/rounds").json()):
         assert client.delete(f"/api/rounds/{r['id']}").status_code == 200
-    assert client.get("/api/tournaments/active").json()["ko_enabled"] is False
+    assert client.get(f"/api/tournaments/{t_id}").json()["ko_enabled"] is False

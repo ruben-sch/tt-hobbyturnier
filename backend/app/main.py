@@ -20,7 +20,6 @@ from backend.app.routers import (
     monitors,
     rounds,
     server,
-    tables,
     teams,
     tournaments,
 )
@@ -70,7 +69,6 @@ app.include_router(tournaments.router)
 app.include_router(teams.router)
 app.include_router(rounds.router)
 app.include_router(matches.router)
-app.include_router(tables.router)
 app.include_router(monitors.router)
 app.include_router(server.router)
 app.include_router(login_router)

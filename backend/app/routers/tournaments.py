@@ -1,6 +1,6 @@
 import csv
 import io
-from typing import List, Optional
+from typing import List
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response, StreamingResponse
@@ -10,7 +10,7 @@ from backend.app import progression
 from backend.app.archive_pdf import build_archive_pdf
 from backend.app.auth import require_admin
 from backend.app.database import get_db
-from backend.app.models import Team, Tournament, default_admin_pin
+from backend.app.models import Team, Tournament
 from backend.app.schemas import (
     StandingsRow,
     TournamentCreate,
@@ -23,75 +23,65 @@ from backend.app.websocket_hub import ws_manager
 router = APIRouter(prefix="/api/tournaments", tags=["Tournaments"])
 
 
-def validate_admin_pin(pin: Optional[str]) -> str:
-    pin = (pin or "").strip()
-    if not pin:
-        raise HTTPException(status_code=400, detail="Die Admin-PIN darf nicht leer sein.")
-    try:
-        # The PIN travels in an HTTP header, which browsers only send as Latin-1.
-        pin.encode("latin-1")
-    except UnicodeEncodeError:
-        raise HTTPException(
-            status_code=400, detail="Die Admin-PIN darf keine Emojis oder exotischen Sonderzeichen enthalten."
-        ) from None
-    return pin
+def _get(tournament_id: int, db: Session) -> Tournament:
+    t = db.get(Tournament, tournament_id)
+    if not t:
+        raise HTTPException(status_code=404, detail="Turnier nicht gefunden")
+    return t
+
+
+@router.get("", response_model=List[TournamentResponse])
+def list_tournaments(db: Session = Depends(get_db)):
+    """Every tournament, running (is_active) and abgeschlossen, newest first.
+
+    An empty database gets a first tournament, so a fresh install opens straight into one.
+    """
+    if not db.query(Tournament).first():
+        db.add(Tournament(name="Tischtennis Hobbyturnier", is_active=True))
+        db.commit()
+    return db.query(Tournament).order_by(Tournament.id.desc()).all()
 
 
 @router.post("", response_model=TournamentResponse, dependencies=[Depends(require_admin)])
-def create_tournament(payload: TournamentCreate, db: Session = Depends(get_db)):
-    # Deactivate existing active tournaments
-    db.query(Tournament).filter(Tournament.is_active == True).update({"is_active": False})
-
-    tournament = Tournament(
-        name=payload.name,
-        swiss_rounds_count=payload.swiss_rounds_count,
-        ko_enabled=payload.ko_enabled,
-        ko_teams_count=payload.ko_teams_count,
-        best_of_sets=payload.best_of_sets,
-        table_count=payload.table_count,
-        tables_per_match=payload.tables_per_match,
-        admin_pin=validate_admin_pin(payload.admin_pin),
-        is_active=True
-    )
+async def create_tournament(payload: TournamentCreate, db: Session = Depends(get_db)):
+    """A new running tournament next to the others; nothing else is closed."""
+    if not payload.name.strip():
+        raise HTTPException(status_code=400, detail="Der Turniername darf nicht leer sein.")
+    tournament = Tournament(**{**payload.model_dump(), "name": payload.name.strip()}, is_active=True)
     db.add(tournament)
     db.commit()
     db.refresh(tournament)
+    await ws_manager.broadcast({"type": "TOURNAMENT_CREATED", "tournament_id": tournament.id})
     return tournament
 
 
-@router.get("/active", response_model=TournamentResponse)
-def get_active_tournament(db: Session = Depends(get_db)):
-    t = db.query(Tournament).filter(Tournament.is_active == True).order_by(Tournament.id.desc()).first()
-    if not t:
-        # Create a default tournament
-        t = Tournament(
-            name="Tischtennis Hobbyturnier",
-            swiss_rounds_count=5,
-            ko_enabled=False,
-            ko_teams_count=4,
-            best_of_sets=5,
-            table_count=8,
-            tables_per_match=1,
-            admin_pin=default_admin_pin(),
-            is_active=True
-        )
-        db.add(t)
-        db.commit()
-        db.refresh(t)
-    return t
+@router.get("/admin-check", dependencies=[Depends(require_admin)])
+def check_admin_pin():
+    """Lets the admin tab verify a PIN before unlocking; require_admin does the check."""
+    return {"message": "Admin-PIN korrekt."}
+
+
+@router.get("/{tournament_id}", response_model=TournamentResponse)
+def get_tournament(tournament_id: int, db: Session = Depends(get_db)):
+    return _get(tournament_id, db)
+
+
+@router.delete("/{tournament_id}", dependencies=[Depends(require_admin)])
+async def delete_tournament(tournament_id: int, db: Session = Depends(get_db)):
+    t = _get(tournament_id, db)
+    try:
+        progression.delete_tournament(t, db)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    db.commit()
+    await ws_manager.broadcast({"type": "TOURNAMENT_DELETED", "tournament_id": tournament_id})
+    return {"message": "Turnier gelöscht."}
 
 
 @router.put("/{tournament_id}", response_model=TournamentResponse, dependencies=[Depends(require_admin)])
 async def update_tournament(tournament_id: int, payload: TournamentUpdate, db: Session = Depends(get_db)):
-    t = db.query(Tournament).filter(Tournament.id == tournament_id).first()
-    if not t:
-        raise HTTPException(status_code=404, detail="Turnier nicht gefunden")
-
-    updates = payload.model_dump(exclude_unset=True)
-    if "admin_pin" in updates:
-        updates["admin_pin"] = validate_admin_pin(updates["admin_pin"])
-
-    for field, val in updates.items():
+    t = _get(tournament_id, db)
+    for field, val in payload.model_dump(exclude_unset=True).items():
         setattr(t, field, val)
 
     db.commit()
@@ -103,22 +93,12 @@ async def update_tournament(tournament_id: int, payload: TournamentUpdate, db: S
 
 @router.post("/{tournament_id}/reset", dependencies=[Depends(require_admin)])
 async def reset_tournament(tournament_id: int, db: Session = Depends(get_db)):
-    """Deletes all teams, rounds and results; settings and admin PIN stay."""
-    t = db.get(Tournament, tournament_id)
-    if not t:
-        raise HTTPException(status_code=404, detail="Turnier nicht gefunden")
+    """Deletes all teams, rounds and results of this tournament; its settings stay."""
+    t = _get(tournament_id, db)
     progression.reset_tournament(t, db)
     db.commit()
     await ws_manager.broadcast({"type": "TOURNAMENT_UPDATED", "tournament_id": t.id})
     return {"message": "Turnier zurückgesetzt."}
-
-
-@router.get("/{tournament_id}/admin-check", dependencies=[Depends(require_admin)])
-def check_admin_pin(tournament_id: int, db: Session = Depends(get_db)):
-    """Lets the admin tab verify a PIN before unlocking; require_admin does the check."""
-    if not db.get(Tournament, tournament_id):
-        raise HTTPException(status_code=404, detail="Turnier nicht gefunden")
-    return {"message": "Admin-PIN korrekt."}
 
 
 @router.get("/{tournament_id}/standings", response_model=List[StandingsRow])
@@ -128,10 +108,7 @@ def get_standings(tournament_id: int, db: Session = Depends(get_db)):
 
 @router.post("/{tournament_id}/teams/csv", dependencies=[Depends(require_admin)])
 async def import_teams_csv(tournament_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
-    t = db.query(Tournament).filter(Tournament.id == tournament_id).first()
-    if not t:
-        raise HTTPException(status_code=404, detail="Turnier nicht gefunden")
-
+    _get(tournament_id, db)
     content = await file.read()
     text = content.decode("utf-8-sig", errors="ignore")
     reader = csv.reader(io.StringIO(text), delimiter=";" if ";" in text else ",")
@@ -194,11 +171,8 @@ def export_standings_csv(tournament_id: int, db: Session = Depends(get_db)):
 
 @router.get("/{tournament_id}/export/pdf")
 def export_archive_pdf(tournament_id: int, db: Session = Depends(get_db)):
-    t = db.get(Tournament, tournament_id)
-    if not t:
-        raise HTTPException(status_code=404, detail="Turnier nicht gefunden")
     return Response(
-        build_archive_pdf(t, db),
+        build_archive_pdf(_get(tournament_id, db), db),
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=turnier_archiv_{tournament_id}.pdf"},
     )

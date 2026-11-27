@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchMonitorDashboard } from '../services/api';
 import { useLiveEvent, MATCH_EVENTS, TEAM_EVENTS } from '../hooks/useLiveEvents';
-import { useAppBaseUrl, monitorUrl } from '../hooks/useAppBaseUrl';
+import { useAppBaseUrl, startPageUrl } from '../hooks/useAppBaseUrl';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
   Maximize2, 
@@ -40,11 +40,8 @@ export function MonitorClock() {
 
 const gameLabel = (g) => (g.is_doubles ? 'D' : `E${g.game_order}`);
 
-// The table(s) a match is played on, or its number in the round before tables are assigned.
-function tableLabel(m, idx) {
-  if (!m.table_number) return { caption: 'Spiel', value: `${idx + 1}` };
-  return { caption: 'Tisch', value: m.table_number_b ? `${m.table_number}+${m.table_number_b}` : `${m.table_number}` };
-}
+// Matches are numbered within the round, like on the match sheets; tables are written on the sheet by hand.
+const matchLabel = (idx) => ({ caption: 'Spiel', value: `${idx + 1}` });
 
 // One game of a match: who plays whom and its set count, the running one highlighted.
 function GameRow({ game }) {
@@ -82,10 +79,10 @@ function GameRow({ game }) {
   );
 }
 
-// A match of the round: table, teams, live match score and its singles.
+// A match of the round: its number, teams, live match score and its singles.
 function MatchCard({ match: m, idx }) {
   const games = m.games || [];
-  const table = tableLabel(m, idx);
+  const table = matchLabel(idx);
   return (
     <div
       data-testid="monitor-match"
@@ -130,10 +127,15 @@ function MatchCard({ match: m, idx }) {
   );
 }
 
-export default function HallenMonitor({ tournament }) {
-  const [data, setData] = useState(null);
+// Views of the auto mode: 0 matches, 1 standings.
+const AUTO_VIEWS = [0, 1];
+
+// tournaments: the running tournaments to show; with several, the monitor
+// shows them in turn (each for intervalSec), keeping the chosen view.
+export default function HallenMonitor({ tournaments = [] }) {
+  const [dashboards, setDashboards] = useState({});
   const [viewMode, setViewMode] = useState('split'); // 'split', 'auto', 'tables', 'standings'
-  const [autoIndex, setAutoIndex] = useState(0); // 0: tables, 1: standings, 2: ko
+  const [slide, setSlide] = useState(0); // rotation step: which tournament (and in auto mode which view)
   const [intervalSec] = useState(15);
   const baseUrl = useAppBaseUrl();
 
@@ -143,33 +145,41 @@ export default function HallenMonitor({ tournament }) {
     return () => { root.classList.remove(MONITOR_ROOT_CLASS); };
   }, []);
 
+  // Depends on `tournaments`, which App replaces on every reload, so the monitor refetches then too.
   const loadData = useCallback(async () => {
     try {
-      const res = await fetchMonitorDashboard(tournament.id);
-      setData(res);
+      const loaded = await Promise.all(tournaments.map((t) => fetchMonitorDashboard(t.id)));
+      setDashboards(Object.fromEntries(tournaments.map((t, i) => [t.id, loaded[i]])));
     } catch (e) {
       console.error(e);
     }
-  }, [tournament]);
+  }, [tournaments]);
 
   useEffect(() => {
-    if (tournament?.id) {
+    if (tournaments.length) {
       loadData();
     }
-  }, [tournament, loadData]);
+  }, [tournaments, loadData]);
 
   useLiveEvent([...MATCH_EVENTS, ...TEAM_EVENTS], loadData);
 
-  // Auto-carousel timer
+  // Rotation steps: one per tournament, or in auto mode one per view of each tournament.
+  const steps = tournaments.flatMap((t) => (
+    viewMode === 'auto' ? AUTO_VIEWS.map((view) => ({ id: t.id, view })) : [{ id: t.id, view: 0 }]
+  ));
+  const stepCount = steps.length;
+
   useEffect(() => {
-    if (viewMode === 'auto') {
-      const carouselTimer = setInterval(() => {
-        setAutoIndex((prev) => (prev + 1) % (data?.ko_tree?.length ? 3 : 2));
-      }, intervalSec * 1000);
+    if (stepCount > 1) {
+      const carouselTimer = setInterval(() => setSlide((prev) => prev + 1), intervalSec * 1000);
       return () => clearInterval(carouselTimer);
     }
-  }, [viewMode, intervalSec, data]);
+  }, [stepCount, intervalSec]);
 
+  const step = stepCount ? steps[slide % stepCount] : null;
+  const data = step ? dashboards[step.id] : null;
+  const autoIndex = step?.view ?? 0;
+  const shownIndex = step ? tournaments.findIndex((t) => t.id === step.id) : 0;
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -225,6 +235,17 @@ export default function HallenMonitor({ tournament }) {
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white uppercase truncate">
               {data.tournament_name}
             </h1>
+            {tournaments.length > 1 && (
+              <div data-testid="monitor-rotation" className="flex items-center gap-1.5 mt-0.5" title="Turniere wechseln automatisch">
+                {tournaments.map((t, i) => (
+                  <span
+                    key={t.id}
+                    className={`h-1.5 rounded-full transition-all ${i === shownIndex ? 'w-6 bg-sky-400' : 'w-1.5 bg-slate-600'}`}
+                  />
+                ))}
+                <span className="text-sm text-slate-400 ml-1">Turnier {shownIndex + 1}/{tournaments.length}</span>
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-x-2 text-sm sm:text-lg text-slate-400">
               <span className="font-semibold text-emerald-400">
                 {data.round_type === 'ko' ? `KO-Runde: ${data.ko_stage || 'Endphase'}` : `Schweizer System • Runde ${data.current_round}`}
@@ -257,12 +278,12 @@ export default function HallenMonitor({ tournament }) {
             <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-xl p-2 pr-4">
               <div className="bg-white p-1.5 rounded-lg">
                 <QRCodeSVG
-                  value={monitorUrl(baseUrl)}
+                  value={startPageUrl(baseUrl)}
                   size={160}
                   style={{ width: '5.5rem', height: '5.5rem' }}
                   title="QR-Code zur Spielstandsanzeige"
                   data-testid="monitor-qr"
-                  data-url={monitorUrl(baseUrl)}
+                  data-url={startPageUrl(baseUrl)}
                 />
               </div>
               <div className="text-sm">

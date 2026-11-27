@@ -13,7 +13,8 @@ import {
   swapPairings,
   getAdminPin,
   setAdminPin,
-  resetTournament
+  resetTournament,
+  deleteTournament
 } from '../services/api';
 import { useLiveEvent, MATCH_EVENTS, TEAM_EVENTS } from '../hooks/useLiveEvents';
 import { 
@@ -28,7 +29,9 @@ import {
   Sparkles,
   Save,
   Lock,
-  RotateCcw
+  RotateCcw,
+  Archive,
+  PlayCircle
 } from 'lucide-react';
 
 export default function AdminDashboard({ tournament, onTournamentChange }) {
@@ -45,9 +48,6 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
     name: '',
     swiss_rounds_count: 5,
     best_of_sets: 5,
-    table_count: 8,
-    tables_per_match: 1,
-    admin_pin: getAdminPin() || ''
   });
 
   // Swap pairings state
@@ -73,9 +73,6 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
         name: tournament.name,
         swiss_rounds_count: tournament.swiss_rounds_count,
         best_of_sets: tournament.best_of_sets,
-        table_count: tournament.table_count,
-        tables_per_match: tournament.tables_per_match,
-        admin_pin: getAdminPin() || ''
       });
       loadAll();
     }
@@ -88,10 +85,38 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
     try {
       setLoading(true);
       await updateTournament(tournament.id, settingsForm);
-      // Later admin calls must send the new PIN
-      setAdminPin(settingsForm.admin_pin.trim());
       onTournamentChange && onTournamentChange();
       alert("Einstellungen gespeichert!");
+    } catch (e) {
+      alert("Fehler: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Abgeschlossen: leaves result entry and the monitor rotation, stays viewable and editable.
+  const handleSetRunning = async (running) => {
+    try {
+      setLoading(true);
+      await updateTournament(tournament.id, { is_active: running });
+      onTournamentChange && onTournamentChange();
+    } catch (e) {
+      alert("Fehler: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteTournament = async () => {
+    const answer = prompt(
+      `Turnier „${tournament.name}“ endgültig löschen, mit allen Teams, Runden und Ergebnissen?\n\n` +
+      "Zum Bestätigen LÖSCHEN eingeben:"
+    );
+    if (answer?.trim().toUpperCase() !== 'LÖSCHEN') return;
+    try {
+      setLoading(true);
+      await deleteTournament(tournament.id);
+      onTournamentChange && onTournamentChange();
     } catch (e) {
       alert("Fehler: " + e.message);
     } finally {
@@ -102,7 +127,7 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
   const handleReset = async () => {
     const answer = prompt(
       "Turnier zurücksetzen: Alle Teams, Runden und Ergebnisse werden endgültig gelöscht. " +
-      "Einstellungen und Admin-PIN bleiben erhalten.\n\nZum Bestätigen RESET eingeben:"
+      "Die Einstellungen bleiben erhalten.\n\nZum Bestätigen RESET eingeben:"
     );
     if (answer?.trim().toUpperCase() !== 'RESET') return;
     try {
@@ -277,7 +302,9 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
             <span>Turnierleitung / Administration</span>
           </h2>
           <p className="text-sm text-slate-400 mt-1">
-            Steuerung der Runden, Paarungsanpassung, Teamverwaltung und Einstellungen.
+            <span className="font-semibold text-slate-200">{tournament?.name}</span>
+            {tournament && !tournament.is_active && <span className="text-amber-300"> (abgeschlossen)</span>}
+            {' • '}Runden, Paarungen, Teams und Einstellungen dieses Turniers.
           </p>
         </div>
 
@@ -322,8 +349,9 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
 
       {getAdminPin() === 'admin123' && (
         <div className="mb-6 p-4 bg-amber-950/40 border border-amber-500/40 rounded-xl text-sm text-amber-200">
-          Die Admin-PIN ist noch der Standardwert <span className="font-mono">admin123</span>. Bitte unter
-          „Einstellungen“ ändern – sonst kann jeder im Netzwerk die Turnierleitung öffnen.
+          Die Admin-PIN ist noch der Standardwert <span className="font-mono">admin123</span>. Auf einem
+          öffentlichen Server bitte <span className="font-mono">TT_ADMIN_PIN</span> setzen – sonst kann jeder die
+          Turnierleitung öffnen.
         </div>
       )}
 
@@ -460,11 +488,6 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
                       <span className="font-bold text-sky-400">
                         {m.is_bye ? 'FREILOS (BYE)' : `Paarung ${idx + 1}`}
                       </span>
-                      {m.table_number && (
-                        <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-300">
-                          Tisch {m.table_number}{m.table_number_b ? ` + ${m.table_number_b}` : ''}
-                        </span>
-                      )}
                     </div>
 
                     <div className="flex items-center justify-between my-2">
@@ -706,16 +729,6 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
               </div>
             </div>
 
-            <div>
-              <label className="text-xs text-slate-400 font-medium">Admin-PIN (Passcode)</label>
-              <input
-                type="text"
-                value={settingsForm.admin_pin}
-                onChange={(e) => setSettingsForm({ ...settingsForm, admin_pin: e.target.value })}
-                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm font-mono"
-              />
-            </div>
-
             <div className="pt-4 flex justify-end">
               <button
                 type="submit"
@@ -728,10 +741,58 @@ export default function AdminDashboard({ tournament, onTournamentChange }) {
             </div>
           </form>
 
+          <div className="mt-8 pt-6 border-t border-slate-700">
+            {tournament.is_active ? (
+              <>
+                <h4 className="font-bold text-white text-base mb-1">Turnier abschließen</h4>
+                <p className="text-xs text-slate-400 mb-4">
+                  Nimmt das Turnier aus der Ergebniseingabe und vom Hallen-Monitor. Es bleibt unter „Turniere“
+                  ansehbar, bearbeitbar und lässt sich wieder öffnen.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => handleSetRunning(false)}
+                  disabled={loading}
+                  className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition"
+                >
+                  <Archive className="w-4 h-4" />
+                  <span>Turnier abschließen</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <h4 className="font-bold text-white text-base mb-1">Turnier ist abgeschlossen</h4>
+                <p className="text-xs text-slate-400 mb-4">
+                  Wieder geöffnet erscheint es erneut in der Ergebniseingabe und auf dem Hallen-Monitor.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleSetRunning(true)}
+                    disabled={loading}
+                    className="flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition"
+                  >
+                    <PlayCircle className="w-4 h-4" />
+                    <span>Wieder öffnen</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteTournament}
+                    disabled={loading}
+                    className="flex items-center gap-2 bg-rose-600 hover:bg-rose-500 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Turnier löschen</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
           <div className="mt-8 pt-6 border-t border-rose-500/30">
             <h4 className="font-bold text-rose-300 text-base mb-1">Turnier zurücksetzen</h4>
             <p className="text-xs text-slate-400 mb-4">
-              Löscht alle Teams, Runden und Ergebnisse endgültig. Einstellungen und Admin-PIN bleiben.
+              Löscht alle Teams, Runden und Ergebnisse dieses Turniers endgültig; die anderen Turniere bleiben.
               Vorher am besten das PDF-Archiv unter „Tabelle“ herunterladen.
             </p>
             <button

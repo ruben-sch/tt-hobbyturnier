@@ -50,6 +50,10 @@ function MatchSheet({ tournament, round, match, number }) {
             {tournament.name} • Runde {round.round_number} ({roundLabel})
           </p>
         </div>
+        {/* Tables aren't assigned by the software: the Turnierleitung writes the number in */}
+        <div className="shrink-0 border-2 border-black rounded px-2 py-0.5 text-sm font-black">
+          TISCH <span className="inline-block w-10 border-b border-black align-bottom">&nbsp;</span>
+        </div>
       </div>
 
       {/* Teams & Aufstellung Info */}

@@ -124,19 +124,6 @@ def test_advancing_closes_the_finished_ko_round(client, t_id, add_teams, play):
     assert (data["current_round"], data["ko_stage"]) == (final["round_number"], "Finale")
 
 
-def test_ko_tables_wrap_around_the_table_count(client, t_id, add_teams, play):
-    client.put(f"/api/tournaments/{t_id}", json={"table_count": 2, "tables_per_match": 2})
-    add_teams(t_id, 8)
-    _, quarters = start_ko(client, t_id, 8)
-    for m in by_slot(quarters):
-        play(m["id"], "AAA")
-
-    semis = client.post(f"/api/tournaments/{t_id}/rounds/advance-ko").json()
-
-    for r in (quarters, semis):
-        assert all((m["table_number"], m["table_number_b"]) == (1, 2) for m in r["team_matches"])
-
-
 def test_deciding_doubles_uses_the_registered_players(client, t_id, add_teams, play):
     add_teams(t_id, 4)
     _, semis = start_ko(client, t_id, 4)

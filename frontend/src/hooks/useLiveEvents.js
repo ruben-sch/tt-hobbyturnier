@@ -1,10 +1,12 @@
 import { createContext, useContext, useEffect, useRef } from 'react';
 
-// Events that change the tournament's structure (rounds, KO phase, settings).
-// App reloads the tournament on these, and every view refetches because its
-// loader depends on the `tournament` object.
+// Events that change a tournament's structure (rounds, KO phase, settings) or
+// the list of tournaments. App reloads the tournaments on these, and every view
+// refetches because its loader depends on the `tournament` object.
 export const TOURNAMENT_EVENTS = [
+  'TOURNAMENT_CREATED',
   'TOURNAMENT_UPDATED',
+  'TOURNAMENT_DELETED',
   'ROUND_GENERATED',
   'ROUND_COMPLETED',
   'ROUND_DELETED',

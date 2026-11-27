@@ -23,7 +23,8 @@ export function useAppBaseUrl() {
   return baseUrl;
 }
 
-// Link that opens the Hallen-Monitor (live scores) on a phone.
-export function monitorUrl(baseUrl) {
-  return `${baseUrl}/?tab=monitor`;
+// Link for the QR code on the Hallen-Monitor: the list of running tournaments,
+// where players pick their class and open its live scores.
+export function startPageUrl(baseUrl) {
+  return `${baseUrl}/?tab=start`;
 }

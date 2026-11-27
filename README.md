@@ -31,7 +31,7 @@ Eine webbasierte Software zur flexiblen Organisation und Durchführung von Tisch
 - **Eingabe per Tipp:**
   - Pro Einzel wird nur der Endstand in Sätzen erfasst – ein Tipp auf z. B. `3:1` oder `2:3` speichert das Ergebnis. Angeboten werden nur Ergebnisse, die im eingestellten Satzmodus (Best of 3 / Best of 5) möglich sind.
   - Falsch getippt? Einfach das richtige Ergebnis antippen oder das Einzel zurücksetzen.
-  - Manuelle Hallen-Tischverwaltung: Tische werden flexibel vor Ort in der Halle belegt.
+  - Keine Tischvergabe in der Software: Die Turnierleitung schreibt die Tischnummer von Hand auf den Spielzettel.
 
 ### 4. Hallen-Monitor & Großanzeige (Beamer / TV)
 - **Split-Screen & Auto-Carousel:**
@@ -41,7 +41,15 @@ Eine webbasierte Software zur flexiblen Organisation und Durchführung von Tisch
   - **KO-Turnierbaum:** Graphische Baumansicht der Endrunde.
   - Konfigurierbarer automatischer Wechsel (z. B. alle 15 Sekunden) oder geteilter Bildschirm.
 
-### 5. Organisation & Backup
+### 5. Mehrere Turniere parallel
+- **Klassen am selben Tag:** Mehrere Turniere (z. B. Hobby und Jugend) laufen gleichzeitig in derselben Halle, jedes mit eigenen Teams, Runden und Einstellungen.
+- **Turnier-Umschalter:** In der Navigation wird das Turnier gewählt, auf das sich Tabelle, Runden, Turnierleitung und Spielzettel beziehen (`?turnier=<id>` in der URL).
+- **Gemischte Ergebniseingabe:** Die Ergebniseingabe zeigt die Begegnungen aller laufenden Turniere zusammen, jeweils mit dem Turniernamen, so dass Spielzettel aller Klassen ohne Umschalten eingetippt werden.
+- **Hallen-Monitor im Wechsel:** Ohne gewähltes Turnier zeigt der Monitor alle laufenden Turniere nacheinander (alle 15 Sekunden) in der gewählten Ansicht. Der QR-Code führt auf die Startseite „Turniere“, auf der Spieler ihre Klasse wählen.
+- **Verlauf:** Ein Turnier wird unter „Turnierleitung → Einstellungen“ abgeschlossen (und bei Bedarf wieder geöffnet). Abgeschlossene Turniere bleiben unter „Turniere“ ansehbar, mit PDF-Archiv und CSV-Export, und können dort gelöscht werden.
+- **Eine Admin-PIN** für alle Turniere: `TT_ADMIN_PIN` (Standard `admin123`).
+
+### 6. Organisation & Backup
 - **CSV-Import & Export:** Schneller Import von Teams via CSV sowie vollständiger CSV-Export der Abschlusstabelle.
 - **Druckbare Spielzettel:** Standardisierte DIN A4 Spielberichtsbögen für die Begegnungen als Papier-Backup.
 - **Paarungstausch:** Die Turnierleitung kann vor Spielbeginn Paarungen manuell anpassen.
@@ -74,7 +82,7 @@ Für die Entwicklung gibt es `./dev.sh`: Backend mit Auto-Reload und Vite mit Li
 docker compose up --build -d
 ```
 
-Der Server ist danach auf Port 8000 verfügbar. Die Spieldaten liegen im Docker-Volume `tt-data`. Mit `TT_ADMIN_PIN=...` in der Umgebung bekommt ein neues Turnier diese Admin-PIN statt `admin123`.
+Der Server ist danach auf Port 8000 verfügbar. Die Spieldaten liegen im Docker-Volume `tt-data`. Mit `TT_ADMIN_PIN=...` in der Umgebung gilt diese Admin-PIN statt `admin123`, für alle Turniere.
 
 ### Option C: Auf einem Server unter eigener Subdomain
 
@@ -103,7 +111,7 @@ Getestet werden:
 cd frontend && npm run test:e2e
 ```
 
-Playwright spielt zwei Turniere mit je 17 Teams und 7 Runden Schweizer System komplett über die Oberfläche durch, eines davon mit KO Top 8 bis zum Finale. Ein weiteres Szenario prüft den QR-Code am Hallen-Monitor: Er zeigt auf die LAN-Adresse, öffnet am Handy die Live-Spielstände, und die Ergebniseingabe ist dort ohne Admin-PIN gesperrt. Teamnamen, Spielernamen, Aufstellungen und Ergebnisse sind zufällig; nach jeder Runde wird die Tabelle gegen die selbst mitgerechneten Werte geprüft. Der Seed steht in der Ausgabe, `E2E_SEED=<seed> npm run test:e2e` spielt einen Lauf exakt nach.
+Playwright spielt zwei Turniere mit je 17 Teams und 7 Runden Schweizer System komplett über die Oberfläche durch, eines davon mit KO Top 8 bis zum Finale. Ein weiteres Szenario prüft den QR-Code am Hallen-Monitor: Er zeigt auf die LAN-Adresse, am Handy wird das Turnier gewählt und die Live-Spielstände geöffnet, und die Ergebniseingabe ist dort ohne Admin-PIN gesperrt. Ein drittes spielt zwei Turniere parallel: gemischte Ergebniseingabe, Monitor im Wechsel, Abschließen ins Verlauf. Teamnamen, Spielernamen, Aufstellungen und Ergebnisse sind zufällig; nach jeder Runde wird die Tabelle gegen die selbst mitgerechneten Werte geprüft. Der Seed steht in der Ausgabe, `E2E_SEED=<seed> npm run test:e2e` spielt einen Lauf exakt nach.
 
 Screenshots (Tabelle und Rundenergebnisse nach jeder Runde, bei Fehlern zusätzlich Screenshot und Trace) landen in `frontend/e2e-results/`, der HTML-Report unter `frontend/e2e-results/report`. In CI hängen sie als Artifact `e2e-results` am Lauf. Der Test nutzt eine eigene Datenbank (`e2e_turnier.db`) auf Port 8001.
 
@@ -115,13 +123,14 @@ Die App bringt unter `/mcp` einen MCP-Server mit (Streamable HTTP). Jeder Zugrif
 
 | Tool | Zweck |
 |---|---|
+| `list_tournaments` | Alle Turniere (laufend und abgeschlossen) mit ID |
 | `get_tournament` | Turnier, Einstellungen, Rundenübersicht |
 | `get_standings` | Aktuelle Tabelle |
 | `get_round` | Begegnungen einer Runde mit Einzeln, Satzständen und IDs |
-| `get_live_status` | Was läuft gerade an welchem Tisch, Zwischenstand der Begegnung |
+| `get_live_status` | Offene Begegnungen mit Zwischenstand und laufendem Einzel |
 | `enter_game_result` | Satzstand eines Einzels eintragen oder korrigieren (0:0 setzt zurück) |
 
-Live-Stände heißt: Zwischenstand der Begegnung und laufendes Einzel – Satz- oder Ballstände werden nicht erfasst.
+Die lesenden Tools nehmen optional `tournament_id`; ohne liefern sie alle laufenden Turniere. Live-Stände heißt: Zwischenstand der Begegnung und laufendes Einzel – Satz- oder Ballstände werden nicht erfasst.
 
 **claude.ai (Web/App):** Einstellungen → Connectors → *Custom Connector hinzufügen* → URL `https://<APP_HOST>/mcp`. Beim Verbinden öffnet sich eine Seite, auf der die Admin-PIN eingegeben wird. Ein PIN-Wechsel meldet alle verbundenen Clients ab. (Staging liegt hinter BasicAuth und ist für claude.ai nicht erreichbar.)
 
@@ -135,6 +144,7 @@ Auf dem Turnier-Laptop entsprechend `http://<LAN-IP>:8000/mcp`. Für OAuth auße
 
 ## 📱 Navigation der Software
 
+- 🗂️ **Turniere (`/?tab=start`):** Laufende und abgeschlossene Turniere; Ziel des QR-Codes am Monitor.
 - 📊 **Hallen-Monitor (`/`):** Für Beamer / Fernseher in der Halle (mit Vollbildmodus und Live-Ticker).
 - 🏓 **Ergebniserfassung:** Für die Turnierleitung (Admin-PIN) auf Tablet oder Smartphone.
 - 📈 **Tabelle:** Vollständige Schweizer Rangliste mit Buchholz-Feinwertung und CSV-Download.

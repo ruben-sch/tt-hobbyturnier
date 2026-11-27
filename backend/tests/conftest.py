@@ -42,7 +42,7 @@ def client(clean_db):
 
 @pytest.fixture
 def t_id(client):
-    return client.get("/api/tournaments/active").json()["id"]
+    return client.get("/api/tournaments").json()[0]["id"]
 
 
 @pytest.fixture

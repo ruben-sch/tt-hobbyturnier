@@ -33,32 +33,35 @@ def running_match(client, t_id, add_teams):
 def test_lists_the_tools(mcp_http, t_id):
     res = mcp_http.post("/mcp", headers={**MCP_HEADERS, **ADMIN}, json=LIST_TOOLS)
     names = {t["name"] for t in res.json()["result"]["tools"]}
-    assert names == {"get_tournament", "get_standings", "get_round", "get_live_status", "enter_game_result"}
+    assert names == {
+        "list_tournaments", "get_tournament", "get_standings", "get_round", "get_live_status", "enter_game_result",
+    }
 
 
 def test_read_tools(call, running_match):
-    error, tournament = call("get_tournament")
+    error, [tournament] = call("get_tournament")
     assert not error
     assert tournament["current_round_number"] == 1
     assert "admin_pin" not in tournament
     assert tournament["rounds"][0]["is_active"] is True
 
-    error, round_ = call("get_round")
+    error, [round_] = call("get_round")
     assert not error
     match = round_["matches"][0]
     assert match["match_id"] == running_match["id"]
     assert [g["game"] for g in match["games"]] == ["Einzel 1", "Einzel 2", "Einzel 3", "Einzel 4"]
-    assert call("get_round", {"round_number": 1})[1] == round_
+    assert call("get_round", {"round_number": 1})[1] == [round_]
     assert call("get_round", {"round_number": 9}) == (True, "Runde nicht gefunden.")
 
-    error, standings = call("get_standings")
-    assert not error and len(standings) == 2
+    error, [standings] = call("get_standings")
+    assert not error and len(standings["standings"]) == 2
 
-    error, live = call("get_live_status")
+    error, [live] = call("get_live_status")
     assert not error
-    assert (live["round_number"], live["open_matches"]) == (1, 1)
-    busy = [t for t in live["tables"] if t["is_active"]]
-    assert busy[0]["current_team_match_id"] == running_match["id"]
+    assert live["round_number"] == 1
+    [busy] = live["open_matches"]
+    assert busy["match_id"] == running_match["id"]
+    assert busy["active_game_desc"].startswith("Einzel 1: ")
 
 
 @pytest.mark.parametrize("headers", [ADMIN, {"Authorization": "Bearer admin123"}])
@@ -71,9 +74,10 @@ def test_enter_game_result_with_admin_pin(call, running_match, headers):
     assert match["score"] == "1:0"
     assert match["games"][0]["sets"] == "3:1"
 
-    _, live = call("get_live_status")
-    busy = next(t for t in live["tables"] if t["is_active"])
-    assert (busy["match_score_a"], busy["match_score_b"]) == (1, 0)
+    _, [live] = call("get_live_status")
+    [busy] = live["open_matches"]
+    assert (busy["score_a"], busy["score_b"]) == (1, 0)
+    assert busy["active_game_desc"].startswith("Einzel 2: ")
 
 
 @pytest.mark.parametrize("headers", [{}, {"X-Admin-Pin": "falsch"}, {"Authorization": "Bearer falsch"}])
@@ -91,18 +95,43 @@ def test_enter_game_result_rejects_bad_results(call, running_match):
     assert error and "Ungültiges Ergebnis" in message
     assert call("enter_game_result", {**args, "match_id": 999}) == (True, "Begegnung nicht gefunden")
 
-    _, round_ = call("get_round")
+    _, [round_] = call("get_round")
     assert round_["matches"][0]["score"] == "0:0"
 
 
-def test_without_tournament(clean_db):
-    # Unreachable over HTTP: without a tournament there is no PIN to authenticate with
-    with pytest.raises(ToolError, match="Kein aktives Turnier."):
+def test_without_running_tournament(clean_db):
+    with pytest.raises(ToolError, match="Kein laufendes Turnier."):
         mcp_server.get_live_status()
+    with pytest.raises(ToolError, match="Turnier nicht gefunden."):
+        mcp_server.get_standings(tournament_id=99)
 
 
 def test_before_the_first_round(call, t_id):
-    error, live = call("get_live_status")
+    error, [live] = call("get_live_status")
     assert not error
-    assert (live["round_number"], live["open_matches"]) == (None, 0)
+    assert (live["round_number"], live["open_matches"]) == (None, [])
     assert call("get_round") == (True, "Runde nicht gefunden.")
+
+
+def test_several_running_tournaments(call, client, running_match, t_id, add_teams):
+    jugend = client.post("/api/tournaments", json={"name": "Jugend"}).json()
+    add_teams(jugend["id"], 4)
+    client.post(f"/api/tournaments/{jugend['id']}/rounds/next-swiss")
+    closed = client.post("/api/tournaments", json={"name": "Vorjahr"}).json()
+    client.put(f"/api/tournaments/{closed['id']}", json={"is_active": False})
+
+    _, tournaments = call("list_tournaments")
+    assert [(t["tournament"], t["is_running"]) for t in tournaments] == [
+        ("Vorjahr", False), ("Jugend", True), ("Tischtennis Hobbyturnier", True),
+    ]
+
+    # Without tournament_id: every running tournament, labelled
+    _, live = call("get_live_status")
+    assert [(entry["tournament_id"], len(entry["open_matches"])) for entry in live] == [(t_id, 1), (jugend["id"], 2)]
+    _, standings = call("get_standings", {"tournament_id": jugend["id"]})
+    assert [entry["tournament"] for entry in standings] == ["Jugend"]
+    assert len(standings[0]["standings"]) == 4
+    _, [closed_info] = call("get_tournament", {"tournament_id": closed["id"]})
+    assert closed_info["is_running"] is False
+    _, rounds = call("get_round", {"round_number": 1})
+    assert [r["tournament"] for r in rounds] == ["Tischtennis Hobbyturnier", "Jugend"]

@@ -8,16 +8,50 @@ import {
   Settings, 
   Printer, 
   Wifi, 
-  WifiOff 
+  WifiOff,
+  LayoutList
 } from 'lucide-react';
+
+const ALL_RUNNING = 'alle';
+
+// Picks the tournament every tab works on. On the Hallen-Monitor "all running"
+// (selectedId null) shows every running tournament in turn.
+function TournamentSwitcher({ tournaments, tournament, selectedId, onSelect, allowAll }) {
+  const value = selectedId ?? (allowAll ? ALL_RUNNING : tournament?.id ?? '');
+  const running = tournaments.filter((t) => t.is_active);
+  const closed = tournaments.filter((t) => !t.is_active);
+  return (
+    <select
+      aria-label="Turnier wählen"
+      data-testid="tournament-switcher"
+      value={value}
+      onChange={(e) => onSelect(e.target.value === ALL_RUNNING ? null : Number(e.target.value))}
+      className="max-w-[11rem] sm:max-w-[16rem] bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-sm sm:text-base font-bold text-slate-100 truncate"
+    >
+      {allowAll && <option value={ALL_RUNNING}>Alle laufenden Turniere</option>}
+      <optgroup label="Laufend">
+        {running.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+      </optgroup>
+      {closed.length > 0 && (
+        <optgroup label="Abgeschlossen">
+          {closed.map((t) => <option key={t.id} value={t.id}>{t.name} (abgeschlossen)</option>)}
+        </optgroup>
+      )}
+    </select>
+  );
+}
 
 export default function Navbar({ 
   currentTab, 
   setCurrentTab, 
   tournament, 
+  tournaments = [],
+  selectedId = null,
+  onSelectTournament = () => {},
   isConnected 
 }) {
   const navItems = [
+    { id: 'start', label: 'Turniere', icon: LayoutList },
     { id: 'monitor', label: 'Hallen-Monitor', icon: Tv },
     { id: 'scorer', label: 'Ergebniseingabe', icon: Gamepad2 },
     { id: 'standings', label: 'Tabelle', icon: Trophy },
@@ -39,11 +73,21 @@ export default function Navbar({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-base sm:text-lg text-slate-100 tracking-tight">
-                  {tournament?.name || 'Tischtennis Turnier'}
-                </span>
-                {tournament?.current_round_number > 0 && (
-                  <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-sky-500/20 text-sky-400 border border-sky-500/30">
+                {tournaments.length > 1 ? (
+                  <TournamentSwitcher
+                    tournaments={tournaments}
+                    tournament={tournament}
+                    selectedId={selectedId}
+                    onSelect={onSelectTournament}
+                    allowAll={currentTab === 'monitor'}
+                  />
+                ) : (
+                  <span className="font-bold text-base sm:text-lg text-slate-100 tracking-tight">
+                    {tournament?.name || 'Tischtennis Turnier'}
+                  </span>
+                )}
+                {currentTab !== 'monitor' && tournament?.current_round_number > 0 && (
+                  <span className="hidden sm:inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded text-xs font-semibold bg-sky-500/20 text-sky-400 border border-sky-500/30">
                     Runde {tournament.current_round_number}
                   </span>
                 )}

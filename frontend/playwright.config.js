@@ -42,7 +42,7 @@ export default defineConfig({
   webServer: {
     // Same setup as run.sh: built frontend served by a single uvicorn.
     command: `rm -f "${dbFile}" && npm run build && cd "${repoRoot}" && "${python}" -m uvicorn backend.app.main:app --port ${port}`,
-    url: `http://localhost:${port}/api/tournaments/active`,
+    url: `http://localhost:${port}/api/tournaments`,
     env: { PYTHONPATH: repoRoot, DATABASE_URL: `sqlite:///${dbFile}`, TT_RANDOM_SEED: process.env.E2E_SEED },
     reuseExistingServer: false,
     timeout: 180_000,
